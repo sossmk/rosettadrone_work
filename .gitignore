@@ -1,0 +1,8 @@
+# 큰 것들은 절대 들어오지 않게 (씨앗은 작게 유지한다)
+*.apk
+*.zip
+*.tar.gz
+*.AppImage
+jdk/
+qgc/
+rosettadrone/
