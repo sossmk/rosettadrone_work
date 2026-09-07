@@ -1,19 +1,32 @@
 # RosettaDrone 작업 씨앗 (drone_ws seed)
 
-> **이 꾸러미 갱신일: 2026-08-31**
-> 두 PC를 오갈 때는 **갱신일이 더 늦은 쪽이 최신**입니다. 헷갈리면 이 줄부터 보세요.
-> 작업을 마치고 다른 PC로 넘길 때는 아래 「되가져가기」 를 실행해 날짜가 새 파일을 만드세요.
+> **2026-09-07 부터 GitHub 비공개 저장소가 정본입니다** —
+> `https://github.com/sossmk/rosettadrone_work`.
+> 어느 쪽이 최신인지 날짜로 판단하던 방식은 끝났다. `git pull` 하면 기계가 판정한다.
 
 **이 폴더 하나면 새 PC에서 작업을 그대로 이어갈 수 있습니다.** 약 170KB 입니다.
 
-## 새 PC에서 할 일 (한 줄)
+## 새 PC에서 할 일
 
 ```bash
-bash setup_new_pc.sh
+# gh 가 없으면 먼저: sudo apt install -y gh && gh auth login && gh auth setup-git
+git clone https://github.com/sossmk/rosettadrone_work.git ~/drone_ws/backup
 ```
 
-JDK 11 · Android SDK 5종 · 소스(커밋 고정) · 인증키 · 빌드 · QGC 까지 자동으로 되살립니다.
-20~40분 걸리고, 끝나면 188MB APK가 나옵니다.
+기록·도구·인증키가 전부 따라옵니다. **여기까지가 대부분의 경우 필요한 전부입니다.**
+
+### APK 를 다시 빌드해야 할 때만 (선택)
+
+```bash
+bash ~/drone_ws/backup/setup_new_pc.sh
+```
+
+JDK 11 · Android SDK 5종 · 소스(커밋 고정) · 빌드 · QGC 까지 되살립니다.
+20~40분 · 2.7GB 를 받고, 끝나면 188MB APK 가 나옵니다.
+
+⚠ **앱 소스를 고칠 때만 필요합니다.** APK 는 RM500 안에서 도는 앱이라, 새로 빌드해도
+**RM500 이 옆에 있어야 설치**할 수 있다. 기록을 읽거나 PC쪽 파이썬 도구(`tools/`)를
+고치는 일은 clone 만으로 된다.
 
 ## 왜 2.7GB를 통째로 안 옮기는가
 
@@ -42,20 +55,33 @@ JDK 11 · Android SDK 5종 · 소스(커밋 고정) · 인증키 · 빌드 · QG
 | `secrets/keys.xml` | **DJI App Key. 아래 경고 참조** |
 | `setup_new_pc.sh` | 새 PC 복구 스크립트 |
 
-## 되가져가기 (새 PC에서 작업한 뒤 다시 옮길 때)
+## 두 PC 를 오갈 때
 
 ```bash
-bash ~/drone_ws/backup/pack.sh
+git pull                      # 시작할 때: 저쪽에서 올린 것을 받는다
+# ... 작업 ...
+git add -A
+git commit -m "무엇을 했나"
+git push                      # 끝낼 때: 올린다
 ```
 
-바뀐 기록·도구를 다시 모아 **오늘 날짜가 붙은 압축 파일**을 만듭니다.
-그 파일을 USB/클라우드로 옮기면 됩니다. 날짜가 붙으므로 어느 게 최신인지 파일명만 봐도 압니다.
+⚠ 옛 README 는 `pack.sh` 로 날짜 붙은 압축을 만들라고 했는데 **그 스크립트는 존재한 적이
+없다.** git 으로 옮겨오면서 그 절이 통째로 필요 없어졌으므로 지웠다.
 
-## ⚠ secrets/keys.xml — 남에게 공유하지 마세요
+## 🔒 이 저장소를 public 으로 바꾸지 마세요
 
-DJI App Key 가 평문으로 들어 있습니다. USB/개인 클라우드는 괜찮지만,
-**공개된 곳(공개 GitHub, 블로그, 공용 드라이브)에는 올리지 마세요.**
-(참고: `진행상황.md` 본문에도 같은 키가 적혀 있습니다.)
+**DJI App Key 가 평문으로 들어 있고, 커밋 히스토리에도 남아 있습니다.**
+`secrets/keys.xml` 뿐 아니라 `진행상황.md` · `진행기록.md` 본문에도 같은 키가 적혀 있고,
+첫 커밋 `f529ffd` 안에도 들어 있습니다.
+
+**편의를 위해 일부러 그대로 두기로 했습니다**(2026-09-07 결정) — 비공개 저장소이므로
+clone 한 번에 인증키까지 따라와서 새 PC 설정이 명령 한 줄로 끝납니다.
+대신 **대가가 하나 있습니다: 이 저장소는 앞으로도 계속 비공개여야 합니다.**
+
+- ❌ GitHub 에서 **Settings → Change visibility → Public** 을 누르지 말 것
+- ❌ 이 저장소를 fork 하거나 내용을 공개 저장소에 복사하지 말 것
+- 공개해야 할 일이 생기면 **히스토리를 다시 써서 키를 지운 뒤**에만 가능합니다
+  (커밋이 적어 `git filter-branch` 로 할 만합니다)
 
 ## 새 PC에서 손으로 고쳐야 하는 것
 
