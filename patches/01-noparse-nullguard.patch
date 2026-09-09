@@ -1,0 +1,46 @@
+--- a/app/src/main/cpp/dji_video_jni.c
++++ b/app/src/main/cpp/dji_video_jni.c
+@@ -174,15 +174,39 @@
+ int noparse(JNIEnv *env, jobject obj, uint8_t *pBuff, int videosize) {
+ 
+     if (videosize > 0) {
++        /* m_pCodecPaser is NULL here whenever init() has not run yet.
++         *
++         * That is the normal case, not a rare race: MainActivity.initVideoService()
++         * calls startService() and then safeSleep(500) on the main thread, so
++         * VideoService.onCreate() -> NativeHelper.init() cannot run until the main
++         * thread returns to its looper -- which is after the video data listener is
++         * registered. The first frame therefore arrives on CommonThreadPool and
++         * calls NativeHelper.getInstance().parse(buf, size, 1) before any init().
++         *
++         * parse() above already guards against this; noparse() did not, so it
++         * dereferenced NULL and the app died with SIGSEGV at fault addr 0x148.
++         * Only models whose getVideoMode() returns 1 take this path -- MAVIC_2_PRO,
++         * MAVIC_2_ZOOM and MATRICE_210_RTK_V2.
++         *
++         * The four values below are passed to VideoService.onDataRecv(), which
++         * ignores all of them and uses only the buffer, so zeroes are fine.
++         */
++        int frame_num = 0, key_frame = 0, width_in_pixel = 0, height_in_pixel = 0;
++        if (m_pCodecPaser != NULL) {
++            frame_num      = m_pCodecPaser->frame_num;
++            key_frame      = m_pCodecPaser->key_frame;
++            width_in_pixel  = m_pCodecPaser->width_in_pixel;
++            height_in_pixel = m_pCodecPaser->height_in_pixel;
++        }
+         invokeFrameDataCallback(
+                 env,
+                 obj,
+                 pBuff,
+                 videosize,
+-                m_pCodecPaser->frame_num,
+-                m_pCodecPaser->key_frame,
+-                m_pCodecPaser->width_in_pixel,
+-                m_pCodecPaser->height_in_pixel
++                frame_num,
++                key_frame,
++                width_in_pixel,
++                height_in_pixel
+         );
+     }
+     return 0;

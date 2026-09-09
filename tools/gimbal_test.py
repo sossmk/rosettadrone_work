@@ -58,6 +58,9 @@ def main():
                     help="이 각도 하나만 보낸다 (기본: 0 → -45 → -90 → 0 순서)")
     ap.add_argument("--yaw", action="store_true",
                     help="pitch 대신 yaw(채널 8)를 돌린다. 상대각이라 누적된다")
+    ap.add_argument("--hold", type=float, default=3.5,
+                    help="각 단계에서 머무는 초. 앱이 Rotation.Builder().time(2) 로 "
+                         "2초에 걸쳐 돌리므로 그보다 넉넉해야 한다 (기본 3.5)")
     args = ap.parse_args()
 
     link = mav.Link(port=args.port)
@@ -87,13 +90,25 @@ def main():
     for label, angle in seq:
         if step(link, label, ch, angle):
             ok += 1
-        time.sleep(1.0)
+        # ⚠ 여기서 짧게 자면 안 된다. 앱은 Rotation.Builder().time(2) 로 요청하므로
+        #   회전에 2초가 걸리는데, ACK 는 0.2초 만에 돌아온다(에러여도 ACCEPTED 다).
+        #   1초만 쉬면 다음 명령이 회전을 덮어써서 짐벌이 움찔하고 제자리로 온다
+        #   — 눈에는 "아무것도 안 움직였다" 로 보인다. 2026-09-09 에 실제로 그렇게 속았다.
+        time.sleep(args.hold)
 
     print(f"\n=== 판정 ===")
     if ok == len(seq):
-        print(f"  ✓ {ok}/{len(seq)} 전부 ACCEPTED — **업링크가 열려 있다**")
-        print("    PC → 앱 → DJI SDK → 기체 하드웨어 경로 전부 검증됨.")
-        print("    다음: T4 영상(gst) · T5 cmd_vel(SIM 먼저)")
+        print(f"  ✓ {ok}/{len(seq)} 전부 ACCEPTED — 앱까지는 확실히 닿았다")
+        print()
+        print("  ⚠ ACCEPTED 는 **성공을 뜻하지 않는다.** DroneModel.java:2029 을 보면")
+        print("    DJI 가 djiError 를 돌려줘도 앱은 그걸 Log.e 로 찍기만 하고")
+        print("    무조건 MAV_RESULT_ACCEPTED 를 보낸다. 실패가 MAVLink 로는 안 나온다.")
+        print()
+        print("  ▶ 통과 여부는 **눈으로만** 갈린다: 카메라가 실제로 아래를 봤는가?")
+        print("      움직였다 → PC→앱→DJI SDK→기체 하드웨어 전 경로 검증 완료")
+        print("      안 움직였다 → mGimbal.rotate() 의 djiError 를 봐야 한다.")
+        print("        그 문자열은 logcat 에만 남는다(앱 로그 패널에도 안 뜬다).")
+        print("        RM500 의 dji_logs/logs/<최신>/android 를 MTP 로 꺼내 확인할 것.")
     elif ok:
         print(f"  ⚠ {ok}/{len(seq)} 만 통과 — 위의 결과코드를 보라")
     else:
