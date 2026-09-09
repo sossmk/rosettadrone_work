@@ -26,10 +26,15 @@
    (startMotion 의 ignorePosX && Y && Z), YAW_IGNORE 도 켜야
    yaw PID 가 yawRate 를 덮어쓰지 않는다 (processVelocities:2212).
 
-5. **좌표계는 BODY(기체 기준).**  vx=앞, vy=오른쪽 이 의도지만,
-   DJI FlightControlData 로 넘어가며 축이 한 번 뒤집힌다.
-   **부호와 축 대응은 이 시험으로 실측해서 확정한다.**  vz 도 마찬가지 —
-   MAVLink NED 는 아래가 +, DJI throttle 은 위가 + 라 반대일 수 있다.
+5. **좌표계는 BODY(기체 기준).**  2026-09-09 SIM 실측으로 확정했다:
+
+       vx > 0  →  앞      (기수 기준 +0° 로 이동. 의도대로)
+       vy > 0  →  오른쪽  (기수 기준 +92° 로 이동. 의도대로)
+       vz > 0  →  **위**  ← MAVLink NED 규약(음수가 위)과 **반대**다
+       yawRate > 0 → 시계방향(오른쪽). 단위는 rad/s (앱이 도로 되돌린다)
+
+   축 대응은 멀쩡하고 **뒤집힌 것은 vz 하나뿐**이다. ROS 브리지에서 vz 만 부호를
+   뒤집어 주면 된다. 속도 크기는 명령값과 거의 일치했다 (1.0 → 1.03 m/s).
 """
 import argparse, sys, os, time
 
@@ -44,6 +49,18 @@ PRESET = [
     ("우측",      0.0, 1.0,  0.0,   0.0, 3.0, "약 3m 이동. 어느 방향인지 보라"),
     ("상승",      0.0, 0.0, -0.5,   0.0, 3.0, "MAVLink 는 음수가 위. 실제로 오르나?"),
     ("정지",      0.0, 0.0,  0.0,   0.0, 2.0, "확실히 멈추게"),
+]
+
+
+# 축 대응·부호만 빠르게 가리는 짧은 순서.
+# 2026-09-09 SIM 실측에서 vz 가 MAVLink 규약과 반대인 것이 드러나, 여기서는 양수로 확인한다.
+AXES = [
+    ("전진 vx=+1", 1.0, 0.0,  0.0, 0.0, 4.0, "기수 기준 어느 쪽으로 가는가"),
+    ("정지",       0.0, 0.0,  0.0, 0.0, 2.0, ""),
+    ("우측 vy=+1", 0.0, 1.0,  0.0, 0.0, 4.0, "기수 기준 어느 쪽으로 가는가"),
+    ("정지",       0.0, 0.0,  0.0, 0.0, 2.0, ""),
+    ("vz=+0.5",   0.0, 0.0, +0.5, 0.0, 3.0, "양수로 정말 올라가는가 (MAVLink 규약과 반대인지 확인)"),
+    ("정지",       0.0, 0.0,  0.0, 0.0, 2.0, ""),
 ]
 
 
@@ -93,10 +110,20 @@ def run_step(link, name, vx, vy, vz, yr, secs, hint, rate):
         dyaw = (ayaw - byaw + 540.0) % 360.0 - 180.0     # -180..180
     dalt = None if None in (balt, aalt) else aalt - balt
 
+    # 거리만으로는 축 대응을 못 가린다. 기수 기준 **어느 쪽으로** 갔는지가 핵심이다.
+    rel = None
+    if dist is not None and dist >= 0.5 and byaw is not None:
+        rel = mav.relative_bearing(mav.bearing_between(blat, blon, alat, alon), byaw)
+
     print(f"    보냄 {sent}회 · ACK(84) {acks}회")
     print(f"    고도 {fmt(balt,'m')} → {fmt(aalt,'m')} ({fmt(dalt,'m',2)})"
           f"  ·  기수 {fmt(byaw,'°')} → {fmt(ayaw,'°')} ({fmt(dyaw,'°')})"
           f"  ·  수평이동 {fmt(dist,'m',2)}  ·  대지속도 {fmt(agsp,' m/s',2)}")
+    if rel is not None:
+        print(f"    이동 방향: 기수 기준 {rel:+.0f}°  →  **{mav.name_direction(rel)}**"
+              f"   (0=앞 · +90=오른쪽 · 180=뒤 · -90=왼쪽)")
+    elif dist is not None and dist < 0.5:
+        print(f"    이동 방향: 판정 불가 (이동 {dist:.2f}m 로 너무 짧다)")
     if sent and acks == 0:
         print("    ⚠ ACK 가 하나도 없다 — 앱이 #84 를 안 받고 있다. T2 부터 다시.")
     return acks
@@ -113,6 +140,8 @@ def main():
     ap.add_argument("--secs", type=float, default=3.0)
     ap.add_argument("--takeoff", type=float, metavar="ALT",
                     help="시작 전에 이 고도(m)로 이륙시킨다. 명시할 때만 실행")
+    ap.add_argument("--axes", action="store_true",
+                    help="축 대응·부호 확정용 짧은 순서만 돈다 (전진·우측·상승)")
     args = ap.parse_args()
 
     if args.rate < 5:
@@ -152,6 +181,8 @@ def main():
     if args.vx is not None or args.vy is not None or args.vz is not None or args.yr is not None:
         steps = [("사용자 지정", args.vx or 0.0, args.vy or 0.0, args.vz or 0.0,
                   args.yr or 0.0, args.secs, "지정한 축만 움직여야")]
+    elif args.axes:
+        steps = AXES
     else:
         steps = PRESET
 
@@ -176,10 +207,14 @@ def main():
         print("    → tools/uplink_test.py 로 업링크부터 분리해서 확인")
     else:
         print(f"  ✓ ACK(84) 총 {total}회 — 앱이 속도 명령을 받고 있다")
-        print("    이제 남은 건 **축 대응과 부호**다. 위의 이동 방향을 보고 확정하라:")
-        print("      · '전진' 에서 기체가 실제로 앞으로 갔나, 옆으로 갔나?")
-        print("      · '상승' 에서 vz=-0.5 로 정말 올라갔나, 내려갔나?")
-        print("    결과를 진행상황.md 에 적어 두면 ROS 브리지에서 그대로 쓴다.")
+        print()
+        print("  2026-09-09 SIM 실측으로 확정된 규약 (위 결과가 이와 다르면 다시 재라):")
+        print("      vx > 0 → 앞        vy > 0 → 오른쪽")
+        print("      vz > 0 → **위**    ← MAVLink NED(음수가 위)와 반대다")
+        print("      yawRate > 0 → 시계방향(오른쪽)")
+        print()
+        print("  ⚠ ACK 는 성공을 뜻하지 않는다(DroneModel.java:2029). 위의 **이동 방향과")
+        print("    거리**가 실제 판정 근거다.")
     return 0
 
 

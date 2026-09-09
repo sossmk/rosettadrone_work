@@ -46,12 +46,18 @@ JDK 11 · Android SDK 5종 · 소스(커밋 고정) · 빌드 · QGC 까지 되�
 | 경로 | 내용 |
 |---|---|
 | `진행상황.md` | **누적 기록.** 날짜별 블록 + 현재 상태 표. 여기부터 읽으세요 |
+| `할일.md` | **앞으로 할 것.** AR 태그 추종·정밀 착륙 패키지의 구조와 순서, 지고 갈 제약 |
+| `patches/` | 앱 소스 패치 (함정 5 — 영상 켜면 죽는 문제) |
 | `진행기록.md` | 명령·에러 원문 |
 | `rosettadrone_progress.html` | 보고용 요약 |
 | `tools/link_check.sh` | **T0 — 기체 켜기 전 링크 위생.** IP·포트점유·방화벽을 한 번에 보고, **앱에 넣을 GCS IP 를 찍어 준다** |
 | `tools/udp_probe.py` | UDP 14550 에 뭐가 오는지 센다 (앱↔방화벽↔QGC 원인 분리) |
 | `tools/decode_check.py` | **T1 — 다운링크.** MAVLink 를 풀어 실제 값을 보고 **0,0 의 원인을 판정**한다 |
-| `tools/uplink_test.py` | **T2 — 업링크.** PC→앱 명령 경로가 열렸는지 본다 (아직 미실행) |
+| `tools/uplink_test.py` | **T2 — 업링크.** PC→앱 명령 경로가 열렸는지 본다 |
+| `tools/gimbal_test.py` | **T3 — 짐벌 틸팅.** 프로펠러 없이 지상에서 업링크 전체를 증명하는 가장 값싼 실험 |
+| `tools/cmd_vel_test.py` | **T5 — 속도 명령.** 20Hz 연속 발행 + **기수 기준 이동 방향**·거리 자동 측정 |
+| `tools/mav.py` | MAVLink v2 최소 구현(공유). CRC 는 앱의 `CRC.java` 에서 직접 뽑았다 |
+| `tools/file_bridge.py` | RM500 ↔ PC 파일 다리 (브라우저로 양방향) |
 | `logs/` | 8/28 실측 증거 — 논문용 |
 | `secrets/keys.xml` | **DJI App Key. 아래 경고 참조** |
 | `setup_new_pc.sh` | 새 PC 복구 스크립트 |
@@ -96,9 +102,18 @@ clone 한 번에 인증키까지 따라와서 새 PC 설정이 명령 한 줄로
 ./tools/link_check.sh          # 앱에 넣을 GCS IP + 포트점유 + 방화벽을 한 번에
 ```
 
-## 지금 어디까지 왔나 (2026-08-28 기준)
+## 지금 어디까지 왔나 (2026-09-09 기준)
 
-- ✅ 빌드 성공 · RM500 설치 · **DJI 라이트 green + `Mavic 2`** (kill-switch 2 통과)
-- ✅ 다운링크 텔레메트리 수신 (초당 ~56패킷, 12종)
-- ⬜ **업링크(PC→앱) 미확인** ← `uplink_test.py` 를 아직 안 돌렸습니다. **다음 할 일**
-- ⬜ `markWaypoint()` NPE 지뢰 미패치 (`MainActivity.java:511,528`)
+- ✅ 빌드 성공 · RM500 설치 · **DJI 라이트 green + `Mavic 2`**
+- ✅ **T1 다운링크** — 실기 텔레메트리. 위경도 `0,0` 은 **실내 GPS 미수신이고 앱은 정상**(위성 0개·NO_FIX)
+- ✅ **T2 업링크** — `COMMAND_ACK` · `AUTOPILOT_VERSION` 수신
+- ✅ **T3 짐벌** — 명령으로 카메라가 실제로 움직임. 기체 하드웨어까지 전 경로 증명
+- ✅ **T5 cmd_vel (SIM)** — 축 대응·부호 확정. `vx>0`=앞 · `vy>0`=오른쪽 · **`vz>0`=위(MAVLink 와 반대)** · `yawRate>0`=시계방향
+- ⬜ **T4 영상** — 켜면 앱이 죽는다(함정 5). **원인 규명 끝, 패치도 있음**(`patches/01`). NDK 재빌드만 남았다
+- ⬜ 야외 GPS fix 확인
+- ⬜ `markWaypoint()` NPE 지뢰 미패치 (`MainActivity.java:511,528`) — 앱 화면에서 웨이포인트를 찍을 때만 터진다. MAVLink 경로는 무관
+
+⚠ **`COMMAND_ACK: ACCEPTED` 를 성공으로 읽지 마세요.** 앱은 DJI 가 에러를 돌려줘도
+무조건 ACCEPTED 를 보냅니다(`DroneModel.java:2029`). 상태 변화로 검증해야 합니다.
+
+앞으로 할 일은 **`할일.md`** 에 있습니다.

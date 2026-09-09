@@ -73,6 +73,29 @@ def meters_between(lat1, lon1, lat2, lon2):
     return 2 * R * math.asin(min(1.0, math.sqrt(a)))
 
 
+def bearing_between(lat1, lon1, lat2, lon2):
+    """lat1,lon1 에서 lat2,lon2 를 본 방위각 (0~360°, 북=0, 동=90)."""
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dl = math.radians(lon2 - lon1)
+    y = math.sin(dl) * math.cos(p2)
+    x = math.cos(p1) * math.sin(p2) - math.sin(p1) * math.cos(p2) * math.cos(dl)
+    return math.degrees(math.atan2(y, x)) % 360.0
+
+
+def relative_bearing(move_bearing, heading):
+    """이동 방위각을 기수 기준 상대각(-180~180)으로. 0=앞, +90=오른쪽, 180=뒤, -90=왼쪽."""
+    return (move_bearing - heading + 540.0) % 360.0 - 180.0
+
+
+def name_direction(rel):
+    """상대각을 사람 말로. 45° 폭으로 8방위."""
+    if rel is None:
+        return "?"
+    r = (rel + 360.0) % 360.0
+    names = ["앞", "앞-오른쪽", "오른쪽", "뒤-오른쪽", "뒤", "뒤-왼쪽", "왼쪽", "앞-왼쪽"]
+    return names[int((r + 22.5) % 360.0 // 45.0)]
+
+
 class Link:
     """UDP 14550 을 잡고, 앱이 보낸 봉투에서 발신 주소를 읽어 그리로 답장한다.
 
