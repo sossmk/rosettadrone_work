@@ -1,0 +1,1140 @@
+<meta charset="utf-8">
+<title>RosettaDrone 정본</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@300;400;500;600&family=Noto+Serif+KR:wght@500;600;700&display=swap">
+
+<style>
+:root{
+  --ground:#F6F8FA;
+  --surface:#FFFFFF;
+  --surface-2:#EEF2F6;
+  --ink:#11202E;
+  --ink-2:#3D5163;
+  --ink-3:#6B8098;
+  --rule:#D6DEE7;
+  --rule-2:#E7ECF1;
+  --accent:#14507A;
+  --accent-soft:#E3EDF5;
+  --ok:#0F766E;
+  --ok-soft:#DCEFEC;
+  --trap:#A93226;
+  --trap-soft:#F7E4E1;
+  --wait:#8A5B12;
+  --wait-soft:#F6EBD8;
+  --shadow:0 1px 2px rgba(17,32,46,.06),0 8px 24px -12px rgba(17,32,46,.18);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0D151E;
+    --surface:#141F2B;
+    --surface-2:#1B2836;
+    --ink:#DDE6EF;
+    --ink-2:#A6B8CA;
+    --ink-3:#7A8EA3;
+    --rule:#26374A;
+    --rule-2:#1E2D3D;
+    --accent:#6FAAD8;
+    --accent-soft:#17303F;
+    --ok:#4FB8A6;
+    --ok-soft:#12312D;
+    --trap:#E2897E;
+    --trap-soft:#33201D;
+    --wait:#D2A458;
+    --wait-soft:#2E2617;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0D151E;
+  --surface:#141F2B;
+  --surface-2:#1B2836;
+  --ink:#DDE6EF;
+  --ink-2:#A6B8CA;
+  --ink-3:#7A8EA3;
+  --rule:#26374A;
+  --rule-2:#1E2D3D;
+  --accent:#6FAAD8;
+  --accent-soft:#17303F;
+  --ok:#4FB8A6;
+  --ok-soft:#12312D;
+  --trap:#E2897E;
+  --trap-soft:#33201D;
+  --wait:#D2A458;
+  --wait-soft:#2E2617;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:"IBM Plex Sans KR",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:15.5px;
+  line-height:1.75;
+  font-weight:400;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
+a:hover{border-bottom-color:var(--accent)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+code,kbd{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:.88em}
+p code,li code,td code{background:var(--surface-2);padding:.1em .38em;border-radius:3px;color:var(--ink)}
+
+/* ─── shell ─── */
+.wrap{display:grid;grid-template-columns:246px minmax(0,1fr);gap:0;max-width:1240px;margin:0 auto}
+.rail{
+  position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+  padding:34px 22px 40px 26px;border-right:1px solid var(--rule);background:var(--ground);
+}
+.main{padding:34px 44px 120px;min-width:0}
+
+.brandmark{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
+.brandname{font-family:"Noto Serif KR",Georgia,serif;font-weight:700;font-size:19px;line-height:1.3;letter-spacing:-.01em;margin:0 0 4px}
+.brandsub{font-size:11.5px;color:var(--ink-3);line-height:1.5;margin:0 0 22px}
+
+nav ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav a{
+  display:grid;grid-template-columns:20px 1fr;gap:9px;align-items:baseline;
+  padding:5px 8px;border-radius:4px;border-bottom:none;
+  font-size:13px;color:var(--ink-2);line-height:1.45;
+}
+nav a:hover{background:var(--surface-2);color:var(--ink);border-bottom:none}
+nav a .n{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+nav a.star .t::after{content:" ★";color:var(--accent);font-size:9px;vertical-align:2px}
+
+.railfoot{margin-top:26px;padding-top:16px;border-top:1px solid var(--rule-2);font-size:11px;color:var(--ink-3);line-height:1.6}
+.themebtn{
+  margin-top:12px;font:inherit;font-size:11px;font-family:"IBM Plex Mono",monospace;
+  background:var(--surface);color:var(--ink-2);border:1px solid var(--rule);
+  border-radius:4px;padding:5px 10px;cursor:pointer;
+}
+.themebtn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ─── masthead ─── */
+.masthead{border-bottom:2px solid var(--ink);padding-bottom:22px;margin-bottom:14px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:0 0 12px}
+h1{font-family:"Noto Serif KR",Georgia,serif;font-weight:700;font-size:clamp(28px,4.2vw,42px);line-height:1.22;letter-spacing:-.02em;margin:0 0 12px;text-wrap:balance}
+.dek{font-size:16.5px;color:var(--ink-2);max-width:60ch;margin:0;font-weight:300;line-height:1.68}
+.stamp{
+  display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:20px;
+  font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-3);
+}
+.stamp b{font-weight:500;color:var(--ink-2)}
+
+/* ─── chapters ─── */
+section{scroll-margin-top:20px;margin-top:58px}
+.chead{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:baseline;border-top:1px solid var(--rule);padding-top:14px;margin-bottom:20px}
+.cnum{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+h2{font-family:"Noto Serif KR",Georgia,serif;font-weight:600;font-size:25px;line-height:1.3;letter-spacing:-.015em;margin:0;text-wrap:balance}
+h3{font-size:16px;font-weight:600;margin:32px 0 10px;letter-spacing:-.005em;color:var(--ink)}
+h4{font-size:13.5px;font-weight:600;margin:22px 0 8px;color:var(--ink-2)}
+p{margin:0 0 14px;max-width:68ch}
+ul,ol{margin:0 0 14px;padding-left:20px;max-width:66ch}
+li{margin-bottom:5px}
+li::marker{color:var(--ink-3)}
+strong{font-weight:600}
+
+/* ─── provenance chips ─── */
+.pv{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:500;
+  letter-spacing:.05em;padding:1px 5px;border-radius:3px;vertical-align:1.5px;white-space:nowrap;
+  border:1px solid transparent;
+}
+.pv-src{background:var(--accent-soft);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 25%,transparent)}
+.pv-off{background:var(--ok-soft);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 25%,transparent)}
+.pv-mes{background:var(--wait-soft);color:var(--wait);border-color:color-mix(in srgb,var(--wait) 25%,transparent)}
+.pv-web{background:var(--surface-2);color:var(--ink-3);border-color:var(--rule)}
+.pv-unv{background:var(--trap-soft);color:var(--trap);border-color:color-mix(in srgb,var(--trap) 25%,transparent)}
+
+.legend{display:flex;flex-wrap:wrap;gap:10px 20px;background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:14px 18px;margin:0 0 8px}
+.legend div{font-size:12px;color:var(--ink-2);display:flex;gap:7px;align-items:baseline}
+
+/* ─── tables ─── */
+.tw{overflow-x:auto;margin:0 0 18px;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:440px}
+th{
+  text-align:left;font-weight:600;font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--ink-3);padding:10px 14px;border-bottom:1px solid var(--rule);white-space:nowrap;
+  font-family:"IBM Plex Sans KR",sans-serif;background:var(--surface-2);
+}
+td{padding:9px 14px;border-bottom:1px solid var(--rule-2);vertical-align:top;line-height:1.6}
+tr:last-child td{border-bottom:none}
+td.mono,th.mono{font-family:"IBM Plex Mono",monospace;font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* ─── callouts ─── */
+.note{border-left:3px solid var(--accent);background:var(--surface);padding:14px 18px;margin:0 0 18px;border-radius:0 5px 5px 0}
+.note.trap{border-left-color:var(--trap)}
+.note.ok{border-left-color:var(--ok)}
+.note p:last-child{margin-bottom:0}
+.note .lbl{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:6px;font-weight:600}
+.note.trap .lbl{color:var(--trap)}
+.note.ok .lbl{color:var(--ok)}
+
+pre{
+  background:var(--surface);border:1px solid var(--rule);border-radius:6px;
+  padding:14px 16px;overflow-x:auto;margin:0 0 18px;
+  font-family:"IBM Plex Mono",monospace;font-size:12.5px;line-height:1.65;color:var(--ink-2);
+}
+pre b{color:var(--ink);font-weight:600}
+pre .cm{color:var(--ink-3)}
+pre .hi{color:var(--trap);font-weight:500}
+
+/* ─── glossary ─── */
+.gl{display:flex;flex-direction:column;gap:0;border:1px solid var(--rule);border-radius:6px;overflow:hidden;background:var(--surface);margin-bottom:18px}
+.gl > div{display:grid;grid-template-columns:186px minmax(0,1fr);gap:18px;padding:12px 18px;border-bottom:1px solid var(--rule-2)}
+.gl > div:last-child{border-bottom:none}
+.gl dt{margin:0;font-weight:600;font-size:13.5px;line-height:1.5}
+.gl dt span{display:block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-3);font-weight:400;letter-spacing:.02em;margin-top:1px}
+.gl dd{margin:0;font-size:13.5px;color:var(--ink-2);line-height:1.65}
+.gl dd em{font-style:normal;color:var(--ink);font-weight:500}
+
+/* ─── misc ─── */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-bottom:18px}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px 18px}
+.panel h4{margin-top:0}
+.panel p:last-child,.panel ul:last-child{margin-bottom:0}
+.figure{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:22px 18px 16px;margin:0 0 18px;overflow-x:auto}
+.figure svg{display:block;margin:0 auto;max-width:100%;height:auto}
+.cap{font-size:11.5px;color:var(--ink-3);margin:14px 0 0;text-align:center;line-height:1.6;max-width:none}
+.refs{list-style:none;padding:0;max-width:none}
+.refs li{padding:11px 0;border-bottom:1px solid var(--rule-2);margin:0;display:grid;grid-template-columns:78px minmax(0,1fr);gap:16px;align-items:baseline}
+.refs li:last-child{border-bottom:none}
+.refs .k{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.refs .d{font-size:12.5px;color:var(--ink-3);display:block;line-height:1.55}
+.tag{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10px;padding:1px 6px;border-radius:3px;background:var(--surface-2);color:var(--ink-3);border:1px solid var(--rule)}
+hr{border:none;border-top:1px solid var(--rule-2);margin:26px 0}
+
+@media (max-width:900px){
+  .wrap{grid-template-columns:1fr}
+  .rail{position:static;height:auto;border-right:none;border-bottom:1px solid var(--rule);padding:24px 22px}
+  nav ol{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0}
+  .main{padding:26px 22px 90px}
+  .gl > div{grid-template-columns:1fr;gap:3px}
+  .refs li{grid-template-columns:1fr;gap:3px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<aside class="rail">
+  <div class="brandmark">Reference</div>
+  <p class="brandname">RosettaDrone 정본</p>
+  <p class="brandsub">DJI ↔ MAVLink 번역기<br>KRISO · Mavic 2 + RM500</p>
+  <nav>
+    <ol>
+      <li><a href="#c1"><span class="n">01</span><span class="t">한 장 요약</span></a></li>
+      <li><a href="#c2"><span class="n">02</span><span class="t">무엇인가</span></a></li>
+      <li><a href="#c3"><span class="n">03</span><span class="t">왜 만들어졌나</span></a></li>
+      <li><a href="#c4"><span class="n">04</span><span class="t">계보와 포크</span></a></li>
+      <li><a href="#c5" class="star"><span class="n">05</span><span class="t">용어 사전</span></a></li>
+      <li><a href="#c6"><span class="n">06</span><span class="t">어떻게 동작하나</span></a></li>
+      <li><a href="#c7"><span class="n">07</span><span class="t">공식 GitHub</span></a></li>
+      <li><a href="#c8"><span class="n">08</span><span class="t">설정 전체 지도</span></a></li>
+      <li><a href="#c9" class="star"><span class="n">09</span><span class="t">우리 현황</span></a></li>
+      <li><a href="#c10" class="star"><span class="n">10</span><span class="t">ROS 2 연결 경로</span></a></li>
+      <li><a href="#c11"><span class="n">11</span><span class="t">레퍼런스</span></a></li>
+    </ol>
+  </nav>
+  <div class="railfoot">
+    모든 주장에 출처 배지가 붙어 있습니다. 근거 없는 문장은 이 문서에 없습니다.
+    <button class="themebtn" id="tb" type="button">◐ 명암 전환</button>
+  </div>
+</aside>
+
+<main class="main">
+
+<header class="masthead">
+  <p class="eyebrow">기반 지식 · 2026-09-07</p>
+  <h1>DJI 드론에 MAVLink를 입히는 일</h1>
+  <p class="dek">RosettaDrone이 무엇이고, 왜 이런 모양으로 만들어졌으며, 우리 Mavic 2 + RM500 조합에서 지금까지 무엇이 확인됐는지. 처음 듣는 단어가 남지 않도록 전부 풀어 씁니다.</p>
+  <div class="stamp">
+    <span><b>대상</b> master · 805ca9e</span>
+    <span><b>앱</b> v5.2.0</span>
+    <span><b>DJI MSDK</b> 4.16.4</span>
+    <span><b>기체</b> Mavic 2</span>
+    <span><b>조종기</b> RM500</span>
+  </div>
+</header>
+
+<div class="legend">
+  <div><span class="pv pv-off">공식</span> RosettaDrone 공식 README·저장소 원문</div>
+  <div><span class="pv pv-src">소스</span> 내려받은 코드에서 직접 확인 (파일:줄)</div>
+  <div><span class="pv pv-mes">실측</span> 우리가 이 기체로 직접 측정</div>
+  <div><span class="pv pv-web">웹</span> 외부 문서 · 링크 있음</div>
+  <div><span class="pv pv-unv">미검증</span> 근거 약함 · 확인 필요</div>
+</div>
+
+<!-- ══════════ 1 ══════════ -->
+<section id="c1">
+  <div class="chead"><span class="cnum">01</span><h2>한 장 요약</h2></div>
+
+  <p>DJI 드론은 <strong>DJI만의 언어</strong>로 말합니다. 세상의 다른 드론 소프트웨어(QGroundControl, 파이썬 자동비행 스크립트, ROS)는 전부 <strong>MAVLink</strong>라는 공용어를 씁니다. 둘은 서로 못 알아듣습니다.</p>
+
+  <p><strong>RosettaDrone은 그 사이에 끼어 통역하는 안드로이드 앱입니다.</strong> 조종기(RM500) 안에서 돌면서, 드론이 DJI 언어로 하는 말을 MAVLink로 바꿔 PC에 넘기고, PC가 MAVLink로 내리는 명령을 DJI 언어로 바꿔 드론에 전달합니다.</p>
+
+  <p>이름의 유래가 그대로 설명입니다. <strong>로제타 석</strong>은 같은 내용이 이집트 상형문자·민중문자·그리스어 세 언어로 새겨져 있어서 해독의 열쇠가 된 비석입니다. 이 앱도 같은 일을 합니다.</p>
+
+  <div class="grid2">
+    <div class="panel">
+      <h4>우리가 이걸 쓰는 이유</h4>
+      <p>Mavic 2를 <em>연구용 실험 장비</em>로 쓰려면 PC에서 프로그램으로 조종하고 데이터를 받아야 합니다. DJI 순정 앱은 사람이 손으로 날리는 용도라 그게 안 됩니다. RosettaDrone을 끼우면 표준 MAVLink 도구 전부를 쓸 수 있게 됩니다.</p>
+    </div>
+    <div class="panel">
+      <h4>지금 어디까지 왔나</h4>
+      <p>빌드·설치·DJI 인증 통과 ✓ · 드론→PC 텔레메트리 수신 ✓ · <strong>PC→드론 명령 도달 확인 ✓</strong>(9/7). 남은 것은 실외 GPS 환경에서의 실제 기동과 영상 수신입니다. <a href="#c9">9장</a>에 상세.</p>
+    </div>
+  </div>
+
+  <div class="note ok">
+    <span class="lbl">읽는 순서</span>
+    <p>처음이면 1→2→3→5장 순으로 읽으세요. 5장(용어 사전)을 한 번 훑고 나면 나머지가 훨씬 빨리 읽힙니다. 작업 중에 뭔가 막혔을 때는 8장(설정)과 9장(함정)만 펴 보면 됩니다.</p>
+  </div>
+</section>
+
+<!-- ══════════ 2 ══════════ -->
+<section id="c2">
+  <div class="chead"><span class="cnum">02</span><h2>RosettaDrone이란 무엇인가</h2></div>
+
+  <p>공식 저장소는 스스로를 이렇게 정의합니다 <span class="pv pv-off">공식</span>:</p>
+
+  <div class="note">
+    <p>“RosettaDrone은 DJI 드론용 소프트웨어를 개발하고 시험하기 위한 <em>프레임워크</em>다. MAVLink를 쓰는 지상관제국(GCS)으로 DJI 드론을 조종할 수 있게 해주는 <em>MAVLink 래퍼(wrapper)</em>를 제공하며, AI 스크립트를 구현·시험하기 위한 도구와 기능을 함께 제공한다.”</p>
+  </div>
+
+  <p><strong>래퍼(wrapper)</strong>란 “겉을 감싸는 것”입니다. DJI가 제공하는 개발 도구(DJI SDK)를 그대로 두고, 그 바깥에 MAVLink 껍데기를 씌워 <em>겉에서 보면 MAVLink 드론처럼 보이게</em> 만드는 방식입니다. DJI SDK를 뜯어고치는 게 아닙니다.</p>
+
+  <h3>세 구간, 두 프로토콜</h3>
+
+  <p>가장 자주 혼동되는 지점입니다. <strong>기체–조종기 구간과 조종기–PC 구간은 완전히 다른 통신이고, 서로 아무 상관이 없습니다.</strong> 한쪽이 끊겨도 다른 쪽은 멀쩡합니다.</p>
+
+  <div class="figure">
+    <svg viewBox="0 0 720 250" role="img" aria-label="Mavic 2에서 RM500 조종기를 거쳐 PC로 이어지는 통신 구조도">
+      <defs>
+        <marker id="ar" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto">
+          <path d="M0,0 L7,3.2 L0,6.4 z" fill="var(--ink-3)"/>
+        </marker>
+      </defs>
+
+      <!-- box 1 -->
+      <rect x="8" y="72" width="150" height="76" rx="5" fill="var(--surface-2)" stroke="var(--rule)"/>
+      <text x="83" y="100" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="14" font-weight="600" fill="var(--ink)">Mavic 2</text>
+      <text x="83" y="120" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="11" fill="var(--ink-3)">기체</text>
+      <text x="83" y="136" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9.5" fill="var(--ink-3)">DJI 독자 프로토콜</text>
+
+      <!-- link A -->
+      <line x1="162" y1="110" x2="240" y2="110" stroke="var(--ink-3)" stroke-width="1.4" marker-end="url(#ar)"/>
+      <line x1="240" y1="110" x2="162" y2="110" stroke="var(--ink-3)" stroke-width="1.4" marker-end="url(#ar)"/>
+      <text x="201" y="96" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" font-weight="500" fill="var(--accent)">OcuSync 2.0</text>
+      <text x="201" y="132" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="10" fill="var(--ink-3)">DJI 전용 무선</text>
+
+      <!-- box 2 -->
+      <rect x="244" y="56" width="196" height="108" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="342" y="82" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="14" font-weight="600" fill="var(--ink)">RM500 조종기</text>
+      <text x="342" y="99" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="11" fill="var(--ink-2)">안드로이드 기기</text>
+      <rect x="262" y="110" width="160" height="38" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-dasharray="3 2.5"/>
+      <text x="342" y="127" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="11.5" font-weight="600" fill="var(--accent)">RosettaDrone 앱</text>
+      <text x="342" y="141" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="10" fill="var(--ink-2)">여기서 번역이 일어난다</text>
+
+      <!-- link B -->
+      <line x1="444" y1="110" x2="522" y2="110" stroke="var(--ink-3)" stroke-width="1.4" marker-end="url(#ar)"/>
+      <line x1="522" y1="110" x2="444" y2="110" stroke="var(--ink-3)" stroke-width="1.4" marker-end="url(#ar)"/>
+      <text x="483" y="96" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" font-weight="500" fill="var(--accent)">WiFi · UDP</text>
+      <text x="483" y="132" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="10" fill="var(--ink-3)">핫스팟</text>
+
+      <!-- box 3 -->
+      <rect x="526" y="72" width="186" height="76" rx="5" fill="var(--surface-2)" stroke="var(--rule)"/>
+      <text x="619" y="100" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="14" font-weight="600" fill="var(--ink)">PC (지상국)</text>
+      <text x="619" y="120" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="11" fill="var(--ink-3)">QGC · 파이썬 · ROS</text>
+      <text x="619" y="136" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9.5" fill="var(--ink-3)">MAVLink</text>
+
+      <!-- ports -->
+      <line x1="483" y1="150" x2="483" y2="178" stroke="var(--rule)" stroke-width="1"/>
+      <rect x="386" y="180" width="194" height="46" rx="4" fill="var(--surface)" stroke="var(--rule)"/>
+      <text x="483" y="197" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--ink-2)">14550/udp — 텔레메트리·명령</text>
+      <text x="483" y="214" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--ink-2)">5600/udp — 영상 (RTP)</text>
+
+      <!-- labels -->
+      <text x="201" y="42" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="10.5" font-weight="600" fill="var(--ink-3)">구간 A</text>
+      <text x="483" y="42" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="10.5" font-weight="600" fill="var(--ink-3)">구간 B</text>
+      <line x1="164" y1="50" x2="238" y2="50" stroke="var(--rule)" stroke-width="1"/>
+      <line x1="446" y1="50" x2="520" y2="50" stroke="var(--rule)" stroke-width="1"/>
+    </svg>
+    <p class="cap"><strong>구간 A</strong>가 끊기면 앱에 <code>No product connected</code>가 뜹니다 — 핫스팟과 무관합니다.<br><strong>구간 B</strong>가 끊기면 앱은 초록불인데 PC에만 아무것도 안 옵니다.</p>
+  </div>
+
+  <h3>번역은 완벽하지 않다</h3>
+
+  <p>공식 README에 <em>“DJI-Mavlink Translation Notes”</em>라는 절이 따로 있고, 첫 문장이 이렇습니다 <span class="pv pv-off">공식</span>:</p>
+
+  <div class="note">
+    <p>“여러 언어를 하는 사람이라면 알듯이, 번역이 완벽한 경우는 드물다. 여기서도 마찬가지다.”</p>
+  </div>
+
+  <p>이 문장이 이 프로젝트를 대하는 태도의 전부입니다. <strong>MAVLink 표준에 있는 기능이라고 해서 DJI 드론에서 되리라는 보장이 없습니다.</strong> 되는지는 던져 봐야 압니다. 7장에 번역이 어긋나는 지점들을 정리해 두었습니다.</p>
+</section>
+
+<!-- ══════════ 3 ══════════ -->
+<section id="c3">
+  <div class="chead"><span class="cnum">03</span><h2>왜 만들어졌나</h2></div>
+
+  <p>이 프로젝트의 출발점은 상업적 수요가 아니라 <strong>미 국방부의 대드론(counter-UAS) 시험 필요</strong>였습니다 <span class="pv pv-web">웹</span>.</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>누가</th><th>무엇을</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Ryan Beall</strong></td><td>Rogue Squadron 공동창립자. “DJI 드론을 MAVLink로 조종할 수 있지 않을까?”라는 최초 아이디어를 냄</td></tr>
+        <tr><td><strong>Mark D. Jacobsen</strong> (Lt Col)</td><td>그 아이디어를 받아 수개월간 직접 개발. 초기 공개 후 다른 팀원에게 인계</td></tr>
+        <tr><td><strong>Rogue Squadron</strong></td><td>DIUx(Defense Innovation Unit Experimental) 산하의 UAS/대UAS <em>레드팀</em>. 오픈소스로 공개</td></tr>
+        <tr><td><strong>9Tek AS</strong> (노르웨이) · <strong>IMATRONIX</strong></td><td>현재 유지보수 주체 <span class="pv pv-off">공식</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><strong>레드팀</strong>이란 아군 시스템을 적의 입장에서 공격해 취약점을 찾는 조직입니다. 대드론 장비를 시험하려면 <em>표적이 될 드론</em>을 프로그램으로 정밀하게 반복 비행시켜야 하는데, 시중에 가장 흔한 드론이 DJI였습니다. 그런데 DJI는 프로그램 제어 경로가 자사 SDK로만 열려 있었습니다.</p>
+
+  <p>개발자 본인이 밝힌 동기는 두 가지입니다 <span class="pv pv-web">웹</span>:</p>
+
+  <ol>
+    <li>DoD의 다양한 <strong>대UAS 시험 수요</strong>를 뒷받침할 것</li>
+    <li>DJI 사용자를 <strong>오픈소스 생태계에 노출</strong>시켜, 소비자가 “단일 외국 독점기업”에 묶이지 않도록 할 것</li>
+  </ol>
+
+  <div class="note">
+    <span class="lbl">우리에게 주는 함의</span>
+    <p>이 출신 배경이 코드 곳곳에 남아 있습니다. <strong>시험·계측이 1등 시민입니다.</strong> 조종사가 스틱을 건드리면 자동 명령을 즉시 끊고 사람에게 넘기는 장치, 스틱 위치와 스위치 상태를 MAVLink로 내보내는 기능, 기체 없이 도는 테스트 모드 — 전부 “사람의 개입을 계측하는 실험”을 위한 설계입니다. 우리 연구 목적과 정확히 겹칩니다.</p>
+  </div>
+</section>
+
+<!-- ══════════ 4 ══════════ -->
+<section id="c4">
+  <div class="chead"><span class="cnum">04</span><h2>계보와 포크 — 어느 저장소가 진짜인가</h2></div>
+
+  <p>검색하면 비슷한 이름의 저장소가 십여 개 나옵니다. 계보를 모르면 <strong>죽은 저장소나 다른 기종용 갈래를 붙들고 씨름하게 됩니다.</strong></p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>세대</th><th>저장소</th><th>상태</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>원조</td>
+          <td class="mono"><a href="https://github.com/diux-dev/rosettadrone">diux-dev/rosettadrone</a></td>
+          <td><strong style="color:var(--trap)">중단됨.</strong> “DIU is no longer maintaining this product” 공지가 붙어 있고, 유지보수 포크로 안내합니다. ★128 <span class="pv pv-web">웹</span></td>
+        </tr>
+        <tr>
+          <td>인수</td>
+          <td class="mono">The1only/rosettadrone</td>
+          <td>DIU가 안내한 유지보수 포크. 지금은 <strong>아래 공식 저장소로 리다이렉트</strong>됩니다 <span class="pv pv-web">웹</span></td>
+        </tr>
+        <tr>
+          <td><strong>현재</strong></td>
+          <td class="mono"><a href="https://github.com/RosettaDrone/rosettadrone">RosettaDrone/rosettadrone</a></td>
+          <td><strong style="color:var(--ok)">공식 · 활성.</strong> ★455 · 포크 157 · 열린 이슈 24 · 커밋 421. <em>우리가 쓰는 것</em> <span class="pv pv-web">웹</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note trap">
+    <span class="lbl">혼동 주의</span>
+    <p>검색 상위에 <code>rosettadrone_mini2</code>라는 이름의 포크가 여럿 뜹니다(cbayerlein, m4xw, tvixen, gab933, sparkyws 등). 이들은 <strong>DJI Mini 2용으로 갈라진 별개 갈래</strong>입니다. 설명문이 거의 같아서 공식과 구별이 안 되지만, <strong>우리 Mavic 2 작업과는 상관없습니다.</strong> 이슈를 검색할 때 이 포크들의 이슈를 우리 것으로 착각하지 마세요.</p>
+  </div>
+
+  <h3>우리가 고정해 쓰는 지점</h3>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>항목</th><th class="mono">값</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td>브랜치</td><td class="mono">master</td><td>계획서에 있던 <code>face_lift</code>는 <strong>존재하지 않습니다</strong> (실제: master / V4.14 / work / work_branch) <span class="pv pv-src">소스</span></td></tr>
+        <tr><td>커밋</td><td class="mono">805ca9e</td><td>2025-01-09 · “Fix motion bugs” <span class="pv pv-src">소스</span></td></tr>
+        <tr><td>앱 버전</td><td class="mono">5.2.0</td><td><code>app/build.gradle</code> versionName <span class="pv pv-src">소스</span></td></tr>
+        <tr><td>DJI MSDK</td><td class="mono">4.16.4</td><td>UXSDK 4.16 <span class="pv pv-src">소스</span></td></tr>
+        <tr><td>빌드 환경</td><td class="mono">Gradle 6.8.3</td><td>compileSdk 33 · minSdk 24 · JDK 11 필요 <span class="pv pv-src">소스</span></td></tr>
+        <tr><td>라이선스</td><td class="mono">BSD-3</td><td>미 연방정부 코드 특례는 <code>INTENT.md</code> 참조 <span class="pv pv-off">공식</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <span class="lbl">왜 master인가</span>
+    <p>README에 Mavic 2와 Smart Controller 지원이 명시돼 있고, <strong>jcenter(옛 자바 라이브러리 저장소) 폐쇄에 대응하는 미러 설정이 master에만</strong> 들어 있습니다. V4.14로 갔으면 DJI SDK를 내려받지 못해 빌드가 실패합니다 <span class="pv pv-src">소스</span>.</p>
+  </div>
+</section>
+
+<!-- ══════════ 5 ══════════ -->
+<section id="c5">
+  <div class="chead"><span class="cnum">05</span><h2>용어 사전</h2></div>
+
+  <p>이 문서와 작업 중에 나오는 모든 약어입니다. <strong>설명에 쓰인 단어가 또 모르는 단어가 되지 않도록</strong> 풀어 썼습니다.</p>
+
+  <h3>통신 프로토콜</h3>
+  <dl class="gl">
+    <div><dt>MAVLink<span>Micro Air Vehicle Link</span></dt><dd>드론과 지상국이 주고받는 <em>공용 메시지 규약</em>. 2009년 Lorenz Meier가 만들었습니다. 통신 대역이 좁은 환경을 전제로 설계돼 매우 가볍습니다. 텔레메트리는 <em>계속 흘려보내는 방식</em>, 미션·설정은 <em>요청-응답 방식</em>으로 나뉘어 있습니다 <span class="pv pv-web">웹</span></dd></div>
+    <div><dt>MAVLink v1 / v2</dt><dd>규약의 두 세대. v1은 패킷당 부가정보 8바이트, v2는 12바이트에 서명·확장 기능이 붙었습니다. <strong>우리 앱은 v2를 씁니다</strong> <span class="pv pv-mes">실측</span></dd></div>
+    <div><dt>truncation<span>절단</span></dt><dd>v2가 대역폭을 아끼려고 <em>메시지 뒤쪽의 0을 잘라서 보내는</em> 기법. 길이만 보고 거르면 멀쩡한 메시지를 통째로 놓칩니다. 받는 쪽에서 <strong>0을 도로 채워 원래 길이로 복원한 뒤</strong> 읽어야 합니다 <span class="pv pv-mes">실측</span></dd></div>
+    <div><dt>dialect<span>방언</span></dt><dd>MAVLink 메시지 목록을 정의한 XML 파일. 기본은 <code>common.xml</code>이고, 제조사·기종별 방언이 그 위에 얹힙니다. RosettaDrone은 <strong>ArduPilot 방언</strong>을 씁니다 — README에 “선호의 표명이 아니라 호환성 때문”이라고 명시돼 있습니다 <span class="pv pv-off">공식</span></dd></div>
+    <div><dt>HEARTBEAT</dt><dd>“나 살아 있다”를 알리는 주기 메시지. 보통 1초에 한 번. 이게 끊기면 상대가 연결이 죽었다고 판단합니다. 기체 종류·비행모드·시동 여부가 함께 실려 옵니다</dd></div>
+    <div><dt>COMMAND_LONG</dt><dd>지상국이 드론에 명령을 내릴 때 쓰는 메시지 통. 안에 <em>어떤 명령인지</em>(MAV_CMD 번호)와 매개변수 7개가 들어갑니다. 메시지 번호는 76번</dd></div>
+    <div><dt>COMMAND_ACK</dt><dd>명령을 받은 쪽이 “받았고 결과는 이렇다”고 돌려주는 답장. 메시지 번호 77번. 안에 <strong>MAV_RESULT</strong> 값이 들어 있습니다</dd></div>
+    <div><dt>MAV_RESULT</dt><dd>명령 처리 결과 코드. <strong>이 값을 잘못 읽으면 성공을 실패로 오해합니다.</strong> 0=수락(ACCEPTED), 1=일시거부, 2=거부(DENIED), 3=미지원, 4=실패, <strong>5=실행 중(IN_PROGRESS)</strong>, 6=취소 <span class="pv pv-src">소스</span></dd></div>
+    <div><dt>type_mask</dt><dd>위치·속도·가속도·기수각 중 <em>어떤 것을 쓰고 어떤 것을 무시할지</em>를 비트로 표시한 16비트 값. 속도만 쓰려면 위치·가속도·기수 비트를 켜서(=무시) 속도 비트만 끕니다. 값 3527(<code>0b110111000111</code>)이 그 조합입니다 <span class="pv pv-mes">실측</span></dd></div>
+    <div><dt>NED 좌표계<span>North-East-Down</span></dt><dd>북·동·<strong>아래</strong>를 양의 방향으로 잡는 항공 표준 좌표계. <em>Z가 아래로 양수</em>인 점이 함정입니다. 고도를 올리려면 <code>vz</code>에 음수를 넣어야 합니다</dd></div>
+    <div><dt>setpoint<span>목표값</span></dt><dd>제어기에게 “이 값이 되게 하라”고 주는 목표. 속도 setpoint를 주면 드론이 그 속도가 되도록 스스로 자세를 잡습니다</dd></div>
+    <div><dt>업링크 / 다운링크</dt><dd><strong>업링크</strong> = PC → 드론 방향(명령). <strong>다운링크</strong> = 드론 → PC 방향(상태 보고). 둘은 독립적이라 한쪽만 되는 상황이 흔합니다</dd></div>
+    <div><dt>텔레메트리<span>telemetry</span></dt><dd>원격 계측 데이터. 위치·자세·배터리·GPS 같은, 기체가 계속 보고하는 상태값 전부</dd></div>
+    <div><dt>UDP</dt><dd>인터넷 통신 방식 중 하나. 빠르지만 <em>도착을 보장하지 않고</em>, 실패해도 알려주지 않습니다. 방화벽이 막으면 <strong>아무 에러 없이 조용히 사라집니다</strong> — 드론 통신 문제 진단이 어려운 근본 이유</dd></div>
+  </dl>
+
+  <h3>지상국 소프트웨어와 라이브러리</h3>
+  <dl class="gl">
+    <div><dt>GCS<span>Ground Control Station</span></dt><dd>지상관제국. 드론을 감시·조종하는 지상 쪽 소프트웨어 전반. 우리 구성에서는 <em>PC</em>가 GCS입니다</dd></div>
+    <div><dt>QGroundControl<span>QGC</span></dt><dd>가장 널리 쓰이는 오픈소스 GCS. MAVLink의 사실상 기준 구현체. 지도에 기체를 띄우고 미션을 그려 넣을 수 있습니다</dd></div>
+    <div><dt>Mission Planner</dt><dd>ArduPilot 진영의 GCS. 윈도우 중심. QGC의 경쟁자</dd></div>
+    <div><dt>MAVProxy</dt><dd>명령줄 기반 GCS이자 <em>중계기</em>. 하나의 연결을 여러 프로그램에 나눠줄 때 씁니다. README가 “QGC와 DroneKit을 동시에 붙이는” 용도로 권합니다 <span class="pv pv-off">공식</span></dd></div>
+    <div><dt>pymavlink</dt><dd>MAVLink를 다루는 파이썬 저수준 라이브러리. 메시지를 직접 만들고 뜯습니다. <strong>연구·커스텀 도구에 적합</strong> <span class="pv pv-web">웹</span></dd></div>
+    <div><dt>DroneKit-Python</dt><dd>고수준 파이썬 제어 라이브러리. README가 권장하지만 <strong>5년 이상 갱신이 없는 사실상 방치된 프로젝트</strong>입니다. 새로 시작한다면 권하지 않습니다 <span class="pv pv-web">웹</span></dd></div>
+    <div><dt>MAVSDK</dt><dd>DroneKit의 실질적 후계. C++/Python/Swift/Java/JS 지원, MAVLink 표준 준수를 목표로 활발히 유지보수됩니다 <span class="pv pv-web">웹</span></dd></div>
+    <div><dt>MAVROS</dt><dd>ROS와 MAVLink를 잇는 다리. ROS 토픽을 MAVLink 메시지로 바꿔 줍니다. <strong>우리 연구 파이프라인과 직결</strong> — <a href="#c10">10장</a> 참조</dd></div>
+    <div><dt>ArduPilot / PX4</dt><dd>대표적인 두 오픈소스 비행제어 펌웨어. MAVLink 생태계의 양대 축. 우리 드론에 이 펌웨어가 도는 건 아니고, <em>앱이 이 펌웨어인 척 흉내</em>냅니다</dd></div>
+    <div><dt>SITL<span>Software In The Loop</span></dt><dd>실물 하드웨어 없이 <em>컴퓨터 안에서만</em> 비행 펌웨어를 돌려 시험하는 방식</dd></div>
+    <div><dt>HIL<span>Hardware In The Loop</span></dt><dd>실제 기체와 조종기를 연결해 두되 <em>날리지는 않고</em> 미션 논리만 검증하는 방식. RosettaDrone의 시뮬레이터가 이 방식입니다 <span class="pv pv-off">공식</span></dd></div>
+  </dl>
+
+  <h3>DJI 쪽 용어</h3>
+  <dl class="gl">
+    <div><dt>MSDK<span>Mobile SDK</span></dt><dd>DJI가 제공하는 모바일 앱 개발 도구. 이걸 통해야만 DJI 드론을 프로그램으로 제어할 수 있습니다. <strong>우리는 4.16.4를 씁니다</strong></dd></div>
+    <div><dt>UXSDK</dt><dd>MSDK 위에 얹는 화면 부품 모음(지도·영상창·계기판 등). 앱 UI를 빨리 만들라고 DJI가 제공</dd></div>
+    <div><dt>VirtualStick<span>가상 스틱</span></dt><dd><strong>이 프로젝트의 핵심 장치.</strong> 사람이 조종 스틱을 움직인 것처럼 <em>프로그램이 스틱 값을 만들어 넣는</em> DJI 기능. RosettaDrone은 MAVLink 속도 명령을 받아 이걸로 바꿔 넣습니다. DJI가 웨이포인트를 지원하지 않는 기종에서도 미션을 날릴 수 있는 이유 <span class="pv pv-src">소스</span></dd></div>
+    <div><dt>P 모드</dt><dd>DJI 기체의 기본 비행 모드(Positioning). GPS·비전으로 위치를 잡아 제자리를 유지합니다. <strong>가상 스틱은 P 모드에서만 허용됩니다</strong> <span class="pv pv-src">소스</span></dd></div>
+    <div><dt>OcuSync</dt><dd>DJI의 독자 영상·제어 무선 전송 기술. 기체와 조종기 사이를 잇습니다. <strong>WiFi가 아니고, 우리가 손댈 수 없습니다</strong></dd></div>
+    <div><dt>App Key</dt><dd>DJI 개발자 사이트에서 발급받는 앱 인증 키. 패키지 이름(<code>sq.rogue.rosettadrone</code>)과 짝이 맞아야 하고, 앱 실행 시 <strong>DJI 서버에 인터넷으로 확인</strong>합니다 — 그래서 오프라인이나 시계 오류에서 실패합니다</dd></div>
+    <div><dt>RM500</dt><dd>DJI Smart Controller의 모델명. <em>화면이 달린 조종기 자체가 안드로이드 기기</em>라, 별도 태블릿 없이 앱을 그 안에서 돌립니다</dd></div>
+  </dl>
+
+  <h3>영상 관련</h3>
+  <dl class="gl">
+    <div><dt>H.264</dt><dd>가장 널리 쓰이는 동영상 압축 방식. DJI 기체가 이 형식으로 영상을 보냅니다</dd></div>
+    <div><dt>RTP<span>Real-time Transport Protocol</span></dt><dd>실시간 영상·음성을 UDP로 흘려보내는 규약. RosettaDrone은 H.264를 RTP로 포장해 5600 포트로 쏩니다 <span class="pv pv-src">소스</span></dd></div>
+    <div><dt>NAL 단위<span>Network Abstraction Layer</span></dt><dd>H.264 영상을 전송용으로 자른 조각. 종류가 있는데 <strong>SPS·PPS</strong>는 “이 영상을 어떻게 풀어야 하는지”를 담은 설명서 조각입니다. <em>이게 안 오면 화면이 안 뜹니다</em></dd></div>
+    <div><dt>SDP 파일</dt><dd>“이 포트로 이런 형식의 영상이 온다”를 적어 둔 작은 안내 파일. <code>ffplay</code>에 이걸 물려 주면 RTP 영상을 열 수 있습니다</dd></div>
+  </dl>
+
+  <h3>드론 일반</h3>
+  <dl class="gl">
+    <div><dt>UAS / sUAS</dt><dd>Unmanned Aircraft System(무인항공기 시스템). <strong>s</strong>는 small — 소형 무인기</dd></div>
+    <div><dt>C-UAS<span>counter-UAS</span></dt><dd>대드론. 적성 드론을 탐지·무력화하는 기술 분야. <strong>RosettaDrone의 탄생 배경</strong></dd></div>
+    <div><dt>waypoint 미션</dt><dd>좌표점을 여러 개 미리 넣어 두고 순서대로 자동 비행시키는 방식. 우리 연구 파이프라인의 기본형</dd></div>
+    <div><dt>ARM / DISARM<span>시동 / 시동 정지</span></dt><dd>모터에 전원을 넣어 회전 가능 상태로 만드는 것. <strong>QGC의 ARM 버튼은 이 앱에서 동작하지 않습니다</strong> — 이유는 <a href="#c9">9장</a></dd></div>
+    <div><dt>RTL / RTH</dt><dd>Return To Launch / Return To Home. 이륙 지점으로 자동 복귀</dd></div>
+    <div><dt>짐벌<span>gimbal</span></dt><dd>카메라를 흔들림 없이 고정하고 각도를 돌리는 장치</dd></div>
+  </dl>
+
+  <h3>빌드·도구 쪽 약어</h3>
+  <dl class="gl">
+    <div><dt>APK</dt><dd>안드로이드 앱 설치 파일. 우리가 빌드해서 만든 결과물이 <strong>188MB짜리 APK</strong>입니다. 이걸 RM500에 넣어 설치합니다</dd></div>
+    <div><dt>jcenter</dt><dd>과거에 널리 쓰이던 자바 라이브러리 저장소. <strong>폐쇄됐습니다.</strong> 옛 프로젝트들이 여기서 라이브러리를 받도록 돼 있어 그대로 빌드하면 실패합니다. RosettaDrone의 <code>master</code> 브랜치에만 대체 저장소 설정이 들어 있는 이유 <span class="pv pv-src">소스</span></dd></div>
+    <div><dt>git LFS<span>Large File Storage</span></dt><dd>git이 큰 파일을 따로 관리하게 해주는 확장. 이 저장소에 큰 파일이 있어서 <strong>LFS 없이 clone하면 파일이 껍데기만 받아집니다</strong> — 빌드는 되는데 앱이 실행 즉시 죽습니다 <span class="pv pv-off">공식</span></dd></div>
+    <div><dt>NPE<span>NullPointerException</span></dt><dd>자바에서 <em>“없는 것을 쓰려 해서”</em> 프로그램이 죽는 대표적 오류. 있어야 할 객체가 비어 있는데 검사 없이 접근할 때 납니다. 우리 앱의 미패치 지뢰가 이 종류입니다 (<a href="#c9">9장 함정 4</a>)</dd></div>
+    <div><dt>JNI<span>Java Native Interface</span></dt><dd>자바 코드가 C/C++로 짠 부분을 호출하는 통로. 영상 디코딩처럼 속도가 중요한 곳에 씁니다</dd></div>
+    <div><dt>hdop / vdop</dt><dd>GPS 정확도를 나타내는 표준 지표(수평/수직 정밀도 저하율). <strong>DJI는 이 값을 보고하지 않습니다</strong> — MAVLink 쪽 GPS 정확도 표시가 부정확한 이유 <span class="pv pv-off">공식</span></dd></div>
+    <div><dt>GMS<span>Google Mobile Services</span></dt><dd>구글 지도·로그인 등을 제공하는 안드로이드 기본 서비스 묶음. <strong>RM500에는 없는 게 정상</strong>입니다(중국 내수 계열). 경고가 떠도 기체 연결과는 무관합니다</dd></div>
+    <div><dt>Gstreamer · FFMPEG · OpenCV</dt><dd>영상을 받아 처리하는 대표 도구 셋. <em>Gstreamer/FFMPEG</em>는 영상 스트림을 열고 디코딩하는 도구, <em>OpenCV</em>는 그 영상에서 물체를 찾는 등 분석하는 라이브러리. README가 “복합 AI 기능”을 만들 때 쓰라고 권합니다</dd></div>
+    <div><dt>ffplay</dt><dd>FFMPEG에 딸려 오는 간단한 영상 재생기. SDP 파일을 물려 주면 RTP 영상을 바로 띄울 수 있습니다</dd></div>
+    <div><dt>gscam</dt><dd>Gstreamer 영상을 ROS 이미지 토픽으로 바꿔 주는 ROS 패키지. 드론 영상을 ROS 세계로 끌어올 때 씁니다 (<a href="#c10">10장</a>)</dd></div>
+    <div><dt>WebRTC</dt><dd>브라우저끼리 실시간 영상·음성을 주고받는 기술. 앱에 설정 항목이 있지만 기본 꺼짐이고 우리는 쓰지 않습니다</dd></div>
+    <div><dt>STUN 서버</dt><dd>WebRTC가 공유기 뒤에 있는 기기의 실제 주소를 알아내려고 물어보는 서버. WebRTC를 쓸 때만 의미가 있습니다</dd></div>
+  </dl>
+</section>
+
+<!-- ══════════ 6 ══════════ -->
+<section id="c6">
+  <div class="chead"><span class="cnum">06</span><h2>어떻게 동작하나</h2></div>
+
+  <p>앱이 실제로 주고받는 메시지를 소스에서 전부 뽑았습니다 <span class="pv pv-src">소스</span>. “이건 될까?”를 추측하지 말고 이 표를 보세요.</p>
+
+  <h3>다운링크 — 드론이 PC로 보내는 것 (32종)</h3>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>분류</th><th>메시지</th><th>담긴 것</th></tr></thead>
+      <tbody>
+        <tr><td>위치·자세</td><td class="mono">GLOBAL_POSITION_INT<br>GPS_RAW_INT · ATTITUDE<br>ALTITUDE · VFR_HUD</td><td>위경도·고도·속도·롤/피치/요·위성 수</td></tr>
+        <tr><td>상태</td><td class="mono">HEARTBEAT · SYS_STATUS<br>POWER_STATUS · VIBRATION</td><td>비행모드·시동 여부·시스템 건강</td></tr>
+        <tr><td>배터리</td><td class="mono">BATTERY_STATUS</td><td>잔량%·전압·전류·소비량</td></tr>
+        <tr><td><strong>조종사 개입</strong></td><td class="mono">RC_CHANNELS<br>MANUAL_CONTROL</td><td><strong>스틱 4축 위치 · C1/C2/C3 버튼 · 비행모드 스위치</strong></td></tr>
+        <tr><td>통신</td><td class="mono">RADIO_STATUS</td><td>링크 강도 (README상 미구현으로 표기)</td></tr>
+        <tr><td>미션</td><td class="mono">MISSION_ITEM_REACHED<br>MISSION_ACK · MISSION_COUNT</td><td>몇 번 웨이포인트에 도달했는지</td></tr>
+        <tr><td>카메라</td><td class="mono">CAMERA_IMAGE_CAPTURED</td><td>촬영 시각·좌표</td></tr>
+        <tr><td>로그·설정</td><td class="mono">STATUSTEXT · PARAM_VALUE<br>FILE_TRANSFER_PROTOCOL</td><td>앱이 보내는 문구, 설정값, 파일 전송</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note ok">
+    <span class="lbl">연구에 가장 중요한 것</span>
+    <p><code>RC_CHANNELS</code>가 <strong>조종사의 스틱 위치와 버튼 상태를 실시간으로 PC에 보냅니다.</strong> 자율 제어 중 사람이 언제 어떻게 개입했는지를 그대로 기록할 수 있습니다. 게다가 앱이 <em>스틱이 움직이면 자율 명령을 자동으로 끊습니다</em> — 개입 실험의 안전장치가 이미 들어 있습니다.</p>
+  </div>
+
+  <h3>업링크 — PC가 드론에 보낼 수 있는 것 (28종)</h3>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>할 수 있는 것</th><th>명령</th></tr></thead>
+      <tbody>
+        <tr><td>비행</td><td class="mono">NAV_TAKEOFF · NAV_LAND · NAV_RETURN_TO_LAUNCH<br>NAV_LOITER_UNLIM · COMPONENT_ARM_DISARM</td></tr>
+        <tr><td>미션</td><td class="mono">MISSION_ITEM_INT · MISSION_START<br>MISSION_SET_CURRENT · MISSION_CLEAR_ALL · DO_JUMP</td></tr>
+        <tr><td><strong>실시간 제어</strong></td><td class="mono">SET_POSITION_TARGET_LOCAL_NED<br>SET_POSITION_TARGET_GLOBAL_INT</td></tr>
+        <tr><td>자세·속도</td><td class="mono">CONDITION_YAW · DO_CHANGE_SPEED</td></tr>
+        <tr><td>모드</td><td class="mono">SET_MODE · DO_SET_MODE · DO_SET_HOME</td></tr>
+        <tr><td>카메라·짐벌</td><td class="mono">IMAGE_START_CAPTURE · VIDEO_START/STOP_CAPTURE<br>SET_CAMERA_ZOOM · SET_CAMERA_FOCUS<br>DO_MOUNT_CONTROL · DO_GIMBAL_MANAGER_PITCHYAW</td></tr>
+        <tr><td>설정</td><td class="mono">PARAM_SET · SET_MESSAGE_INTERVAL</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>속도 명령이 실제로 흐르는 경로</h3>
+
+  <p>MAVLink 속도 명령 하나가 모터까지 가는 길입니다. 각 단계에 관문이 있어서, 어디서 막혔는지 알면 진단이 빨라집니다 <span class="pv pv-src">소스</span>.</p>
+
+<pre><span class="cm">① PC가 SET_POSITION_TARGET_LOCAL_NED (메시지 84번) 발사</span>
+     ↓
+<span class="cm">② MAVLinkReceiver.java:344 — 수신, type_mask 해석</span>
+     ↓
+<span class="cm">③ Motion 생성자 (DroneModel.java:2109)</span>
+     <b>send_command_ack(84, MAV_RESULT_IN_PROGRESS)</b>   <span class="cm">← 여기서 "결과 5"가 돌아온다</span>
+     ↓
+<span class="cm">④ startMotion() — 관문 A</span>
+     <span class="hi">if (now &lt; timerIgnoreMavLink) return;</span>   <span class="cm">← 스틱 건드리면 5초간 조용히 무시</span>
+     setVirtualSticksEnabled(true)          <span class="cm">← 가상 스틱 자동 활성화</span>
+     setControlModes()                      <span class="cm">← roll/pitch/vertical = 속도, yaw = 각속도</span>
+     ↓
+<span class="cm">⑤ processVelocities() — 좌표 변환</span>
+     LOCAL_NED 이면 현재 기수각으로 회전 → 전/우 성분으로 변환
+     ↓
+<span class="cm">⑥ setVelocities() — 관문 B</span>
+     <span class="hi">if (isForbiddenSwitchMode()) return;</span>   <span class="cm">← RC 모드스위치가 금지 위치면 차단</span>
+     ↓
+<span class="cm">⑦ DJI SDK</span>
+     <b>sendVirtualStickFlightControlData(pitch, roll, yawRate, throttle)</b>
+     ↓
+<span class="cm">⑧ 기체</span>  <span class="hi">← 여기서부터는 DJI의 영역. 지상 정지 상태면 아무 일도 안 일어난다</span></pre>
+
+  <div class="note trap">
+    <span class="lbl">관문 A가 제일 위험합니다</span>
+    <p><strong>조종기 스틱을 중립에서 ±50 이상 움직이면, 그 뒤 5초 동안 MAVLink 명령이 전부 무시됩니다.</strong> 에러도 로그도 PC로 오는 메시지도 없습니다. 그냥 <code>return</code>합니다. 시험 전에 <strong>스틱에서 손을 떼고 5초를 기다리세요</strong> <span class="pv pv-src">소스</span> <code>DroneModel.java:1265</code></p>
+  </div>
+
+  <h3>좌표계 두 가지</h3>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>coordinate_frame</th><th class="mono">값</th><th>vx의 의미</th></tr></thead>
+      <tbody>
+        <tr><td><code>MAV_FRAME_LOCAL_NED</code></td><td class="mono">1</td><td><strong>북쪽</strong> 방향 속도. 앱이 현재 기수각으로 회전시켜 전/우로 바꿉니다</td></tr>
+        <tr><td><code>MAV_FRAME_BODY_NED</code></td><td class="mono">8</td><td><strong>기수 방향</strong> 속도. 직관적이라 지상 시험에 적합합니다</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════ 7 ══════════ -->
+<section id="c7">
+  <div class="chead"><span class="cnum">07</span><h2>공식 GitHub 내용 정리</h2></div>
+
+  <p><a href="https://github.com/RosettaDrone/rosettadrone">공식 저장소</a> README 전문(235줄)을 절별로 정리했습니다 <span class="pv pv-off">공식</span>.</p>
+
+  <h3>지원 기종</h3>
+  <p><strong>시험된 기종:</strong> DJI Mini · Mini SE · Mini 2 · Air · Air 2S · <strong>Mavic 2</strong> · Mavic Pro · Mavic AIR 시리즈 · Matrice 210 V2</p>
+  <p><strong>호환 소프트웨어:</strong> QGroundControl · Mission Planner · ArduCopter SITL · DroneKit-Python · MAVProxy · MAVSDK · DJI SDK 4.16.1</p>
+
+  <h3>기능 목록</h3>
+  <ul>
+    <li>QGC에 텔레메트리 보고 — 위치·자세·상대고도·기수방향·배터리 잔량</li>
+    <li>QGC에서 Return-to-Launch 명령</li>
+    <li>드론 영상을 QGC에서 보거나 원하는 IP로 RTP 전달 <em>(README는 Mavic Pro 2만이라고 표기)</em></li>
+    <li>웨이포인트 미션 작성·비행 (가상 스틱 사용/미사용 양쪽)</li>
+    <li>조이스틱 + QGC로 조종</li>
+    <li>DroneKit 파이썬에서 비행</li>
+    <li>MAVProxy로 QGC와 DroneKit을 <strong>동시에</strong> 연결</li>
+    <li>Gstreamer/OpenCV/FFMPEG + DroneKit으로 복합 AI 기능 구성</li>
+  </ul>
+
+  <h3>MissionManager — 최신 버전의 핵심 변경</h3>
+  <p>README의 “What's New” 절이 설명하는 내용입니다. 새 <strong>MissionManager</strong>는 MAVLink를 직접 해석하고 <em>가상 스틱으로</em> 미션을 수행합니다. 덕분에 DJI가 기체 자체에 웨이포인트 기능을 넣지 않은 Mini 시리즈에서도 미션 비행이 가능해졌습니다. 웨이포인트를 지원하는 기종에서도 <em>DJI 기본 비행제어기보다 나은 결과</em>를 낼 수 있는 대안이라고 밝히고 있습니다.</p>
+
+  <h3>DJI–MAVLink 번역이 어긋나는 지점</h3>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>항목</th><th>실제 동작</th></tr></thead>
+      <tbody>
+        <tr><td>QGC의 <strong>ARM 버튼</strong></td><td><strong>설계상 동작하지 않습니다.</strong> Takeoff 또는 Start Mission으로 시동을 겁니다</td></tr>
+        <tr><td>기수 방향</td><td>DJI는 <em>진북</em> 기준으로 보고하고 앱이 그대로 전달합니다. MAVLink 규약은 자북/진북을 구분하지 않아 혼동 여지가 있습니다</td></tr>
+        <tr><td>GPS 정확도</td><td>DJI와 MAVLink의 척도가 다릅니다. DJI는 hdop·vdop을 보고하지 않습니다</td></tr>
+        <tr><td>속도</td><td>대지속도와 대기속도를 <strong>같은 값으로</strong> 보고하며 바람 보정을 하지 않습니다</td></tr>
+        <tr><td>웨이포인트 동작</td><td>구현된 것은 <em>대기 · 사진 촬영 · 짐벌 각도 변경</em> 셋뿐입니다</td></tr>
+        <tr><td>배터리 경고</td><td>기체·조종기 모두 20% / 10% / 5%에서 경고. 소리는 아직 없음</td></tr>
+        <tr><td>C3 스위치</td><td>스위치 상태 보고 + <strong>시동 상태면 자동 이륙까지 수행</strong>. 개발자도 되돌릴 수 있다고 적어 둠</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>알려진 문제 (사용자용)</h3>
+  <ul>
+    <li>QGC 실행 중에 UDP 포트를 바꾸면 <strong>QGC를 재시작</strong>해야 할 수 있습니다</li>
+    <li>영상 UDP 포트를 바꾸면 <strong>RosettaDrone을 재시작</strong>해야 할 수 있습니다</li>
+    <li>앱이 가끔 멈췄다 재시작합니다 — 개발사도 인지하고 있으며 MAVLink 계층 문제로 추정</li>
+    <li><strong>이륙 후 GOTO를 누르면 앱이 에러 상태에 빠집니다.</strong> → 우리 파이프라인은 단일 목표점이 아니라 <em>미션 방식</em>으로 가야 합니다</li>
+  </ul>
+
+  <h3>알려진 문제 (개발자용)</h3>
+  <p>MAVLink 코드 생성기의 자바 출력에 오류가 있어(<a href="https://github.com/mavlink/mavlink/issues/805">#805</a>, <a href="https://github.com/mavlink/mavlink/issues/806">#806</a>) <strong>생성 후 손으로 고친 코드</strong>가 들어 있습니다. 자동 생성 파일을 그냥 덮어쓰면 깨집니다. 현재는 double 처리 누락에만 해당됩니다.</p>
+
+  <h3>테스트 모드와 시뮬레이터</h3>
+  <div class="grid2">
+    <div class="panel">
+      <h4>테스트 모드 <span class="tag">기체 불필요</span></h4>
+      <p>앱의 <strong>드론 아이콘을 5번 탭</strong>하면 켜집니다. 기체 없이 MAVLink 통신과 화면만 시험합니다. 가짜 좌표를 내보냅니다.</p>
+    </div>
+    <div class="panel">
+      <h4>시뮬레이터 <span class="tag">HIL</span></h4>
+      <p>조종기와 기체를 <strong>실제로 연결한 채</strong> 날리지 않고 미션을 검증합니다. 앞으로의 기본 시험대가 되어야 합니다.</p>
+    </div>
+  </div>
+
+  <h3>README의 DroneKit 짐벌 예제</h3>
+  <p>공식 README가 싣고 있는 유일한 코드 예제입니다. RC 채널 8·9로 짐벌을 움직입니다.</p>
+
+<pre>def set_servo(servo, val):
+    msg = vehicle.message_factory.command_long_encode(
+            0,                                        <span class="cm"># time_boot_ms (미사용)</span>
+            0, 0,                                     <span class="cm"># target system, component</span>
+            mavutil.mavlink.MAV_CMD_DO_SET_SERVO,
+            0,
+            servo,                                    <span class="cm"># RC 채널 번호</span>
+            1500 + (val * 5.5),                       <span class="cm"># RC 값</span>
+            0, 0, 0, 0, 0)
+    vehicle.send_mavlink(msg)
+    vehicle.flush()
+
+<span class="cm"># 사용: 짐벌을 -45도로</span>
+set_servo(8, -45.0)</pre>
+
+  <div class="note trap">
+    <span class="lbl">이 예제를 그대로 쓰지 마세요</span>
+    <p>DroneKit은 <strong>5년 넘게 갱신이 없습니다</strong> <span class="pv pv-web">웹</span>. 같은 일을 <code>pymavlink</code>로 하면 의존성도 줄고 유지보수도 됩니다. 명령 자체(<code>MAV_CMD_DO_SET_SERVO</code>)는 유효하니 <em>전달 수단만</em> 바꾸면 됩니다.</p>
+  </div>
+
+  <h3>안전 경고 (README 원문)</h3>
+  <div class="note trap">
+    <p>“항상 프로펠러에서 떨어져 있으라. 드론이 예기치 않게 시동되거나 이륙하는 것을 막으려면 RosettaDrone의 <strong>Safe Mode</strong>를 사용하라. 새 버전을 시험할 때는 먼저 <strong>시뮬레이터로</strong> 시험하라. 이 소프트웨어는 실험적이며 지속적으로 개발 중이다. 사용함으로써 발생하는 모든 피해에 대한 책임은 사용자에게 있다.”</p>
+  </div>
+</section>
+
+<!-- ══════════ 8 ══════════ -->
+<section id="c8">
+  <div class="chead"><span class="cnum">08</span><h2>설정 화면 전체 지도</h2></div>
+
+  <p>앱 설정에 있는 <strong>모든</strong> 항목입니다. <code>res/xml/preferences.xml</code>과 <code>strings.xml</code>에서 직접 추출했습니다 <span class="pv pv-src">소스</span>. “뭐가 있는지 몰라서 짐작으로 켜고 끄는” 상황을 없애기 위한 표입니다.</p>
+
+  <div class="note trap">
+    <span class="lbl">설정을 바꿨으면 강제 중지</span>
+    <p>이 앱은 <strong>시작할 때 설정을 한 번 읽고 기억해 둡니다.</strong> 실행 중에 바꾼 값이 반영되지 않는 항목이 많습니다(특히 영상). 설정을 바꾼 뒤에는 <strong>설정 → 앱 → RosettaDrone → 강제 중지 → 다시 열기</strong>를 규칙으로 삼으세요 <span class="pv pv-src">소스</span> <code>MainActivity.java:773</code></p>
+  </div>
+
+  <h3>Telemetry — PC 연결</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>키</th><th>표시명</th><th class="mono">기본값</th><th>우리 설정</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">pref_external_gcs</td><td>Use external device for GCS</td><td class="mono">false</td><td><strong>켬</strong> — PC를 GCS로 쓰려면 필수</td></tr>
+        <tr><td class="mono">pref_gcs_ip</td><td>Host 1</td><td class="mono">127.0.0.1</td><td><strong>PC의 IP</strong></td></tr>
+        <tr><td class="mono">pref_telem_port</td><td>Port 1</td><td class="mono">14550</td><td>그대로</td></tr>
+        <tr><td class="mono">pref_secondary_telemetry_enabled</td><td>Enable Telemetry 2</td><td class="mono">false</td><td><strong>켤 만함</strong> — 아래 설명</td></tr>
+        <tr><td class="mono">pref_secondary_telemetry_ip / _port</td><td>Host 2 / Port 2</td><td class="mono">127.0.0.1 / 18990</td><td>같은 PC + 다른 포트</td></tr>
+        <tr><td class="mono">pref_telemetry_3_enabled …</td><td>Enable Telemetry 3</td><td class="mono">false</td><td>예비</td></tr>
+        <tr><td class="mono">pref_telemetry_4_enabled …</td><td>Enable Telemetry 4</td><td class="mono">false</td><td>예비</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note ok">
+    <span class="lbl">알아 두면 편한 것</span>
+    <p><strong>텔레메트리를 4계통까지 동시에 보낼 수 있습니다.</strong> Host 2에 같은 PC IP와 다른 포트를 넣으면, QGC와 파이썬 도구를 <em>포트 충돌 없이 동시에</em> 쓸 수 있습니다. 지금처럼 도구를 하나씩 번갈아 켜는 불편이 사라집니다.</p>
+  </div>
+
+  <h3>Video — 영상</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>키</th><th>표시명</th><th class="mono">기본값</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">pref_enable_video</td><td>Enable video feed</td><td class="mono">true</td><td>켠 뒤 <strong>반드시 앱 재시작</strong></td></tr>
+        <tr><td class="mono">pref_enable_dualvideo</td><td>Enable second video feed on port+1</td><td class="mono">false</td><td>두 번째 스트림</td></tr>
+        <tr><td class="mono">pref_separate_gcs</td><td>Separate video address from GCS</td><td class="mono">false</td><td><strong>끈 채로 두기</strong> — 끄면 GCS IP를 그대로 씁니다</td></tr>
+        <tr><td class="mono">pref_video_ip</td><td>Video IP address</td><td class="mono">127.0.0.1</td><td>위를 켰을 때만 의미 있음</td></tr>
+        <tr><td class="mono">pref_video_port</td><td>Video port</td><td class="mono">5600</td><td>그대로</td></tr>
+        <tr><td class="mono">pref_video_bitrate</td><td>Video bitrate</td><td class="mono">2</td><td>Mbps</td></tr>
+        <tr><td class="mono">pref_encode_speed</td><td>Video encoding speed</td><td class="mono">2</td><td>화질/지연 절충</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Safety — 안전</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>키</th><th>표시명</th><th class="mono">기본값</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">pref_drone_multi_mode</td><td>Enable multiple flight modes</td><td class="mono">false</td><td></td></tr>
+        <tr><td class="mono">pref_drone_collision_avoidance</td><td>Enable collision avoidance</td><td class="mono">true</td><td>실내 시험 때 이동을 막을 수 있음</td></tr>
+        <tr><td class="mono">pref_drone_upward_avoidance</td><td>Enable upward collision avoidance</td><td class="mono">true</td><td></td></tr>
+        <tr><td class="mono">pref_drone_landing_protection</td><td>Enable landing protection</td><td class="mono">true</td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>AI Assist — 켜지 마세요</h3>
+
+  <div class="note trap">
+    <span class="lbl">이름이 오해를 부릅니다</span>
+    <p>“AI Assist”는 <strong>개발을 도와주는 AI 기능이 아닙니다.</strong> <code>AI9Tek.java</code>라는 <strong>9Tek사 전용 플러그인</strong>으로, 텔레메트리를 외부 노드(기본 <code>127.0.0.1:2000</code>)로 넘기고 그 노드가 보낸 활성화 신호를 <strong>RC 채널 8</strong>에 실어 보냅니다. 파일 첫 줄이 <code>TODO: Reenable and test custom code if necessary</code> — 반쯤 잠들어 있는 코드입니다. 켜면 변수만 늘어납니다 <span class="pv pv-src">소스</span></p>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>키</th><th>표시명</th><th class="mono">기본값</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">pref_ai_telemetry_enabled</td><td>Enable AI Assist</td><td class="mono">false</td></tr>
+        <tr><td class="mono">pref_ai_ip / pref_ai_port</td><td>AI Assist IP / port</td><td class="mono">127.0.0.1 / 2000</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>나머지 카테고리</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>카테고리</th><th>주요 항목</th><th class="mono">기본값</th></tr></thead>
+      <tbody>
+        <tr><td>RTL/RTH</td><td class="mono">pref_drone_rtl_altitude<br>pref_drone_max_height<br>pref_drone_smart_rtl</td><td class="mono">60 m<br>500 m<br>true</td></tr>
+        <tr><td>Waypoints</td><td class="mono">pref_drone_flight_path_mode<br>pref_drone_flight_path_radius</td><td class="mono">0<br>.2</td></tr>
+        <tr><td>Sim Settings</td><td class="mono">pref_sim_pos_lat / _lon / _alt</td><td class="mono">60.4094 / 10.4911 / 210.0</td></tr>
+        <tr><td>Lights</td><td class="mono">pref_drone_leds</td><td class="mono">true</td></tr>
+        <tr><td>Heading</td><td class="mono">pref_heading_mode</td><td class="mono">0</td></tr>
+        <tr><td>Select map type</td><td class="mono">pref_maptype_mode</td><td class="mono">2</td></tr>
+        <tr><td>App Name</td><td class="mono">pref_app_name</td><td class="mono">RosettaDrone 3</td></tr>
+        <tr><td>Report Email[s]</td><td class="mono">pref_email_name1 … 4</td><td class="mono">(비어 있음)</td></tr>
+        <tr><td>External H.264 input</td><td class="mono">pref_external_video</td><td class="mono">0</td></tr>
+        <tr><td>WebRTC Video</td><td class="mono">pref_enable_webrtc<br>pref_webrtc_signaling_server<br>pref_webrtc_stun_server</td><td class="mono">false<br>ws://127.0.0.1:8090<br>stun:stun.l.google.com:19302</td></tr>
+        <tr><td><strong>Logs</strong></td><td class="mono">pref_log_mavlink</td><td class="mono">false → <strong>켜기 권장</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <span class="lbl">권장</span>
+    <p><code>pref_log_mavlink</code>(Log MAVLink messages)를 켜 두세요. 앱이 주고받은 메시지를 <strong>파일로 남깁니다.</strong> USB 데이터선이 안 통해 <code>adb logcat</code>을 못 쓰는 우리 상황에서, 앱 안에서 무슨 일이 있었는지 알 수 있는 몇 안 되는 창구입니다.</p>
+  </div>
+</section>
+
+<!-- ══════════ 9 ══════════ -->
+<section id="c9">
+  <div class="chead"><span class="cnum">09</span><h2>우리 프로젝트 현황</h2></div>
+
+  <p>2026-08-28 ~ 09-07에 이 기체로 <strong>직접 확인한 것</strong>과, 소스를 파서 알아낸 함정들입니다.</p>
+
+  <h3>단계별 상태</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>단계</th><th>상태</th><th>근거</th></tr></thead>
+      <tbody>
+        <tr><td>빌드</td><td><strong style="color:var(--ok)">완료</strong></td><td>첫 시도 성공 · APK 188MB · 에러 0 <span class="pv pv-mes">실측</span></td></tr>
+        <tr><td>설치 · DJI 인증</td><td><strong style="color:var(--ok)">완료</strong></td><td>🟢 green + <code>Mavic 2</code> 표시 <span class="pv pv-mes">실측</span></td></tr>
+        <tr><td>다운링크</td><td><strong style="color:var(--ok)">완료</strong></td><td>12초에 672패킷 · v2 · 자세값 실시간 변화 <span class="pv pv-mes">실측</span></td></tr>
+        <tr><td><strong>업링크</strong></td><td><strong style="color:var(--ok)">완료 (9/7)</strong></td><td><code>COMMAND_ACK(84) → 5</code> = IN_PROGRESS <span class="pv pv-mes">실측</span></td></tr>
+        <tr><td>영상</td><td><strong style="color:var(--wait)">원인 규명 · 미확인</strong></td><td>5600 포트에 0패킷. 앱 재시작 필요 <span class="pv pv-src">소스</span></td></tr>
+        <tr><td>실제 기동</td><td><strong style="color:var(--wait)">대기</strong></td><td>실외 GPS 환경 + 비행 중이어야 가능</td></tr>
+        <tr><td>ROS 연결</td><td>미착수</td><td><a href="#c10">10장</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>업링크 확인의 의미</h3>
+
+  <div class="note ok">
+    <span class="lbl">2026-09-07 · kill-switch 통과</span>
+    <p>속도 명령을 10Hz로 5초간 쐈더니 <code>COMMAND_ACK</code>가 <strong>결과 5</strong>로 계속 돌아왔습니다. <code>MAV_RESULT_IN_PROGRESS</code> — “명령이 유효하고 지금 실행 중”이라는 뜻입니다. 즉 <em>PC 발사 → 앱 수신 → v2 파싱 → type_mask를 속도 명령으로 판정 → Motion 생성 → 실행 진입</em>까지 전부 통과했습니다. 8/28부터 미확인이던 관문이 열렸습니다.</p>
+  </div>
+
+  <p><strong>그런데 기체는 안 움직였습니다.</strong> 이유는 소프트웨어가 아니라 물리 조건입니다 <span class="pv pv-mes">실측</span>:</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th class="mono">측정값</th><th>의미</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">system_status = 3</td><td>MAV_STATE_STANDBY = <strong>지상 대기.</strong> 비행 중이 아닙니다. 가상 스틱은 기체가 떠 있어야 기체를 움직입니다</td></tr>
+        <tr><td class="mono">base_mode = 193</td><td>128(시동됨) + 64(수동입력) + 1(커스텀모드). 시동은 걸려 있습니다</td></tr>
+        <tr><td class="mono">위도 0.0 · 경도 0.0<br>fix=1 · 위성 0개</td><td><strong>GPS 없음</strong>(실내). 수평 속도 제어에 필요한 위치 추정이 안 됩니다</td></tr>
+        <tr><td class="mono">roll/pitch 실시간 변화</td><td>✓ 진짜 기체입니다 (테스트 모드의 가짜 좌표가 아님)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>소스에서 찾아낸 함정 6가지</h3>
+
+  <p>전부 <strong>증상이 원인을 가리키지 않는</strong> 종류입니다. 미리 알아 두지 않으면 엉뚱한 결론에 도달합니다 <span class="pv pv-src">소스</span>.</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>#</th><th>함정</th><th>위치</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="mono">1</td>
+          <td><strong>스틱을 건드리면 5초간 MAVLink가 조용히 무시됩니다.</strong> 에러도 로그도 없이 <code>return</code>합니다. 자율 명령 시험의 가장 흔한 오진 원인</td>
+          <td class="mono">DroneModel.java<br>:1265, :2242</td>
+        </tr>
+        <tr>
+          <td class="mono">2</td>
+          <td><strong>QGC ARM 버튼이 안 되는 진짜 이유</strong> — <code>armMotors()</code> 안의 <code>turnOnMotors()</code>가 <em>통째로 주석 처리</em>돼 있습니다. 플래그만 세우고 실제로 모터를 켜지 않습니다. 모터는 <code>NAV_TAKEOFF</code>로만 돕니다</td>
+          <td class="mono">DroneModel.java<br>:774–792</td>
+        </tr>
+        <tr>
+          <td class="mono">3</td>
+          <td><strong>자기 대입 버그.</strong> <code>command = command;</code> — 매개변수를 자기 자신에 대입해서 필드가 영영 안 채워집니다. ACK 회신에는 영향이 없지만 <code>Motion.command</code>는 항상 0입니다</td>
+          <td class="mono">DroneModel.java<br>:2111</td>
+        </tr>
+        <tr>
+          <td class="mono">4</td>
+          <td><strong>지도 null 가드 없음.</strong> 지도가 초기화되지 않은 기기에서 <em>웨이포인트를 찍는 순간</em> NPE로 죽습니다. 우리는 구글 지도 키가 임시값이라 지도가 안 뜹니다. <strong>미패치 지뢰</strong> — 두 줄이면 고칩니다</td>
+          <td class="mono">MainActivity.java<br>:511, :528</td>
+        </tr>
+        <tr>
+          <td class="mono">5</td>
+          <td><strong>표시 버그.</strong> 조건문 밖에서 상태 문구를 덮어써서, RC가 정상이어도 기체만 안 붙으면 <em>항상</em> <code>connection loose</code>로 보입니다. <strong>화면 말고 START 버튼 활성 여부로 판단하세요</strong></td>
+          <td class="mono">ConnectionActivity.java<br>:281, :286</td>
+        </tr>
+        <tr>
+          <td class="mono">6</td>
+          <td><strong>설정이 실행 중에 반영되지 않습니다.</strong> <code>initVideoService()</code>가 <code>onCreate()</code>에서만 호출됩니다. 영상 설정을 켜도 앱을 <em>강제 중지 후 재시작</em>해야 리스너가 붙습니다</td>
+          <td class="mono">MainActivity.java<br>:773, :928</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>실전에서 겪은 함정 (8/28)</h3>
+
+  <div class="grid2">
+    <div class="panel">
+      <h4>RM500 시계 → <code>register failed</code></h4>
+      <p>날짜가 틀리면 HTTPS 인증서 검증이 전부 실패합니다. 브라우저는 경고를 넘길 수 있지만 <strong>앱은 못 넘깁니다.</strong> DJI SDK가 이걸 “네트워크 설정을 확인하라”로 표시해서 원인을 완전히 가립니다.</p>
+      <p><strong>해결:</strong> 설정 → 시스템 → 날짜 및 시간 → <em>자동</em>. 확인법은 브라우저에서 HTTPS 사이트가 경고 없이 뜨는지 보는 것.</p>
+    </div>
+    <div class="panel">
+      <h4>저장소 권한 → 연결 순간 크래시</h4>
+      <p>앱이 <code>/sdcard/DroneApp/</code>에 로그를 씁니다. 첫 실행 때 물어본 건 위치·전화뿐이라 저장소 권한이 빠져 있었습니다.</p>
+      <p><strong>해결:</strong> 설정 → 앱 → RosettaDrone → 권한 → <em>전부 허용</em>.</p>
+    </div>
+    <div class="panel">
+      <h4>테스트 모드 캐시 → 칠레 좌표</h4>
+      <p>START를 눌러 초록불이 떠도 텔레메트리가 계속 가짜(<code>-32.854, -71.215</code>)였습니다. 기체 참조를 <em>필드에 캐시</em>하기 때문에 모드를 바꿔도 이미 잡아 둔 가짜 참조가 안 바뀝니다.</p>
+      <p><strong>해결:</strong> <em>강제 중지</em> → 다시 열고 START. 최근 앱에서 밀어내는 것으로는 프로세스가 안 죽습니다.</p>
+    </div>
+    <div class="panel">
+      <h4>방화벽 → 조용한 실종</h4>
+      <p>UDP를 <strong>말없이 버려서</strong> 앱은 정상으로 보이는데 PC만 텅 빕니다. <code>systemctl is-active ufw</code>는 active로 나와도 <code>/etc/ufw/ufw.conf</code>가 <code>ENABLED=no</code>면 실제로는 막지 않습니다.</p>
+      <p><strong>확인:</strong> <code>sudo ufw status verbose</code>. 새 PC에서는 이 함정이 다시 살아납니다.</p>
+    </div>
+  </div>
+
+  <h3>Google Play 서비스 경고 — 무해합니다</h3>
+  <p>RM500은 중국 내수 계열 안드로이드라 GMS가 없는 게 정상입니다. 조사 결과 이 경고는 <strong>지도 SDK가 스스로 띄우는 것</strong>이며 기체 연결 경로와 무관합니다. 결정적 반증: <em>그 경고가 뜬 채로 DJI 인증이 통과했고 초록불이 떴습니다</em> <span class="pv pv-src">소스</span>.</p>
+</section>
+
+<!-- ══════════ 10 ══════════ -->
+<section id="c10">
+  <div class="chead"><span class="cnum">10</span><h2>ROS 2 연결 경로</h2></div>
+
+  <p>KRISO에서 이미 ROS 기반으로 시뮬레이터와 경로계획을 다루고 계시니, 이 드론을 <strong>같은 ROS 세계로 끌어들이는 길</strong>이 있는지가 중요합니다. 있습니다. 그리고 <strong>연결 고리가 이미 확인됐습니다.</strong></p>
+
+  <h3>MAVROS가 하는 일</h3>
+  <p><strong>MAVROS</strong>는 ROS와 MAVLink 사이의 다리입니다. ROS 토픽에 값을 발행하면 그것을 MAVLink 메시지로 바꿔 기체에 보내고, 반대로 기체가 보낸 텔레메트리를 ROS 토픽으로 뿌려 줍니다 <span class="pv pv-web">웹</span>.</p>
+
+  <div class="figure">
+    <svg viewBox="0 0 700 172" role="img" aria-label="ROS 2 노드에서 MAVROS와 RosettaDrone을 거쳐 Mavic 2로 이어지는 제어 경로">
+      <rect x="6" y="46" width="140" height="66" rx="5" fill="var(--surface-2)" stroke="var(--rule)"/>
+      <text x="76" y="72" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="12.5" font-weight="600" fill="var(--ink)">ROS 2 노드</text>
+      <text x="76" y="90" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="10" fill="var(--ink-3)">경로계획 · 제어기</text>
+
+      <line x1="150" y1="79" x2="196" y2="79" stroke="var(--ink-3)" stroke-width="1.4" marker-end="url(#ar2)"/>
+      <defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto"><path d="M0,0 L7,3.2 L0,6.4 z" fill="var(--ink-3)"/></marker></defs>
+
+      <rect x="200" y="46" width="150" height="66" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"/>
+      <text x="275" y="72" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="12.5" font-weight="600" fill="var(--ink)">MAVROS</text>
+      <text x="275" y="90" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="var(--ink-2)">setpoint_raw/local</text>
+
+      <line x1="354" y1="79" x2="400" y2="79" stroke="var(--ink-3)" stroke-width="1.4" marker-end="url(#ar2)"/>
+      <text x="377" y="66" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="var(--accent)">UDP 14550</text>
+
+      <rect x="404" y="46" width="150" height="66" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"/>
+      <text x="479" y="72" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="12.5" font-weight="600" fill="var(--ink)">RosettaDrone</text>
+      <text x="479" y="90" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="10" fill="var(--ink-2)">RM500 안</text>
+
+      <line x1="558" y1="79" x2="604" y2="79" stroke="var(--ink-3)" stroke-width="1.4" marker-end="url(#ar2)"/>
+      <text x="581" y="66" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="var(--accent)">OcuSync</text>
+
+      <rect x="608" y="46" width="86" height="66" rx="5" fill="var(--surface-2)" stroke="var(--rule)"/>
+      <text x="651" y="78" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="12.5" font-weight="600" fill="var(--ink)">Mavic 2</text>
+      <text x="651" y="94" text-anchor="middle" font-family="IBM Plex Sans KR,sans-serif" font-size="9.5" fill="var(--ink-3)">가상 스틱</text>
+
+      <rect x="200" y="126" width="354" height="34" rx="4" fill="var(--surface)" stroke="var(--ok)" stroke-dasharray="3 2.5"/>
+      <text x="377" y="147" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="var(--ok)">두 상자가 같은 메시지를 씁니다 — SET_POSITION_TARGET_LOCAL_NED (84)</text>
+      <line x1="275" y1="116" x2="275" y2="126" stroke="var(--ok)" stroke-width="1"/>
+      <line x1="479" y1="116" x2="479" y2="126" stroke="var(--ok)" stroke-width="1"/>
+    </svg>
+    <p class="cap">중간의 두 상자가 이미 같은 언어를 씁니다. 새로 만들 번역 계층이 없습니다.</p>
+  </div>
+
+  <h3>연결 고리가 이미 있습니다</h3>
+
+  <div class="note ok">
+    <span class="lbl">핵심</span>
+    <p>MAVROS의 <code>/mavros/setpoint_raw/local</code> 토픽은 <strong><code>SET_POSITION_TARGET_LOCAL_NED</code></strong>를 발행합니다 <span class="pv pv-web">웹</span>. 그런데 이건 <strong>우리가 9/7에 통과시킨 바로 그 메시지(84번)</strong>입니다 <span class="pv pv-mes">실측</span>. 즉 <em>ROS → 드론 경로에 새로 만들어야 할 번역기가 없습니다.</em> MAVROS가 내는 것을 RosettaDrone이 이미 알아듣습니다.</p>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>ROS 2 쪽</th><th>MAVLink 메시지</th><th>우리 확인 상태</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">/mavros/setpoint_raw/local</td><td class="mono">SET_POSITION_TARGET_LOCAL_NED (84)</td><td><strong style="color:var(--ok)">앱이 받는 것 확인됨</strong></td></tr>
+        <tr><td class="mono">/mavros/setpoint_velocity/cmd_vel</td><td class="mono">위와 동일 (Twist를 변환)</td><td>같은 경로</td></tr>
+        <tr><td class="mono">/mavros/global_position/global</td><td class="mono">GLOBAL_POSITION_INT (33)</td><td><strong style="color:var(--ok)">수신 확인됨</strong></td></tr>
+        <tr><td class="mono">/mavros/imu/data</td><td class="mono">ATTITUDE (30)</td><td><strong style="color:var(--ok)">수신 확인됨</strong></td></tr>
+        <tr><td class="mono">/mavros/battery</td><td class="mono">BATTERY_STATUS (147)</td><td><strong style="color:var(--ok)">수신 확인됨</strong></td></tr>
+        <tr><td class="mono">/mavros/rc/in</td><td class="mono">RC_CHANNELS (65)</td><td>조종사 개입 계측용</td></tr>
+        <tr><td class="mono">/mavros/mission/push</td><td class="mono">MISSION_ITEM_INT (73)</td><td>앱이 처리 목록에 있음</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>예상되는 걸림돌</h3>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>걸림돌</th><th>왜 문제인가</th><th>대응</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>비행모드 이름이 다름</strong></td>
+          <td>MAVROS는 PX4/ArduPilot의 <code>OFFBOARD</code>·<code>GUIDED</code> 모드로 전환하려 합니다. RosettaDrone은 ArduPilot 방언을 흉내내지만 DJI에는 그런 모드가 없습니다</td>
+          <td>모드 전환을 건너뛰고 속도 명령을 직접 던지는 게 나을 수 있습니다. 우리가 이미 그렇게 해서 통과시켰습니다</td>
+        </tr>
+        <tr>
+          <td><strong>ARM 절차</strong></td>
+          <td>MAVROS의 표준 시동 순서(<code>/mavros/cmd/arming</code>)가 <a href="#c9">함정 2</a> 때문에 동작하지 않습니다</td>
+          <td><code>NAV_TAKEOFF</code>로 시동. MAVROS에서는 <code>/mavros/cmd/takeoff</code></td>
+        </tr>
+        <tr>
+          <td><strong>이륙 후 GOTO 버그</strong></td>
+          <td>단일 목표점 방식이 앱을 에러 상태로 빠뜨립니다 <span class="pv pv-off">공식</span></td>
+          <td>미션(waypoint) 방식 또는 속도 명령 연속 발사 방식으로</td>
+        </tr>
+        <tr>
+          <td><strong>명령 유지 주기</strong></td>
+          <td><code>SET_POSITION_TARGET_GLOBAL_INT</code>는 <em>1초마다 다시 보내야</em> 유지됩니다 <span class="pv pv-src">소스</span></td>
+          <td>MAVROS는 원래 setpoint를 계속 발행하므로 자연스럽게 맞습니다</td>
+        </tr>
+        <tr>
+          <td><strong>영상은 별도 경로</strong></td>
+          <td>MAVLink가 아니라 RTP/UDP 5600입니다. MAVROS가 다루지 않습니다</td>
+          <td>ROS 쪽에서는 <code>gscam</code> 등으로 RTP를 받아 이미지 토픽으로 변환</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <span class="lbl">순서 제안</span>
+    <p>MAVROS를 바로 붙이지 마세요. <strong>먼저 <code>pymavlink</code>로 손수 만든 스크립트에서 실제 기동이 되는 것을 확인</strong>한 뒤에 MAVROS로 옮기는 편이 낫습니다. MAVROS는 편의 계층이라 문제가 생겼을 때 <em>MAVROS 탓인지 RosettaDrone 탓인지 구별이 안 되기</em> 때문입니다. 지금 우리에게 필요한 건 편의가 아니라 원인 분리입니다.</p>
+  </div>
+</section>
+
+<!-- ══════════ 11 ══════════ -->
+<section id="c11">
+  <div class="chead"><span class="cnum">11</span><h2>레퍼런스</h2></div>
+
+  <h3>공식 저장소</h3>
+  <ul class="refs">
+    <li><span class="k">현재 공식</span><span><a href="https://github.com/RosettaDrone/rosettadrone">github.com/RosettaDrone/rosettadrone</a><span class="d">우리가 쓰는 저장소. README·이슈·소스 전부 여기. ★455 · 포크 157 · 열린 이슈 24</span></span></li>
+    <li><span class="k">원조 (중단)</span><span><a href="https://github.com/diux-dev/rosettadrone">github.com/diux-dev/rosettadrone</a><span class="d">DIU가 만든 최초 저장소. 유지보수 중단 공지가 붙어 있습니다. 역사적 참고용</span></span></li>
+    <li><span class="k">빌드 이슈</span><span><a href="https://github.com/RosettaDrone/rosettadrone/issues/172">issues/172</a><span class="d">README가 빌드 실패 시 보라고 지목하는 이슈. Android Studio 3.6.4 · Gradle 6.8.3 환경</span></span></li>
+    <li><span class="k">기여 안내</span><span><a href="https://docs.google.com/document/d/1wR56Mvd2OsT82kxMOD7f_3-c6yJGBtLaT8LuVrmC5wI/edit?usp=sharing">Google 문서</a><span class="d">README가 링크하는 기여 권장사항 <span class="pv pv-unv">미검증</span></span></span></li>
+    <li><span class="k">포크 위키</span><span><a href="https://github.com/lilfish/Delta-FlowerPower/wiki/Drone-app">Delta-FlowerPower 위키</a><span class="d">README가 소개하는, 포크 프로젝트가 남긴 문서 <span class="pv pv-unv">미검증</span></span></span></li>
+  </ul>
+
+  <h3>출신과 배경</h3>
+  <ul class="refs">
+    <li><span class="k">원작자</span><span><a href="https://www.markdjacobsen.com/projects/rosetta-drone/">markdjacobsen.com — Rosetta Drone</a><span class="d">Mark D. Jacobsen 본인이 남긴 개발 경위. Ryan Beall의 최초 아이디어, 동기, 인계 과정</span></span></li>
+    <li><span class="k">DIU</span><span><a href="https://www.diu.mil/latest/the-diu-ex-podcast-mark-jocobsen-rogue-squadron">DIU 팟캐스트 — Rogue Squadron</a><span class="d">Rogue Squadron이 무엇을 하던 조직인지</span></span></li>
+    <li><span class="k">보도</span><span><a href="https://fedscoop.com/rogue-squadron-dds-diu-counter-drone/">FedScoop — 대드론 포트폴리오</a><span class="d">Rogue Squadron의 조직적 맥락 <span class="pv pv-unv">미검증</span></span></span></li>
+  </ul>
+
+  <h3>MAVLink 생태계</h3>
+  <ul class="refs">
+    <li><span class="k">규약 본체</span><span><a href="https://mavlink.io/en/">mavlink.io</a><span class="d">MAVLink 공식 문서. 메시지 정의·프로토콜·방언 설명의 정본</span></span></li>
+    <li><span class="k">구현 목록</span><span><a href="https://mavlink.io/en/about/implementations.html">MAVLink Implementations</a><span class="d">RosettaDrone이 <em>“MAVLink wrapper around DJI SDK”</em>로 공식 등재된 페이지. GCS·라이브러리 전체 목록</span></span></li>
+    <li><span class="k">메시지 사전</span><span><a href="https://mavlink.io/en/messages/common.html">common.xml 메시지 정의</a><span class="d">메시지 번호·필드·MAV_CMD·MAV_RESULT 값을 확인하는 곳. <strong>작업 중 가장 자주 열게 될 페이지</strong></span></span></li>
+    <li><span class="k">ROS 다리</span><span><a href="https://mavros.readthedocs.io/en/latest/">MAVROS 문서</a><span class="d">플러그인별 토픽 목록. <code>setpoint_raw</code>·<code>setpoint_velocity</code> 항목이 우리와 직결</span></span></li>
+    <li><span class="k">파이썬</span><span><a href="https://mavlink.io/en/mavgen_python/">pymavlink 사용법</a><span class="d">저수준 파이썬 라이브러리. 우리 도구들이 쓰는 방식</span></span></li>
+    <li><span class="k">고수준</span><span><a href="https://github.com/mavlink/MAVSDK">MAVSDK</a><span class="d">DroneKit의 실질적 후계. 새 코드는 이쪽을 권합니다</span></span></li>
+    <li><span class="k">구버전</span><span><a href="https://github.com/3drobotics/dronekit-python">DroneKit-Python</a><span class="d">README가 권장하지만 <strong>5년 이상 방치</strong>. 예제 이해용으로만</span></span></li>
+  </ul>
+
+  <h3>DJI SDK</h3>
+  <ul class="refs">
+    <li><span class="k">MSDK V4</span><span><a href="https://developer.dji.com/mobile-sdk-v4/">developer.dji.com — Mobile SDK V4</a><span class="d">우리가 쓰는 계열. <strong>4.16이 V4의 마지막 메이저</strong>이며 이후 버그픽스만 나옵니다</span></span></li>
+    <li><span class="k">V4 저장소</span><span><a href="https://github.com/dji-sdk/Mobile-SDK-Android">dji-sdk/Mobile-SDK-Android</a><span class="d">V4 안드로이드 SDK 본체 (최신 4.18)</span></span></li>
+    <li><span class="k">버전 차이</span><span><a href="https://developer.dji.com/doc/mobile-sdk-tutorial/en/quick-start/version-differences.html">V4 vs V5 비교</a><span class="d">V5는 V4와 <strong>비호환</strong>이고 기업용 기종 위주(Mavic 3 Enterprise·M30·M300 RTK). Mavic 2는 V4에 남습니다</span></span></li>
+    <li><span class="k">영상 원본</span><span><a href="https://developer.dji.com/mobile-sdk/documentation/sample-code/index.html">Android Video Stream Decoding Sample</a><span class="d">RosettaDrone의 영상 디코딩이 이 예제를 수정해 쓴 것 (MIT)</span></span></li>
+    <li><span class="k">RTP 원본</span><span><a href="https://github.com/fyhertz/libstreaming">libstreaming</a><span class="d">RTP 패킹 코드의 출처 (Apache 2)</span></span></li>
+  </ul>
+
+  <h3>알려진 상류 버그</h3>
+  <ul class="refs">
+    <li><span class="k">mavlink</span><span><a href="https://github.com/mavlink/mavlink/issues/805">mavlink#805</a> · <a href="https://github.com/mavlink/mavlink/issues/806">mavlink#806</a><span class="d">자바 코드 생성기 오류. RosettaDrone의 MAVLink 코드가 <em>손으로 고쳐진</em> 이유. 자동 생성 파일을 덮어쓰면 깨집니다</span></span></li>
+  </ul>
+
+  <h3>영상 · 시연</h3>
+  <ul class="refs">
+    <li><span class="k">지연 시연</span><span><a href="https://youtu.be/HAC5OpQQpDI">YouTube — Latency video</a><span class="d">README가 링크한 영상 지연 시연 <span class="pv pv-unv">미검증</span></span></span></li>
+    <li><span class="k">소개</span><span><a href="https://www.youtube.com/watch?v=2sQ7I2gpS2g">Rosetta Drone 소개 영상</a><span class="d">MAVLink를 DJI 드론에 가져온다는 개념 소개 <span class="pv pv-unv">미검증</span></span></span></li>
+  </ul>
+
+  <hr>
+
+  <div class="note">
+    <span class="lbl">이 문서에 대하여</span>
+    <p>공식 README 원문, 내려받은 소스 코드(<code>805ca9e</code>), 그리고 2026-08-28~09-07에 이 기체로 직접 측정한 값에 근거해 작성했습니다. <span class="pv pv-unv">미검증</span> 표시가 붙은 링크는 접속 확인을 못 한 것들입니다 — 내용을 신뢰하기 전에 직접 열어 보세요. 작업이 진행되면 9장을 갱신하세요.</p>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+(function(){
+  var b=document.getElementById('tb');
+  if(!b)return;
+  b.addEventListener('click',function(){
+    var r=document.documentElement;
+    var cur=r.getAttribute('data-theme');
+    if(!cur){
+      var dark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+      cur=dark?'dark':'light';
+    }
+    r.setAttribute('data-theme',cur==='dark'?'light':'dark');
+  });
+})();
+</script>

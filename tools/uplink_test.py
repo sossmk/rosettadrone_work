@@ -4,12 +4,18 @@
 보내는 것: HEARTBEAT(GCS 존재 알림) + MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES(520)
 받기를 기대하는 것: COMMAND_ACK(77) · AUTOPILOT_VERSION(148)
 
-핵심: 앱 소켓은 socket.connect(GCS_IP, 14550) 상태다.
-     → 보내는 쪽도 반드시 14550 을 써야 앱이 받는다(아니면 조용히 버려진다).
+사용법:  python3 tools/uplink_test.py [포트=14550]
+
+핵심 1: 앱 소켓은 socket.connect(GCS_IP, 14550) 상태다.
+       → 보내는 쪽도 반드시 14550 을 써야 앱이 받는다(아니면 조용히 버려진다).
+핵심 2: 앱의 송신 포트는 임시 포트라 켤 때마다 바뀐다(MAVLinkConnection.java 의 new DatagramSocket()).
+       → 먼저 한 장 받아 봉투의 발신 주소를 읽고, 거기로 답장한다.
+
+⚠ bind 는 0.0.0.0 이다 — 핫스팟 IP 가 바뀌어도 파일을 고칠 필요가 없다.
 """
 import socket, struct, time, sys
 
-GCS_IP, GCS_PORT = "172.20.10.9", 14550
+GCS_PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 14550
 SYSID, COMPID = 255, 190          # GCS 로서의 정체
 
 def crc16_mcrf4xx(data, crc=0xFFFF):
@@ -42,11 +48,11 @@ def command_long(cmd, p1=0.0):
 
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-s.bind((GCS_IP, GCS_PORT))
+s.bind(("0.0.0.0", GCS_PORT))
 s.settimeout(1.0)
 
 # 1) 앱이 어느 포트에서 쏘는지 알아낸다 (앱을 껐다 켜면 매번 바뀐다)
-print(f"[1] 앱의 송신 포트를 찾는 중… (14550 에서 수신)")
+print(f"[1] 앱의 송신 포트를 찾는 중… (0.0.0.0:{GCS_PORT} 에서 수신)")
 app_addr = None
 t0 = time.time()
 while time.time() - t0 < 6:
