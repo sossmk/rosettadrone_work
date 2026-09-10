@@ -1,0 +1,21 @@
+--- a/app/src/main/cpp/dji_video_jni.c
++++ b/app/src/main/cpp/dji_video_jni.c
+@@ -58,6 +58,18 @@
+  */
+ void invokeFrameDataCallback(JNIEnv *env, jobject obj, uint8_t *buf, int size, int frameNum,
+                              int isKeyFrame, int width, int height) {
++    /* dataCallbackMID is set only in init() below. If a frame arrives before
++     * init() has run, CallVoidMethod with a NULL jmethodID makes ART abort the
++     * process outright:
++     *   "JNI DETECTED ERROR IN APPLICATION: jmethodID was NULL"
++     * That is a hard abort, not an exception -- it cannot be caught in Java.
++     * The null guard in noparse() (patch 01) stopped the SIGSEGV but left this
++     * second consequence of the same cause, observed on 2026-09-10. */
++    if (dataCallbackMID == NULL) {
++        LOGE("invokeFrameDataCallback: dataCallbackMID == NULL, init() has not run");
++        return;
++    }
++
+     jbyte *buff = (jbyte *) buf;
+     jbyteArray jarray = (*env)->NewByteArray(env, size);
+     (*env)->SetByteArrayRegion(env, jarray, 0, size, (const signed char *) buf);

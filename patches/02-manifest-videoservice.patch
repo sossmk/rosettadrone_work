@@ -1,0 +1,20 @@
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 55d037a..862135d 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -102,8 +102,13 @@
+             tools:ignore="Instantiatable">
+         </service>
+ 
+-        <!--<service android:name="sq.rogue.rosettadrone.video.VideoService">
+-        </service>-->
++        <!-- 2026-09-10: 이 선언이 주석 처리돼 있었다. manifest 에 없는 서비스는
++             안드로이드가 시작·바인드하지 않는다 (logcat: "could not start service
++             for sq.rogue.rosettadrone"). 그래서 onServiceConnected() 가 영영 안 불리고,
++             setParameters() -> NativeHelper.init() 이 안 돌아 dataCallbackMID 와
++             m_pCodecPaser 가 NULL 로 남았고, isRunning 도 false 라 RTP 가 안 나갔다. -->
++        <service android:name="sq.rogue.rosettadrone.video.VideoService">
++        </service>
+ 
+         <!-- DJI SDK needed also by emulator, this is a problem... -->
+         <uses-library

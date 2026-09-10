@@ -1,13 +1,21 @@
 # 앱 소스 패치
 
 RosettaDrone `master` / 커밋 `805ca9e4525e3ae741877cf912883cd6e85e5478` 기준입니다.
-소스는 이 저장소에 없습니다(1.3GB). `setup_new_pc.sh` 가 같은 커밋으로 받아옵니다.
+소스는 이 저장소에 없습니다. `setup_new_pc.sh` 가 같은 커밋으로 받아옵니다.
+**읽기만 할 거라면 툴체인 없이 clone 만으로 됩니다** (2026-09-10 에 노트북에서 그렇게 했다):
+```bash
+git clone https://github.com/RosettaDrone/rosettadrone.git ~/drone_ws/rosettadrone
+git -C ~/drone_ws/rosettadrone checkout 805ca9e4525e3ae741877cf912883cd6e85e5478
+```
 
 ## 적용
 
 ```bash
 cd ~/drone_ws/rosettadrone
-git apply ~/rosettadrone_work/patches/01-noparse-nullguard.patch
+for f in 01-noparse-nullguard 02-manifest-videoservice \
+         03-sys-status-voltage 04-jmethodid-nullguard; do
+  git apply ~/rosettadrone_work/patches/$f.patch
+done
 ANDROID_SDK_ROOT=$HOME/Android/Sdk JAVA_HOME=~/drone_ws/jdk ./gradlew assembleDebug
 ```
 
@@ -32,9 +40,49 @@ $NDK/llvm-objdump -d app/build/intermediates/cmake/debug/obj/arm64-v8a/libdjivid
 
 ## 목록
 
+**순서대로 붙여야 합니다** (04 는 01 위에 얹힙니다). 넷 다 깨끗이 붙는 것을
+2026-09-10 에 확인했습니다.
+
 | 패치 | 고치는 것 | 상태 |
 |---|---|---|
-| `01-noparse-nullguard.patch` | **함정 5** — 영상을 켜면 Mavic 2 에서 앱이 SIGSEGV 로 죽는다 | ✅ **2026-09-10 적용·빌드 완료** → Release `apk-2026-09-10-video01` |
+| `01-noparse-nullguard.patch` | **함정 5** — 영상을 켜면 Mavic 2 에서 앱이 SIGSEGV(`fault addr 0x148`) | ✅ **성공 확인.** 9/10 실기에서 `0x148` 소멸 |
+| `02-manifest-videoservice.patch` | ⭐ **진짜 원인** — `VideoService` 선언이 Manifest 에서 **주석 처리**돼 있다 | 🔶 작성됨. 빌드·실기 확인 필요 |
+| `03-sys-status-voltage.patch` | 배터리 전압·전류가 늘 `0.00` (합산 콜백 변수를 내보냄) | 🔶 작성됨. 원인은 실측으로 확정 |
+| `04-jmethodid-nullguard.patch` | `jmethodID was NULL` JNI abort (01 과 같은 뿌리의 두 번째 결과) | 🔶 작성됨 |
+
+### ★ 02 가 핵심이다 — 나머지는 곁가지다
+
+```xml
+<!--<service android:name="sq.rogue.rosettadrone.video.VideoService">
+</service>-->
+```
+**업스트림 소스에서 이 선언이 주석 처리돼 있다.** manifest 에 없는 서비스는 안드로이드가
+시작하지도 바인드하지도 않는다. 9/10 logcat 의
+
+```
+D ActivityManager: could not start service for sq.rogue.rosettadrone
+```
+
+가 바로 이것이고, 여기서 모든 것이 따라 나온다:
+
+```
+Manifest 에 <service> 없음
+  → startService()/bindService() 실패          (반환값을 아무도 안 본다)
+  → onServiceConnected() 가 영영 안 불림
+  → setParameters() 안 불림  (VideoService.java:92)
+      → NativeHelper.init() 안 돌음            (VideoService.java:116)
+          → dataCallbackMID == NULL  → JNI abort  (04 가 막는다)
+          → m_pCodecPaser  == NULL  → SIGSEGV     (01 이 막았다)
+      → isRunning 이 false 로 남음              (VideoService.java:129)
+          → 죽지 않더라도 RTP 가 한 패킷도 안 나간다
+```
+
+**01·04 는 증상을 막고, 02 가 원인을 없앤다.** 01·04 만으로는 앱이 안 죽을 뿐
+영상은 여전히 0패킷이다.
+
+⚠ `MainActivity.initVideoService()` 는 `startService()` 도 `bindService()` 도
+**반환값을 보지 않고**, `mIsBound = true` 를 무조건 세운다(`MainActivity.java:306,318,319`).
+그래서 서비스가 안 떠도 앱은 아무 불평을 안 한다.
 
 ### 01 의 빌드 검증 결과 (2026-09-10)
 

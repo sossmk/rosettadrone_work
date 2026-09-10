@@ -1,0 +1,28 @@
+diff --git a/app/src/main/java/sq/rogue/rosettadrone/DroneModel.java b/app/src/main/java/sq/rogue/rosettadrone/DroneModel.java
+index e831d54..17fbebf 100644
+--- a/app/src/main/java/sq/rogue/rosettadrone/DroneModel.java
++++ b/app/src/main/java/sq/rogue/rosettadrone/DroneModel.java
+@@ -1245,8 +1245,12 @@ public class DroneModel implements CommonCallbacks.CompletionCallback {
+             Log.d(TAG, "mCFullChargeCapacity_mAh == 0...");
+             msg.battery_remaining = 100; // Prevent divide by zero
+         }
+-        msg.voltage_battery = mVoltage_mV;
+-        msg.current_battery = (short) mCurrent_mA;
++        // 2026-09-10: mVoltage_mV/mCurrent_mA 는 Battery.setAggregationStateCallback()
++        // 에서만 채워진다. 그 콜백은 배터리를 여러 개 다는 기종용이라 Mavic 2 에서는
++        // 돌지 않아 늘 0 이었다. 같은 배터리인데 잔량(위 battery_remaining)은 나오는데
++        // 전압만 0 이던 이유가 이것이다 -- 잔량은 mC* (일반 배터리 콜백) 로 계산한다.
++        msg.voltage_battery = mCVoltage_mV;
++        msg.current_battery = (short) mCCurrent_mA;
+         sendMessage(msg);
+     }
+ 
+@@ -1291,7 +1295,7 @@ public class DroneModel implements CommonCallbacks.CompletionCallback {
+         msg.voltages = mCellVoltages;
+         float mBatteryTemp_C = 0;
+         msg.temperature = (short) (mBatteryTemp_C * 100);
+-        msg.current_battery = (short) (mCurrent_mA * 10);
++        msg.current_battery = (short) (mCCurrent_mA * 10);   // 2026-09-10: 위와 같은 이유
+         msg.battery_remaining = (byte) ((float) mCChargeRemaining_mAh / (float) mCFullChargeCapacity_mAh * 100.0);
+         //     Log.d(TAG, "temp: " + String.valueOf(mBatteryTemp_C));
+         //      Log.d(TAG, "send_battery_status() complete");
