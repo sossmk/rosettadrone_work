@@ -1,0 +1,45 @@
+# 2026-09-10 RM500 logcat 발췌 — patches/01 적용 후 크래시
+# 회수: adb logcat -d (USB, 11:48). 원본 12,021줄 중 판정에 쓴 부분만.
+
+## 설치 확인 (오늘 두 번 설치됨)
+09-10 11:09:58.109   465   540 I PackageManager: Package sq.rogue.rosettadrone codePath changed from /data/app/sq.rogue.rosettadrone-1 to /data/app/sq.rogue.rosettadrone-2; Retaining data and using new
+09-10 11:24:25.598   465   540 I PackageManager: Package sq.rogue.rosettadrone codePath changed from /data/app/sq.rogue.rosettadrone-2 to /data/app/sq.rogue.rosettadrone-1; Retaining data and using new
+
+## VideoService 가 안 뜬다
+690:09-10 11:10:08.529   465   583 D ActivityManager: could not start service for sq.rogue.rosettadrone
+691:09-10 11:10:09.031   465   583 D ActivityManager: could not start service for sq.rogue.rosettadrone
+1048:09-10 11:17:04.915   465   750 D ActivityManager: could not start service for sq.rogue.rosettadrone
+1049:09-10 11:17:05.416   465   848 D ActivityManager: could not start service for sq.rogue.rosettadrone
+1145:09-10 11:18:02.877   465   583 D ActivityManager: could not start service for sq.rogue.rosettadrone
+1148:09-10 11:18:03.378   465   839 D ActivityManager: could not start service for sq.rogue.rosettadrone
+1189:09-10 11:18:14.617   465  3195 D ActivityManager: could not start service for sq.rogue.rosettadrone
+1190:09-10 11:18:15.119   465  1185 D ActivityManager: could not start service for sq.rogue.rosettadrone
+1292:09-10 11:21:35.252   465   486 D ActivityManager: could not start service for sq.rogue.rosettadrone
+1293:09-10 11:21:35.754   465  1179 D ActivityManager: could not start service for sq.rogue.rosettadrone
+1780:09-10 11:25:23.322   465  3719 D ActivityManager: could not start service for sq.rogue.rosettadrone
+1781:09-10 11:25:23.824   465  3719 D ActivityManager: could not start service for sq.rogue.rosettadrone
+1826:09-10 11:26:13.408   465   751 D ActivityManager: could not start service for sq.rogue.rosettadrone
+1827:09-10 11:26:13.909   465   751 D ActivityManager: could not start service for sq.rogue.rosettadrone
+
+## 오늘 크래시 3건 — 전부 SIGABRT jmethodID, SIGSEGV 0x148 은 0건
+09-10 11:18:06.579  3196  3329 F libc    : Fatal signal 6 (SIGABRT), code -6 in tid 3329 (CommonThreadPoo)
+09-10 11:18:06.608  3431  3431 F DEBUG   : pid: 3196, tid: 3329, name: CommonThreadPoo  >>> sq.rogue.rosettadrone <<<
+09-10 11:18:06.608  3431  3431 F DEBUG   : signal 6 (SIGABRT), code -6 (SI_TKILL), fault addr --------
+09-10 11:18:06.612  3431  3431 F DEBUG   : Abort message: 'art/runtime/java_vm_ext.cc:470] JNI DETECTED ERROR IN APPLICATION: jmethodID was NULL'
+09-10 11:18:06.613  3431  3431 F DEBUG   : backtrace:
+09-10 11:18:06.613  3431  3431 F DEBUG   :     #00 pc 0000000000000bc4  /system/lib64/libc.so (offset 0x6b000)
+09-10 11:18:06.613  3431  3431 F DEBUG   :     #01 pc 0000000000045fe4  /system/lib64/libc.so (offset 0x23000)
+09-10 11:25:27.382  4345  4345 F DEBUG   : pid: 4105, tid: 4154, name: CommonThreadPoo  >>> sq.rogue.rosettadrone <<<
+09-10 11:25:27.382  4345  4345 F DEBUG   : signal 6 (SIGABRT), code -6 (SI_TKILL), fault addr --------
+09-10 11:25:27.385  4345  4345 F DEBUG   : Abort message: 'art/runtime/java_vm_ext.cc:470] JNI DETECTED ERROR IN APPLICATION: jmethodID was NULL'
+09-10 11:25:27.386  4345  4345 F DEBUG   : backtrace:
+09-10 11:25:27.386  4345  4345 F DEBUG   :     #00 pc 0000000000000bc4  /system/lib64/libc.so (offset 0x6b000)
+09-10 11:25:27.386  4345  4345 F DEBUG   :     #01 pc 0000000000045fe4  /system/lib64/libc.so (offset 0x23000)
+09-10 11:26:17.253  4352  4400 F libc    : Fatal signal 6 (SIGABRT), code -6 in tid 4400 (CommonThreadPoo)
+09-10 11:26:17.372  4590  4590 F DEBUG   : pid: 4352, tid: 4400, name: CommonThreadPoo  >>> sq.rogue.rosettadrone <<<
+09-10 11:26:17.372  4590  4590 F DEBUG   : signal 6 (SIGABRT), code -6 (SI_TKILL), fault addr --------
+09-10 11:26:17.374  4590  4590 F DEBUG   : Abort message: 'art/runtime/java_vm_ext.cc:470] JNI DETECTED ERROR IN APPLICATION: jmethodID was NULL'
+09-10 11:26:17.376  4590  4590 F DEBUG   : backtrace:
+09-10 11:26:17.376  4590  4590 F DEBUG   :     #00 pc 0000000000000bc4  /system/lib64/libc.so (offset 0x6b000)
+09-10 11:26:17.376  4590  4590 F DEBUG   :     #01 pc 0000000000045fe4  /system/lib64/libc.so (offset 0x23000)
+09-10 11:26:19.442  4352  4368 F libc    : Fatal signal 11 (SIGSEGV), code 1, fault addr 0x790 in tid 4368 (ue.rosettadrone)
