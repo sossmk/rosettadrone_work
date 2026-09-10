@@ -53,7 +53,13 @@ while time.time() - t0 < SECS:
             got["GPS"] = (f"fix={fix}({FIX.get(fix, '?')})  위성 {sats}개  "
                           f"[GPS_RAW 좌표 {glat/1e7:.6f}, {glon/1e7:.6f}]")
         elif mid == 1:                                     # SYS_STATUS
-            got["배터리"] = (f"{struct.unpack_from('<H',p,14)[0]/1000:.2f} V   "
+            # 전류(offset 16, 10mA 단위)도 찍는다 — 전압 0V 가설의 판정에 쓴다.
+            # 앱은 전압·전류를 둘 다 '합산 콜백'(배터리 여러 개 기종용) 변수에서
+            # 꺼내 보낸다(DroneModel.java:1248,1249). Mavic 2 는 배터리가 하나라
+            # 그 콜백이 안 도는 것으로 보인다 → 둘 다 0이면 가설이 맞다.
+            raw["volt"] = struct.unpack_from('<H', p, 14)[0] / 1000.0
+            raw["amp"] = struct.unpack_from('<h', p, 16)[0] / 100.0
+            got["배터리"] = (f"{raw['volt']:.2f} V   전류 {raw['amp']:.2f} A   "
                              f"잔량 {struct.unpack_from('<b',p,30)[0]}%")
         elif mid == 30:                                    # ATTITUDE
             _, r, pi, y = struct.unpack_from("<Ifff", p, 0)
@@ -101,3 +107,22 @@ else:
         print(f"  ✓ 실좌표 수신: {lat:.6f}, {lon:.6f}  (위성 {sats}개 · fix={FIX.get(fix,fix)})")
         if fix is not None and fix < 3:
             print("    ⚠ 다만 3D_FIX 가 아니다 — 위치 정확도를 믿지 말 것")
+
+# ── 배터리 전압 0V 판정 (9/10 가설) ────────────────────────────────
+# 앱은 전압·전류를 '합산 콜백'(배터리 여러 개 다는 기종용) 변수에서 꺼내 보내고,
+# 잔량만 일반 배터리 콜백 값으로 계산한다 (DroneModel.java:1242 vs 1248,1249).
+# Mavic 2 는 배터리가 하나라 합산 콜백이 안 도는 것으로 보인다.
+if "volt" in raw:
+    v, a = raw["volt"], raw["amp"]
+    print()
+    if v == 0 and a == 0:
+        print("  ✓ 전압·전류가 둘 다 0 — 9/10 가설과 맞는다")
+        print("    앱이 '합산 콜백'(배터리 여러 개 기종용) 변수를 내보내고 있다.")
+        print("    진짜 값은 앱이 이미 읽고 있다(mCVoltage_mV). 내보내기만 하면 된다")
+        print("    → patches/02 후보. send_sys_status() 두 줄")
+    elif v == 0:
+        print(f"  ⚠ 전압만 0인데 전류는 {a:.2f} A 다 — 9/10 가설이 깨진다")
+        print("    둘 다 같은 합산 콜백에서 오므로 전류가 살아 있으면 설명이 안 된다.")
+        print("    DroneModel.java 의 send_sys_status() 를 다시 읽을 것")
+    else:
+        print(f"  ✓ 전압 {v:.2f} V · 전류 {a:.2f} A — 0V 문제가 해결됐다")
