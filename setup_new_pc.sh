@@ -90,6 +90,27 @@ git -C rosettadrone check-ignore -q app/src/main/res/values/keys.xml \
   && ok "git 이 무시함 (실수로 커밋될 위험 없음)" \
   || bad "⚠ git 이 keys.xml 을 추적한다 — 커밋하지 말 것"
 
+# ------------------------------------------------------- 4.5 패치 (필수!)
+# 2026-09-10: 이 단계가 없어서 「스크립트를 돌렸는데 앱이 그대로 죽는다」가 될 뻔했다.
+# 소스 원본은 영상이 동작하지 않는다 — Manifest 에서 VideoService 가 주석 처리돼 있다.
+say "4.5 패치 적용 (patches/01~04 — 없으면 영상이 동작하지 않는다)"
+cd "$WS/rosettadrone"
+PATCH_FAIL=0
+for f in 01-noparse-nullguard 02-manifest-videoservice \
+         03-sys-status-voltage 04-jmethodid-nullguard; do
+  if git apply --check "$SEED/patches/$f.patch" 2>/dev/null; then
+    git apply "$SEED/patches/$f.patch" && ok "$f"
+  elif git apply --reverse --check "$SEED/patches/$f.patch" 2>/dev/null; then
+    ok "$f (이미 적용돼 있음)"
+  else
+    bad "✗ $f 적용 실패"; PATCH_FAIL=1
+  fi
+done
+[ "$PATCH_FAIL" = "0" ] \
+  && ok "패치 4개 준비됨" \
+  || { bad "패치가 안 붙었다 — 이대로 빌드하면 영상이 안 된다. 중단한다"; exit 1; }
+cd "$WS"
+
 # ---------------------------------------------------------------- 5. 빌드
 say "5. 빌드 (Gradle 6.8.3 · Java 11 · 약 2분)"
 cd "$WS/rosettadrone"
@@ -106,6 +127,22 @@ ANDROID_SDK_ROOT="$SDK" JAVA_HOME="$WS/jdk" ./gradlew assembleDebug 2>&1 | tail 
 APK="$WS/rosettadrone/app/build/outputs/apk/debug/app-debug.apk"
 if [ -f "$APK" ]; then
   ok "APK 생성: $(du -h "$APK" | cut -f1)  ← 190MB 대가 정상"
+  # 2026-09-10: 소스를 고친 것과 산출물에 들어간 것은 다르다. APK 자체를 확인한다.
+  aapt_v=$(ls "$SDK"/build-tools/*/aapt 2>/dev/null | head -1)
+  if [ -n "$aapt_v" ]; then
+    "$aapt_v" dump xmltree "$APK" AndroidManifest.xml 2>/dev/null \
+      | grep -q "video.VideoService" \
+      && ok "Manifest 에 VideoService 선언 확인 (patches/02 반영됨)" \
+      || bad "⚠ Manifest 에 VideoService 가 없다 — 영상이 안 된다"
+  fi
+  SOF="$WS/rosettadrone/app/build/intermediates/cmake/debug/obj/arm64-v8a/libdjivideojni.so"
+  NDKBIN=$(ls -d "$SDK"/ndk/*/toolchains/llvm/prebuilt/linux-x86_64/bin 2>/dev/null | head -1)
+  if [ -f "$SOF" ] && [ -n "$NDKBIN" ]; then
+    "$NDKBIN/llvm-objdump" -d "$SOF" 2>/dev/null \
+      | awk '/<invokeFrameDataCallback>:/{f=1} f&&/cbnz/{print; exit}' | grep -q cbnz \
+      && ok ".so 에 dataCallbackMID 널 가드 확인 (patches/04 반영됨)" \
+      || bad "⚠ .so 가 옛 것일 수 있다 — patches/README 의 검증 절 참조"
+  fi
   aapt=$(ls "$SDK"/build-tools/*/aapt 2>/dev/null | head -1)
   [ -n "$aapt" ] && "$aapt" dump badging "$APK" 2>/dev/null | grep -q "sq.rogue.rosettadrone" \
     && ok "패키지명 sq.rogue.rosettadrone 확인"

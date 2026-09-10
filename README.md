@@ -6,48 +6,116 @@
 
 **이 폴더 하나면 새 PC에서 작업을 그대로 이어갈 수 있습니다.** 약 170KB 입니다.
 
-## 새 PC에서 할 일
+## 새 PC에서 처음부터 — 이 순서대로만 하면 됩니다
+
+> 2026-09-10 에 실제로 이 경로를 밟아 **T4 영상까지 통과**했습니다.
+> 순서를 바꾸거나 건너뛰면 그날 우리가 밟은 함정을 그대로 밟습니다.
+
+### 1. 기록·도구 받기 (2분)
 
 ```bash
 # gh 가 없으면 먼저: sudo apt install -y gh && gh auth login && gh auth setup-git
 git clone https://github.com/sossmk/rosettadrone_work.git ~/rosettadrone_work
+cd ~/rosettadrone_work
 ```
 
-기록·도구·인증키가 전부 따라옵니다. **여기까지가 대부분의 경우 필요한 전부입니다.**
+기록·도구·인증키가 전부 따라옵니다. **PC 쪽 도구(`tools/`)만 쓸 거면 여기서 끝입니다.**
 
-⚠ 예전 판은 `~/drone_ws/backup` 으로 받으라고 했습니다. 그 경로에 낡은 클론이 남아
-있으면 **어느 쪽이 정본인지 헷갈립니다** — 지우거나 `git pull` 로 맞춰 두세요.
-
-### 이미 만들어진 APK 를 받을 때 (기체는 있는데 툴체인이 없는 PC)
-
-APK 는 197MB 라 git 에 못 들어갑니다(한도 100MB). **GitHub Release 자산**으로 옮깁니다:
-
-```bash
-gh release list
-gh release download apk-2026-09-10-video01 -D ~/drone_ws/apk
-```
-
-| 릴리스 | 들어 있는 것 |
-|---|---|
-| `apk-2026-09-10-video01` | 소스 `805ca9e` + `patches/01` (영상 크래시 수정) |
-
-RM500 에 넣는 법은 `tools/file_bridge.py` 입니다 (USB 데이터선이 안 통하므로):
-```bash
-python3 tools/file_bridge.py 8000 ~/drone_ws/apk    # RM500 브라우저로 http://<PC IP>:8000/
-```
-
-### APK 를 다시 빌드해야 할 때만 (선택)
+### 2. 툴체인 + 빌드 (15~40분 · 2.7GB)
 
 ```bash
 bash ~/rosettadrone_work/setup_new_pc.sh
 ```
 
-JDK 11 · Android SDK 5종 · 소스(커밋 고정) · 빌드 · QGC 까지 되살립니다.
-20~40분 · 2.7GB 를 받고, 끝나면 188MB APK 가 나옵니다.
+JDK 11 · Android SDK · NDK · 소스(커밋 고정) · **패치 4개 적용** · 빌드 · QGC 까지 합니다.
+끝나면 `~/drone_ws/rosettadrone/app/build/outputs/apk/debug/app-debug.apk` (188MB).
 
-⚠ **앱 소스를 고칠 때만 필요합니다.** APK 는 RM500 안에서 도는 앱이라, 새로 빌드해도
-**RM500 이 옆에 있어야 설치**할 수 있다. 기록을 읽거나 PC쪽 파이썬 도구(`tools/`)를
-고치는 일은 clone 만으로 된다.
+⚠ **패치 없이 빌드하면 영상이 동작하지 않습니다.** 원본 소스는
+`AndroidManifest.xml` 에서 `VideoService` 가 주석 처리돼 있습니다. 스크립트가
+자동으로 붙이고, **붙지 않으면 빌드 전에 멈춥니다.**
+
+스크립트가 끝에 이 둘을 확인해 줍니다 — **둘 다 ✓ 여야 합니다**:
+```
+✓ Manifest 에 VideoService 선언 확인 (patches/02 반영됨)
+✓ .so 에 dataCallbackMID 널 가드 확인 (patches/04 반영됨)
+```
+
+### 3. RM500 에 설치
+
+```bash
+mkdir -p ~/drone_ws/apk
+cp ~/drone_ws/rosettadrone/app/build/outputs/apk/debug/app-debug.apk ~/drone_ws/apk/
+python3 tools/file_bridge.py 8000 ~/drone_ws/apk
+# RM500 브라우저로 http://<이 PC IP>:8000/
+```
+
+⚠ **다른 PC 에서 빌드한 앱이 이미 깔려 있으면 덮어쓰기가 안 됩니다.**
+디버그 서명이 PC마다 달라서 *"같은 이름을 가진 패키지가 있어서 설치가 안 된다"* 가 뜹니다.
+→ **기존 앱을 제거하고 새로 설치하세요.**
+
+### 4. ★ 앱 설정 — 여기서 제일 많이 막힙니다
+
+**앱을 새로 깔면 설정이 전부 초기화됩니다.** 2026-09-10 에 여기서 20분을 썼습니다.
+
+```bash
+./tools/link_check.sh          # 앱에 넣을 GCS IP 를 찍어 준다
+```
+
+RM500 앱 설정에 **전부** 넣으세요:
+
+| 항목 | 값 |
+|---|---|
+| **`Use GCS on an external device`** | **켜기** ← 제일 잘 빠뜨립니다 |
+| `GCS IP` | `link_check.sh` 가 찍어 준 값 (매번 바뀝니다) |
+| `Port` | `14550` |
+| **`Enable video feed`** | **켜기** |
+| `Video port` | `5600` |
+| `Video bitrate` | `2` |
+| RC 모드 스위치 | **P** (cmd_vel 은 P 에서만 먹습니다) |
+
+그다음 **강제 중지 → 앱 열기 → `START`**(SIM·TEST 아님).
+
+⚠ **`Use GCS on an external device` 가 꺼져 있거나 IP 가 틀리면 앱은 크래시도 안 하고
+조용히 아무것도 안 보냅니다.** 크래시와 구별이 안 됩니다 — 구별법은 아래.
+
+### 5. 확인
+
+```bash
+./tools/link_check.sh                  # T0 링크 위생
+python3 tools/decode_check.py 14550    # T1 다운링크 + 배터리 전압
+python3 tools/video_probe.py --secs 30 --save ~/drone_ws/capture/out.h264   # T4 영상
+```
+
+**정상이면 이렇게 나옵니다** (2026-09-10 실측):
+```
+배터리  16.98 V   전류 13.05 A   잔량 91%
+✓ T4 통과 — 1632x1088 · IDR 31장 · 2514 kbps
+```
+
+### 막혔을 때 — 증상으로 원인 가르기
+
+| 증상 | 먼저 의심할 것 |
+|---|---|
+| **텔레메트리가 처음부터 0패킷** | **설정.** `Use GCS…` 토글 · IP 오타. 크래시는 보통 몇 초 보내다 끊깁니다 |
+| 몇 초 보내다 끊긴다 | **크래시.** 툼스톤을 읽으세요(아래) |
+| 텔레메트리는 오는데 영상만 0 | `Enable video feed` · Video port · `patches/02` 반영 여부 |
+| 좌표가 `-32.85, -71.21` | **TEST 모드.** 강제 중지 후 START |
+| 좌표가 `0, 0` · 위성 0개 | **정상.** 실내 GPS 미수신입니다. 야외로 |
+
+**크래시 원문 읽는 법** (USB 로 됩니다 — 옛 기록의 "USB 가 안 통한다"는 틀렸습니다):
+
+RM500 의 USB 옵션을 **`Transfer files`(MTP)** 로 두고 케이블을 꽂으면
+`/run/user/1000/gvfs/mtp:host=DJI_rm500_*/Internal shared storage/dji_logs/` 가 열립니다.
+
+| 경로 | 내용 |
+|---|---|
+| `tombstones/` | 네이티브 크래시 — `signal` · `fault addr` · backtrace |
+| `logs/<날짜>/android` | logcat 전문 (28~40MB) |
+
+⚠ 툼스톤이 언제 것인지는 **파일 날짜가 아니라 `pid`/`tid` 를 logcat 과 맞춰** 확인하세요.
+2026-09-10 에 파일 날짜를 믿고 오판했습니다.
+
+⚠ `Transfer photos`(PTP)로 바꾸면 "Folder is Empty" 가 뜹니다 — 정상입니다. MTP 를 쓰세요.
 
 ## 왜 2.7GB를 통째로 안 옮기는가
 
@@ -68,7 +136,7 @@ JDK 11 · Android SDK 5종 · 소스(커밋 고정) · 빌드 · QGC 까지 되�
 |---|---|
 | `진행상황.md` | **누적 기록.** 날짜별 블록 + 현재 상태 표. 여기부터 읽으세요 |
 | `할일.md` | **앞으로 할 것.** AR 태그 추종·정밀 착륙 패키지의 구조와 순서, 지고 갈 제약 |
-| `patches/` | 앱 소스 패치 (함정 5 — 영상 켜면 죽는 문제) |
+| `patches/` | **앱 소스 패치 4개.** `02` 가 영상을 살리는 핵심 (Manifest 의 `VideoService` 주석 복구) |
 | `진행기록.md` | 명령·에러 원문 |
 | `rosettadrone_progress.html` | 보고용 요약 |
 | `tools/link_check.sh` | **T0 — 기체 켜기 전 링크 위생.** IP·포트점유·방화벽을 한 번에 보고, **앱에 넣을 GCS IP 를 찍어 준다** |
@@ -80,7 +148,7 @@ JDK 11 · Android SDK 5종 · 소스(커밋 고정) · 빌드 · QGC 까지 되�
 | `tools/video_probe.py` | **T4 — 영상.** RTP/H.264 를 풀어 **어디서 끊겼는지 판정**한다. `--save` 로 진짜 스트림을 받아 두면 **드론 없이** ROS 브리지·태그 검출을 개발할 수 있다 |
 | `tools/mav.py` | MAVLink v2 최소 구현(공유). CRC 는 앱의 `CRC.java` 에서 직접 뽑았다 |
 | `tools/file_bridge.py` | RM500 ↔ PC 파일 다리 (브라우저로 양방향) |
-| `logs/` | 8/28 실측 증거 — 논문용 |
+| `logs/` | 실측 증거 — 8/28 빌드·프로브, 9/10 크래시 logcat 발췌 |
 | `secrets/keys.xml` | **DJI App Key. 아래 경고 참조** |
 | `setup_new_pc.sh` | 새 PC 복구 스크립트 |
 
@@ -124,17 +192,20 @@ clone 한 번에 인증키까지 따라와서 새 PC 설정이 명령 한 줄로
 ./tools/link_check.sh          # 앱에 넣을 GCS IP + 포트점유 + 방화벽을 한 번에
 ```
 
-## 지금 어디까지 왔나 (2026-09-10 기준)
+## 지금 어디까지 왔나 (2026-09-10 밤 기준)
 
 - ✅ 빌드 성공 · RM500 설치 · **DJI 라이트 green + `Mavic 2`**
 - ✅ **T1 다운링크** — 실기 텔레메트리. 위경도 `0,0` 은 **실내 GPS 미수신이고 앱은 정상**(위성 0개·NO_FIX)
 - ✅ **T2 업링크** — `COMMAND_ACK` · `AUTOPILOT_VERSION` 수신
 - ✅ **T3 짐벌** — 명령으로 카메라가 실제로 움직임. 기체 하드웨어까지 전 경로 증명
 - ✅ **T5 cmd_vel (SIM)** — 축 대응·부호 확정. `vx>0`=앞 · `vy>0`=오른쪽 · **`vz>0`=위(MAVLink 와 반대)** · `yawRate>0`=시계방향
-- 🔶 **T4 영상** — **패치·재빌드 완료 (9/10).** 널 검사가 크래시 지점을 감싼 것을 기계어까지 확인했다. APK 는 Release `apk-2026-09-10-video01`.
-  **남은 것은 설치 후 `tools/video_probe.py` 로 실제로 흐르는지 보는 것** — 크래시가 막힌 것과 영상이 흐르는 것은 별개다
+- ✅ **T4 영상 (9/10 통과)** — 1632x1088 · 31.9fps · 2514 kbps · IDR 31장.
+  원인은 **업스트림 `AndroidManifest.xml` 에서 `VideoService` 가 주석 처리**된 것이었고 `patches/02` 로 복구했다.
+  진짜 스트림 30초를 `~/drone_ws/capture/` 에 저장해 뒀다 → **드론 없이 ROS 브리지·태그 검출 개발 가능**
+- ✅ **배터리 전압 (9/10 해결)** — `patches/03`. 16.98 V · 13.05 A (전에는 0.00 V)
 - ⬜ 야외 GPS fix 확인
 - ⬜ `markWaypoint()` NPE 지뢰 미패치 (`MainActivity.java:511,528`) — 앱 화면에서 웨이포인트를 찍을 때만 터진다. MAVLink 경로는 무관
+- ⬜ 화면 **RTL 버튼** NPE (`DroneModel.doReturnToLaunch:396`) — MAVLink `NAV_RETURN_TO_LAUNCH` 가 같은 함수를 타는지 확인 필요
 
 ⚠ **`COMMAND_ACK: ACCEPTED` 를 성공으로 읽지 마세요.** 앱은 DJI 가 에러를 돌려줘도
 무조건 ACCEPTED 를 보냅니다(`DroneModel.java:2029`). 상태 변화로 검증해야 합니다.
