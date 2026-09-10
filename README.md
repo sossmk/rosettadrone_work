@@ -84,6 +84,7 @@ RM500 앱 설정에 **전부** 넣으세요:
 ./tools/link_check.sh                  # T0 링크 위생
 python3 tools/decode_check.py 14550    # T1 다운링크 + 배터리 전압
 python3 tools/video_probe.py --secs 30 --save ~/drone_ws/capture/out.h264   # T4 영상
+./tools/video_view.sh                  # 영상을 창으로 직접 본다
 ```
 
 **정상이면 이렇게 나옵니다** (2026-09-10 실측):
@@ -145,6 +146,7 @@ RM500 의 USB 옵션을 **`Transfer files`(MTP)** 로 두고 케이블을 꽂으
 | `tools/uplink_test.py` | **T2 — 업링크.** PC→앱 명령 경로가 열렸는지 본다 |
 | `tools/gimbal_test.py` | **T3 — 짐벌 틸팅.** 프로펠러 없이 지상에서 업링크 전체를 증명하는 가장 값싼 실험 |
 | `tools/cmd_vel_test.py` | **T5 — 속도 명령.** 20Hz 연속 발행 + **기수 기준 이동 방향**·거리 자동 측정 |
+| `tools/video_view.sh` | **영상을 눈으로 본다.** 인자 없이 = 실시간 창, 파일을 주면 = 저장분 재생. **안 오면 IP 어긋남을 진단해 준다** (핫스팟 IP 는 매번 바뀐다) |
 | `tools/video_probe.py` | **T4 — 영상.** RTP/H.264 를 풀어 **어디서 끊겼는지 판정**한다. `--save` 로 진짜 스트림을 받아 두면 **드론 없이** ROS 브리지·태그 검출을 개발할 수 있다 |
 | `tools/mav.py` | MAVLink v2 최소 구현(공유). CRC 는 앱의 `CRC.java` 에서 직접 뽑았다 |
 | `tools/file_bridge.py` | RM500 ↔ PC 파일 다리 (브라우저로 양방향) |
