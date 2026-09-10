@@ -93,10 +93,19 @@ git -C rosettadrone check-ignore -q app/src/main/res/values/keys.xml \
 # ---------------------------------------------------------------- 5. 빌드
 say "5. 빌드 (Gradle 6.8.3 · Java 11 · 약 2분)"
 cd "$WS/rosettadrone"
-JAVA_HOME="$WS/jdk" ./gradlew assembleDebug 2>&1 | tail -20
+
+# Gradle 은 SDK 위치를 local.properties 나 ANDROID_SDK_ROOT 에서만 찾는다.
+# 이게 없으면  "SDK location not found"  로 멈춘다 (2026-09-10 에 실제로 걸렸다 —
+# 8/28 에는 셸에 손으로 넣고 빌드해서 그 사실이 기록에 안 남아 있었다).
+if [ ! -f local.properties ]; then
+  echo "sdk.dir=$SDK" > local.properties
+  ok "local.properties 생성 (sdk.dir=$SDK)"
+fi
+
+ANDROID_SDK_ROOT="$SDK" JAVA_HOME="$WS/jdk" ./gradlew assembleDebug 2>&1 | tail -20
 APK="$WS/rosettadrone/app/build/outputs/apk/debug/app-debug.apk"
 if [ -f "$APK" ]; then
-  ok "APK 생성: $(du -h "$APK" | cut -f1)  ← 180MB 대가 정상"
+  ok "APK 생성: $(du -h "$APK" | cut -f1)  ← 190MB 대가 정상"
   aapt=$(ls "$SDK"/build-tools/*/aapt 2>/dev/null | head -1)
   [ -n "$aapt" ] && "$aapt" dump badging "$APK" 2>/dev/null | grep -q "sq.rogue.rosettadrone" \
     && ok "패키지명 sq.rogue.rosettadrone 확인"

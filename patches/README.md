@@ -7,16 +7,48 @@ RosettaDrone `master` / 커밋 `805ca9e4525e3ae741877cf912883cd6e85e5478` 기준
 
 ```bash
 cd ~/drone_ws/rosettadrone
-git apply ~/drone_ws/backup/patches/01-noparse-nullguard.patch
+git apply ~/rosettadrone_work/patches/01-noparse-nullguard.patch
+ANDROID_SDK_ROOT=$HOME/Android/Sdk JAVA_HOME=~/drone_ws/jdk ./gradlew assembleDebug
 ```
 
 되돌리려면 `git apply -R` 입니다.
 
+⚠ `ANDROID_SDK_ROOT` 없이는 **"SDK location not found"** 로 멈춥니다
+(`local.properties` 가 없기 때문. `setup_new_pc.sh` 가 이제 만들어 줍니다).
+
+## ⚠ C 코드 패치는 `.so` 가 진짜 다시 빌드됐는지 확인할 것
+
+자바만 재컴파일되고 옛 `.so` 가 그대로 포장되면 **크래시가 그대로 재현되어
+「패치가 틀렸다」고 오판하게 됩니다.** 기체가 다른 자리에 있으면 헛걸음이 큽니다.
+
+```bash
+# ① 오늘 다시 링크됐나
+ls -la app/build/intermediates/stripped_native_libs/debug/out/lib/arm64-v8a/libdjivideojni.so
+# ② 기계어에 진짜 들어갔나 (가장 확실하다)
+NDK=~/Android/Sdk/ndk/22.0.7026061/toolchains/llvm/prebuilt/linux-x86_64/bin
+$NDK/llvm-objdump -d app/build/intermediates/cmake/debug/obj/arm64-v8a/libdjivideojni.so \
+  | grep -A45 "<noparse>:"
+```
+
 ## 목록
 
-| 패치 | 고치는 것 | 재빌드 |
+| 패치 | 고치는 것 | 상태 |
 |---|---|---|
-| `01-noparse-nullguard.patch` | **함정 5** — 영상을 켜면 Mavic 2 에서 앱이 SIGSEGV 로 죽는다 | 필요 (NDK) |
+| `01-noparse-nullguard.patch` | **함정 5** — 영상을 켜면 Mavic 2 에서 앱이 SIGSEGV 로 죽는다 | ✅ **2026-09-10 적용·빌드 완료** → Release `apk-2026-09-10-video01` |
+
+### 01 의 빌드 검증 결과 (2026-09-10)
+
+```
+<noparse>:
+    1924: str  wzr, [sp, #32]     ← frame_num  = 0
+    1930: str  wzr, [sp, #20]     ← height     = 0
+    193c: cbz  x9, 0x1974         ★ m_pCodecPaser == NULL 이면 통째로 건너뛴다
+    1948: ldr  w9, [x9, #328]     ★ 328 = 0x148 — logcat 의 fault addr 그 자리
+```
+**9/9 logcat 의 `fault addr 0x148` 이 저 `#328` 오프셋이고, 이제 `cbz` 뒤에 있습니다.**
+
+⚠ 다만 이것은 **크래시가 막혔다는 증명일 뿐, 영상이 흐른다는 증명은 아닙니다.**
+그건 `tools/video_probe.py` 로 실기에서 따로 봐야 합니다.
 
 ### 01 — `noparse()` 의 널 역참조
 

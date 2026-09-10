@@ -10,15 +10,36 @@
 
 ```bash
 # gh 가 없으면 먼저: sudo apt install -y gh && gh auth login && gh auth setup-git
-git clone https://github.com/sossmk/rosettadrone_work.git ~/drone_ws/backup
+git clone https://github.com/sossmk/rosettadrone_work.git ~/rosettadrone_work
 ```
 
 기록·도구·인증키가 전부 따라옵니다. **여기까지가 대부분의 경우 필요한 전부입니다.**
 
+⚠ 예전 판은 `~/drone_ws/backup` 으로 받으라고 했습니다. 그 경로에 낡은 클론이 남아
+있으면 **어느 쪽이 정본인지 헷갈립니다** — 지우거나 `git pull` 로 맞춰 두세요.
+
+### 이미 만들어진 APK 를 받을 때 (기체는 있는데 툴체인이 없는 PC)
+
+APK 는 197MB 라 git 에 못 들어갑니다(한도 100MB). **GitHub Release 자산**으로 옮깁니다:
+
+```bash
+gh release list
+gh release download apk-2026-09-10-video01 -D ~/drone_ws/apk
+```
+
+| 릴리스 | 들어 있는 것 |
+|---|---|
+| `apk-2026-09-10-video01` | 소스 `805ca9e` + `patches/01` (영상 크래시 수정) |
+
+RM500 에 넣는 법은 `tools/file_bridge.py` 입니다 (USB 데이터선이 안 통하므로):
+```bash
+python3 tools/file_bridge.py 8000 ~/drone_ws/apk    # RM500 브라우저로 http://<PC IP>:8000/
+```
+
 ### APK 를 다시 빌드해야 할 때만 (선택)
 
 ```bash
-bash ~/drone_ws/backup/setup_new_pc.sh
+bash ~/rosettadrone_work/setup_new_pc.sh
 ```
 
 JDK 11 · Android SDK 5종 · 소스(커밋 고정) · 빌드 · QGC 까지 되살립니다.
@@ -56,6 +77,7 @@ JDK 11 · Android SDK 5종 · 소스(커밋 고정) · 빌드 · QGC 까지 되�
 | `tools/uplink_test.py` | **T2 — 업링크.** PC→앱 명령 경로가 열렸는지 본다 |
 | `tools/gimbal_test.py` | **T3 — 짐벌 틸팅.** 프로펠러 없이 지상에서 업링크 전체를 증명하는 가장 값싼 실험 |
 | `tools/cmd_vel_test.py` | **T5 — 속도 명령.** 20Hz 연속 발행 + **기수 기준 이동 방향**·거리 자동 측정 |
+| `tools/video_probe.py` | **T4 — 영상.** RTP/H.264 를 풀어 **어디서 끊겼는지 판정**한다. `--save` 로 진짜 스트림을 받아 두면 **드론 없이** ROS 브리지·태그 검출을 개발할 수 있다 |
 | `tools/mav.py` | MAVLink v2 최소 구현(공유). CRC 는 앱의 `CRC.java` 에서 직접 뽑았다 |
 | `tools/file_bridge.py` | RM500 ↔ PC 파일 다리 (브라우저로 양방향) |
 | `logs/` | 8/28 실측 증거 — 논문용 |
@@ -102,14 +124,15 @@ clone 한 번에 인증키까지 따라와서 새 PC 설정이 명령 한 줄로
 ./tools/link_check.sh          # 앱에 넣을 GCS IP + 포트점유 + 방화벽을 한 번에
 ```
 
-## 지금 어디까지 왔나 (2026-09-09 기준)
+## 지금 어디까지 왔나 (2026-09-10 기준)
 
 - ✅ 빌드 성공 · RM500 설치 · **DJI 라이트 green + `Mavic 2`**
 - ✅ **T1 다운링크** — 실기 텔레메트리. 위경도 `0,0` 은 **실내 GPS 미수신이고 앱은 정상**(위성 0개·NO_FIX)
 - ✅ **T2 업링크** — `COMMAND_ACK` · `AUTOPILOT_VERSION` 수신
 - ✅ **T3 짐벌** — 명령으로 카메라가 실제로 움직임. 기체 하드웨어까지 전 경로 증명
 - ✅ **T5 cmd_vel (SIM)** — 축 대응·부호 확정. `vx>0`=앞 · `vy>0`=오른쪽 · **`vz>0`=위(MAVLink 와 반대)** · `yawRate>0`=시계방향
-- ⬜ **T4 영상** — 켜면 앱이 죽는다(함정 5). **원인 규명 끝, 패치도 있음**(`patches/01`). NDK 재빌드만 남았다
+- 🔶 **T4 영상** — **패치·재빌드 완료 (9/10).** 널 검사가 크래시 지점을 감싼 것을 기계어까지 확인했다. APK 는 Release `apk-2026-09-10-video01`.
+  **남은 것은 설치 후 `tools/video_probe.py` 로 실제로 흐르는지 보는 것** — 크래시가 막힌 것과 영상이 흐르는 것은 별개다
 - ⬜ 야외 GPS fix 확인
 - ⬜ `markWaypoint()` NPE 지뢰 미패치 (`MainActivity.java:511,528`) — 앱 화면에서 웨이포인트를 찍을 때만 터진다. MAVLink 경로는 무관
 
