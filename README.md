@@ -146,6 +146,8 @@ RM500 의 USB 옵션을 **`Transfer files`(MTP)** 로 두고 케이블을 꽂으
 | `tools/uplink_test.py` | **T2 — 업링크.** PC→앱 명령 경로가 열렸는지 본다 |
 | `tools/gimbal_test.py` | **T3 — 짐벌 틸팅.** 프로펠러 없이 지상에서 업링크 전체를 증명하는 가장 값싼 실험 |
 | `tools/cmd_vel_test.py` | **T5 — 속도 명령.** 20Hz 연속 발행 + **기수 기준 이동 방향**·거리 자동 측정 |
+| `tools/cmd_vel_drive.py` | **cmd_vel 를 방향키로 직접 조종.** ↑↓=전진후진 · ←→=횡이동 · a/d=회전. RC 스틱을 잡아 갑자기 조종기로 넘겨도 예외 없이 계속 돌게 되어 있다(5초 차단은 앱의 정상 동작) |
+| `tools/goto_gps.py` | **좌표로 단발 이동.** `capture` 로 현재 좌표를 재고 저장, `goto LAT LON` 으로 그 좌표까지 `MISSION_ITEM_INT` 단발 이동(복귀는 항상 수동) |
 | `tools/video_view.sh` | **영상을 눈으로 본다.** 인자 없이 = 실시간 창, 파일을 주면 = 저장분 재생. **안 오면 IP 어긋남을 진단해 준다** (핫스팟 IP 는 매번 바뀐다) |
 | `tools/video_probe.py` | **T4 — 영상.** RTP/H.264 를 풀어 **어디서 끊겼는지 판정**한다. `--save` 로 진짜 스트림을 받아 두면 **드론 없이** ROS 브리지·태그 검출을 개발할 수 있다 |
 | `tools/mav.py` | MAVLink v2 최소 구현(공유). CRC 는 앱의 `CRC.java` 에서 직접 뽑았다 |
