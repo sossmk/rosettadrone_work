@@ -125,6 +125,7 @@ class Link:
 
         # 최근 텔레메트리 (poll() 이 갱신한다)
         self.tel = {}
+        self.addr_changes = 0     # 앱의 송신 포트가 바뀐 횟수 (아래 poll() 참고)
 
     def frame(self, msgid, payload):
         p = payload.rstrip(b"\x00") or b"\x00"            # v2 truncation
@@ -235,13 +236,24 @@ class Link:
         self.send(73, payload)
 
     def poll(self):
-        """지금 도착해 있는 것을 전부 읽어 self.tel 을 갱신하고 목록을 돌려준다."""
+        """지금 도착해 있는 것을 전부 읽어 self.tel 을 갱신하고 목록을 돌려준다.
+
+        ⚠ 봉투의 발신 주소를 매번 따라간다. 앱은 new DatagramSocket() 으로 임시
+          포트를 쓰므로 **앱을 재시작하면 포트가 바뀐다**(제약 #7). discover() 로
+          한 번 잡은 주소를 계속 쓰면, 앱이 도중에 재시작한 뒤로는 죽은 포트에
+          조용히 쏘게 된다 — 화면상 "명령이 안 먹는다"로만 보인다. 그래서 여기서
+          갱신한다 (discover() 와 같은 규칙: 마지막으로 보낸 쪽이 앱이다).
+        """
         out = []
         while True:
             try:
-                d, _ = self.sock.recvfrom(4096)
+                d, addr = self.sock.recvfrom(4096)
             except (socket.timeout, BlockingIOError):
                 break
+            if addr != self.addr:
+                if self.addr is not None:
+                    self.addr_changes += 1
+                self.addr = addr
             mid, p = parse(d)
             if mid is None:
                 continue

@@ -146,10 +146,12 @@ RM500 의 USB 옵션을 **`Transfer files`(MTP)** 로 두고 케이블을 꽂으
 | `tools/uplink_test.py` | **T2 — 업링크.** PC→앱 명령 경로가 열렸는지 본다 |
 | `tools/gimbal_test.py` | **T3 — 짐벌 틸팅.** 프로펠러 없이 지상에서 업링크 전체를 증명하는 가장 값싼 실험 |
 | `tools/cmd_vel_test.py` | **T5 — 속도 명령.** 20Hz 연속 발행 + **기수 기준 이동 방향**·거리 자동 측정 |
-| `tools/cmd_vel_drive.py` | **cmd_vel 를 방향키로 직접 조종.** ↑↓=전진후진 · ←→=횡이동 · a/d=회전. RC 스틱을 잡아 갑자기 조종기로 넘겨도 예외 없이 계속 돌게 되어 있다(5초 차단은 앱의 정상 동작) |
+| `tools/cmd_vel_drive.py` | **cmd_vel 를 방향키로 직접 조종.** ↑↓=전진후진 · ←→=횡이동 · a/d=회전. ⚠ **스틱을 잡아도 조종권이 RC 로 넘어가지 않는다** — `q` 로 끄고 앱의 Safety(자물쇠) 버튼까지 눌러야 한다(제약 #20·#21) |
 | `tools/goto_gps.py` | **좌표로 단발 이동.** `capture` 로 현재 좌표를 재고 저장, `goto LAT LON` 으로 그 좌표까지 `MISSION_ITEM_INT` 단발 이동(복귀는 항상 수동) |
 | `tools/video_view.sh` | **영상을 눈으로 본다.** 인자 없이 = 실시간 창, 파일을 주면 = 저장분 재생. **안 오면 IP 어긋남을 진단해 준다** (핫스팟 IP 는 매번 바뀐다) |
 | `tools/video_probe.py` | **T4 — 영상.** RTP/H.264 를 풀어 **어디서 끊겼는지 판정**한다. `--save` 로 진짜 스트림을 받아 두면 **드론 없이** ROS 브리지·태그 검출을 개발할 수 있다 |
+| `ros2/` | **ROS 2 브리지 (`rd_bridge`).** 영상 → `/image_raw`, `/cmd_vel` → MAVLink #84. **기체 없이 저장분·앱 대역으로 개발할 수 있다** — 사용법은 `ros2/README.md` |
+| `tools/fake_app.py` | **앱 대역 — 기체 없이 업링크를 시험한다.** #84·#73·#76 을 디코드해 보여주고 ACK 를 돌려준다. 앱의 함정(무조건 ACCEPTED · `target_system≠1` 이면 조용히 버림 · 200ms 데드맨)을 일부러 흉내 낸다 |
 | `tools/mav.py` | MAVLink v2 최소 구현(공유). CRC 는 앱의 `CRC.java` 에서 직접 뽑았다 |
 | `tools/file_bridge.py` | RM500 ↔ PC 파일 다리 (브라우저로 양방향) |
 | `logs/` | 실측 증거 — 8/28 빌드·프로브, 9/10 크래시 logcat 발췌 |
@@ -196,7 +198,7 @@ clone 한 번에 인증키까지 따라와서 새 PC 설정이 명령 한 줄로
 ./tools/link_check.sh          # 앱에 넣을 GCS IP + 포트점유 + 방화벽을 한 번에
 ```
 
-## 지금 어디까지 왔나 (2026-09-10 밤 기준)
+## 지금 어디까지 왔나 (2026-09-14 기준)
 
 - ✅ 빌드 성공 · RM500 설치 · **DJI 라이트 green + `Mavic 2`**
 - ✅ **T1 다운링크** — 실기 텔레메트리. 위경도 `0,0` 은 **실내 GPS 미수신이고 앱은 정상**(위성 0개·NO_FIX)
@@ -207,7 +209,13 @@ clone 한 번에 인증키까지 따라와서 새 PC 설정이 명령 한 줄로
   원인은 **업스트림 `AndroidManifest.xml` 에서 `VideoService` 가 주석 처리**된 것이었고 `patches/02` 로 복구했다.
   진짜 스트림 30초를 `~/drone_ws/capture/` 에 저장해 뒀다 → **드론 없이 ROS 브리지·태그 검출 개발 가능**
 - ✅ **배터리 전압 (9/10 해결)** — `patches/03`. 16.98 V · 13.05 A (전에는 0.00 V)
-- ⬜ 야외 GPS fix 확인
+- ✅ **야외 GPS fix (9/11 확인)** — 위성 수신 정상. 실내 `0,0` 판정이 맞았다
+- ✅ **ROS 2 브리지 (9/14)** — `/image_raw` 31.9fps · `/cmd_vel` → #84 20.2Hz.
+  **기체 없이 저장분·앱 대역으로 검증했다.** 실기 확인은 남음 → `ros2/README.md`
+- ⬜ `goto_gps.py` 실기 재검증 — 9/11 실패 원인(`target_system=0`) 확정·수정 완료, 확인만 남음
+- 🔴 **조종권을 RC 로 되돌리려면 앱 화면의 Safety(자물쇠) 버튼이 필요하다** (9/14 소스 확인).
+  순서: **①도구 종료 → ②스틱 놓고 5초 → ③Safety 버튼**, 안 되면 S 모드.
+  도구를 끄는 것만으로는 안 풀린다 — `cancelMotion()` 은 타이머만 죽인다. 제약 #20·#21·#22
 - ⬜ `markWaypoint()` NPE 지뢰 미패치 (`MainActivity.java:511,528`) — 앱 화면에서 웨이포인트를 찍을 때만 터진다. MAVLink 경로는 무관
 - ⬜ 화면 **RTL 버튼** NPE (`DroneModel.doReturnToLaunch:396`) — MAVLink `NAV_RETURN_TO_LAUNCH` 가 같은 함수를 타는지 확인 필요
 

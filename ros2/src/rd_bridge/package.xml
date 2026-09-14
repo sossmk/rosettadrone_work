@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rd_bridge</name>
+  <version>0.1.0</version>
+  <description>RosettaDrone ↔ ROS 2 브리지 — 영상을 /image_raw 로 발행하고 /cmd_vel 을 MAVLink #84 로 바꿔 쏜다 (할일.md 의 L3)</description>
+  <maintainer email="rlatjdals6142@gmail.com">김성민</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+
+  <!-- 영상 경로는 OpenCV(FFMPEG·GStreamer)만 쓴다. h264parse(plugins-bad)는 필요 없다 -->
+  <exec_depend>python3-opencv</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
