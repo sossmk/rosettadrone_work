@@ -139,22 +139,19 @@ RM500 의 USB 옵션을 **`Transfer files`(MTP)** 로 두고 케이블을 꽂으
 | `할일.md` | **앞으로 할 것.** AR 태그 추종·정밀 착륙 패키지의 구조와 순서, 지고 갈 제약 |
 | `patches/` | **앱 소스 패치 4개.** `02` 가 영상을 살리는 핵심 (Manifest 의 `VideoService` 주석 복구) |
 | `진행기록.md` | 명령·에러 원문 |
-| `rosettadrone_progress.html` | 보고용 요약 |
-| `tools/link_check.sh` | **T0 — 기체 켜기 전 링크 위생.** IP·포트점유·방화벽을 한 번에 보고, **앱에 넣을 GCS IP 를 찍어 준다** |
-| `tools/udp_probe.py` | UDP 14550 에 뭐가 오는지 센다 (앱↔방화벽↔QGC 원인 분리) |
-| `tools/decode_check.py` | **T1 — 다운링크.** MAVLink 를 풀어 실제 값을 보고 **0,0 의 원인을 판정**한다 |
-| `tools/uplink_test.py` | **T2 — 업링크.** PC→앱 명령 경로가 열렸는지 본다 |
-| `tools/gimbal_test.py` | **T3 — 짐벌 틸팅.** 프로펠러 없이 지상에서 업링크 전체를 증명하는 가장 값싼 실험 |
-| `tools/cmd_vel_test.py` | **T5 — 속도 명령.** 20Hz 연속 발행 + **기수 기준 이동 방향**·거리 자동 측정 |
-| `tools/cmd_vel_drive.py` | **cmd_vel 를 방향키로 직접 조종.** ↑↓=전진후진 · ←→=횡이동 · a/d=회전. ⚠ **스틱을 잡아도 조종권이 RC 로 넘어가지 않는다** — `q` 로 끄고 앱의 Safety(자물쇠) 버튼까지 눌러야 한다(제약 #20·#21) |
-| `tools/goto_gps.py` | **좌표 측정** — `capture` 로 현재 좌표를 재고 저장(항법에 줄 목표). ⛔ `goto` 는 **폐기**(2026-09-14) — `flyTo()` 를 안 쓴다, 항법은 `nav_node` |
-| `tools/video_view.sh` | **영상을 눈으로 본다.** 인자 없이 = 실시간 창, 파일을 주면 = 저장분 재생. **안 오면 IP 어긋남을 진단해 준다** (핫스팟 IP 는 매번 바뀐다) |
-| `tools/video_probe.py` | **T4 — 영상.** RTP/H.264 를 풀어 **어디서 끊겼는지 판정**한다. `--save` 로 진짜 스트림을 받아 두면 **드론 없이** ROS 브리지·태그 검출을 개발할 수 있다 |
+| `구조.html` | **전체 구조 한 장 요약** — 층·데이터 흐름·토픽·언제 어떤 도구를 쓰나 (브라우저로 연다) |
+| `tools/link_check.sh` | **기체 켜기 전 링크 위생.** IP·포트점유·방화벽을 한 번에 보고, **앱에 넣을 GCS IP 를 찍어 준다** |
+| `tools/decode_check.py` | **다운링크.** MAVLink 를 풀어 실제 값을 보고 **0,0 의 원인을 판정**한다 |
+| `tools/rd_cmd.py` | **업링크 명령 도구.** `ping`(업링크 열렸나) · `gimbal`(짐벌 틸트) · `drive`(방향키 조종) · `vel`(속도 명령 + 이동 방향 측정). ⚠ 조종권은 저절로 RC 로 안 돌아온다 — S 모드 전환(9/11 실기) |
+| `tools/topic_check.py` | **ROS 토픽 수신 점검.** 브리지 토픽의 Hz·최대 간격·값을 표로 판정 · `list` · `echo <토픽>` |
+| `tools/gps_capture.py` | **좌표 측정** — 현재 좌표를 재고 저장(`nav_node` 에 줄 목표) |
+| `tools/video_view.sh` | **영상을 눈으로 본다.** 인자 없이 = 실시간 창, 파일을 주면 = 저장분 재생. **안 오면 IP 어긋남을 진단해 준다** |
+| `tools/video_probe.py` | **영상 판정.** RTP/H.264 를 풀어 **어디서 끊겼는지** 찍는다. `--save` 로 진짜 스트림을 받아 두면 **드론 없이** 개발할 수 있다 |
 | `ros2/` | **ROS 2 브리지 + 항법 (`rd_bridge`).** 영상 → `/image_raw` · 다운링크 → `/rd/*` · `/cmd_vel` → #84 · **`nav_node` = 유도 루프(우리 것, `flyTo()` 대체)**. ⚠ 실기 검증 전 — `ros2/README.md` |
-| `tools/fake_app.py` | **앱 대역 — 크래시 점검용.** #84·#73·#76 을 디코드해 보여주고 ACK 를 돌려준다. ⚠ 검증 수단이 아니다(배관만 말해 준다) |
+| `tools/fake_app.py` | **앱 대역 — 크래시 점검용.** #84·#76 을 디코드해 보여주고 ACK 를 돌려준다. ⚠ 검증 수단이 아니다(배관만 말해 준다) |
 | `tools/mav.py` | MAVLink v2 최소 구현(공유). CRC 는 앱의 `CRC.java` 에서 직접 뽑았다 |
 | `tools/file_bridge.py` | RM500 ↔ PC 파일 다리 (브라우저로 양방향) |
-| `logs/` | 실측 증거 — 8/28 빌드·프로브, 9/10 크래시 logcat 발췌 |
+| `logs/` | 9/10 크래시 logcat 발췌 (patches 의 근거) |
 | `secrets/keys.xml` | **DJI App Key. 아래 경고 참조** |
 | `setup_new_pc.sh` | 새 PC 복구 스크립트 |
 
@@ -213,7 +210,7 @@ clone 한 번에 인증키까지 따라와서 새 PC 설정이 명령 한 줄로
 - 🔶 **ROS 2 브리지 + 항법 (9/14)** — 영상·다운링크 7토픽·`/cmd_vel`→#84, 그리고
   **`nav_node` 가 유도 루프를 돌린다**(앱 `flyTo()` 대체 — 항법 제어권을 우리가 가짐).
   ⚠ **실기 검증 0.** 9/14 에 한 것은 크래시 점검까지다 → `ros2/README.md`
-- ⛔ `goto_gps.py goto` **폐기** — `flyTo()` 를 안 쓴다. `capture`(좌표 측정)만 쓴다
+- ⛔ 앱 `flyTo()` 경로 **폐기** — 좌표는 `gps_capture.py` 로 재고 `nav_node` 에 준다
 - 🔴 **조종권을 RC 로 되돌리려면 앱 화면의 Safety(자물쇠) 버튼이 필요하다** (9/14 소스 확인).
   순서: **①도구 종료 → ②스틱 놓고 5초 → ③Safety 버튼**, 안 되면 S 모드.
   도구를 끄는 것만으로는 안 풀린다 — `cancelMotion()` 은 타이머만 죽인다. 제약 #20·#21·#22

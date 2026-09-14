@@ -46,9 +46,17 @@ ros2 launch rd_bridge bridge.launch.py link:=false  # 영상만 (기체를 안 �
 띄워 두는 것 자체는 기체를 건드리지 않는다 — `link_node` 는 `/cmd_vel` 이 오기 전에
 한 발도 쏘지 않고, `nav_node` 는 `/nav/goal` 이 오기 전에 `/cmd_vel` 을 내지 않는다.
 
+띄운 뒤 토픽이 제대로 차는지는 다른 터미널에서:
+
+```bash
+python3 tools/topic_check.py            # 10초 듣고 토픽별 Hz·최대 간격·값 판정 (0=통과)
+python3 tools/topic_check.py list       # 보이는 토픽
+python3 tools/topic_check.py echo /rd/fix
+```
+
 ⚠⚠ **UDP 14550 은 `link_node` 가 독점한다.** 두 번째 bind 는 커널에 따라 성공해
 버리는데 그러면 패킷이 둘로 쪼개져 **양쪽 다 망가진다.** QGC·`decode_check.py`·
-`cmd_vel_drive.py` 와 **동시에 못 쓴다.**
+`rd_cmd.py`·`gps_capture.py` 와 **동시에 못 쓴다.**
 
 ## 토픽
 
@@ -94,8 +102,7 @@ ros2 topic pub --once /nav/goal sensor_msgs/msg/NavSatFix \
 ros2 topic pub --once /nav/cancel std_msgs/msg/Empty '{}'      # 중단
 ```
 
-목표 좌표는 `python3 tools/goto_gps.py capture` 로 잰다. (같은 파일의 `goto` 는
-**폐기됐다** — 그게 `flyTo()` 를 쓰던 옛 경로다.)
+목표 좌표는 `python3 tools/gps_capture.py` 로 잰다 (브리지를 띄우기 전에 — 같은 포트를 쓴다).
 
 ### 유도 법칙
 
@@ -167,7 +174,7 @@ NED 는 z 가 아래 양수라 ROS(z=위)에서 오면 뒤집어야 맞지만, �
 ## 개발 편의 (검증이 아니다)
 
 - `video_node -p source:=<파일.h264>` — 저장분 재생. 기체 없이 `/image_raw` 가 나온다
-- `tools/fake_app.py` — 앱 대역. #84·#73·#76 을 디코드해 보여주고 ACK 를 돌려준다
+- `tools/fake_app.py` — 앱 대역. #84·#76 을 디코드해 보여주고 ACK 를 돌려준다
 
 둘 다 **크래시 점검과 개발 편의용**이다. 기체 없이 얻은 결과는 배관이 이어졌다는
 것까지만 말해 준다 — 기체가 실제로 어떻게 움직이는지는 아무것도 말해 주지 않는다.

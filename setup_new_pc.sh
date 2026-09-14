@@ -179,20 +179,14 @@ else
   ok "ufw 없음 — 이 함정은 해당 없음"
 fi
 
-# ---------------------------------------------------------------- 8. 진단 도구
-say "8. 진단 도구 배치"
-cp "$SEED/tools/"*.py "$WS/" && chmod +x "$WS"/*.py && ok "udp_probe / decode_check / uplink_test"
-
 say "끝났습니다"
 cat <<EOF
 
   APK      : $APK
   QGC      : $WS/qgc/qgc445/AppRun
   기록     : $SEED/진행상황.md
+  도구     : $SEED/tools/  (저장소에서 바로 실행. 고칠 것 없음 — 0.0.0.0 bind)
 
-  ⚠ 손으로 고쳐야 하는 것 하나:
-     $SEED/tools/ 의 스크립트 안 GCS_IP 가 172.20.10.9 (옛 핫스팟)로 박혀 있습니다.
-     새 PC 의 IP 로 바꾸세요 →  ip -4 addr | grep inet
-
+  앱에 넣을 GCS IP 는:  $SEED/tools/link_check.sh
   다음 할 일은 진행상황.md 의 「다음에 할 일」 을 볼 것.
 EOF

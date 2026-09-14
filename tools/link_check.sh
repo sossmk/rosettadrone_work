@@ -32,7 +32,7 @@ else
   echo "  ✗ 쓸 수 있는 주소가 없다. 네트워크부터 연결할 것"
 fi
 
-# ② 포트를 누가 잡고 있나 — udp_probe 와 QGC 를 동시에 켜면 여기서 걸린다
+# ② 포트를 누가 잡고 있나 — 도구와 QGC 를 동시에 켜면 여기서 걸린다
 echo
 echo "② UDP 포트 점유 (텔레메트리 $PORT · 영상 $VPORT)"
 BUSY=$(ss -lunp 2>/dev/null | grep -E ":($PORT|$VPORT)\b")
@@ -40,7 +40,7 @@ if [ -z "$BUSY" ]; then
   echo "     비어 있음 ✓"
 else
   echo "$BUSY" | sed 's/^/     /'
-  echo "  ⚠ 이미 누가 잡고 있다. QGC 와 udp_probe.py 는 동시에 못 쓴다."
+  echo "  ⚠ 이미 누가 잡고 있다. QGC·도구·link_node 는 동시에 못 쓴다."
   echo "    나중에 켠 쪽이 조용히 실패하고, 그게 '드론이 안 보낸다' 처럼 보인다."
 fi
 
@@ -70,6 +70,7 @@ echo "       GCS IP   : ${HOTSPOT:-<위 ① 의 무선 주소>}"
 echo "       Port     : $PORT"
 echo "       RC 모드 스위치 : P   (cmd_vel 은 P 모드에서만 먹는다)"
 echo
-echo "  T1 다운링크 :  python3 tools/decode_check.py $PORT"
-echo "  T2 업링크   :  python3 tools/uplink_test.py  $PORT"
-echo "  (둘 다 $PORT 를 잡는다. 동시에 돌리지 말 것)"
+echo "  다운링크 :  python3 tools/decode_check.py $PORT"
+echo "  업링크   :  python3 tools/rd_cmd.py --port $PORT ping"
+echo "  ROS 토픽 :  ros2 launch rd_bridge bridge.launch.py nav:=false  →  python3 tools/topic_check.py"
+echo "  (전부 $PORT 를 잡는다. 동시에 돌리지 말 것)"

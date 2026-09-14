@@ -6,7 +6,7 @@
 
 RosettaDrone 앱이 GCS 에게 보이는 행동만 흉내 낸다. 우리가 보낸 것이 **바이트로
 정말 나갔는지**, **부호가 어느 필드에 어떻게 실렸는지**, **몇 Hz 로 나가는지**를
-숫자로 보여 준다. cmd_vel_drive.py · cmd_vel_node · goto_gps.py 를 기체 없이
+숫자로 보여 준다. rd_cmd.py · link_node · topic_check.py 를 기체 없이
 여기에 붙여 볼 수 있다.
 
 ⚠ **이것은 시뮬레이터가 아니다.** 기체가 어떻게 움직이는지는 흉내 내지 않는다.
@@ -16,8 +16,6 @@ RosettaDrone 앱이 GCS 에게 보이는 행동만 흉내 낸다. 우리가 보�
 흉내 내는 앱의 성질 (전부 소스 근거가 있다):
   · 송신 포트가 임시 포트다 (제약 #7) — 그래서 여기도 bind(0) 으로 띄운다
   · COMMAND_ACK 은 **무조건 ACCEPTED** (제약 #1, DroneModel.java:2029)
-  · MISSION_ITEM_INT 는 target_system 이 1 이 아니면 **조용히 버린다** (제약 #18) —
-    9/11 에 goto 가 안 먹던 그 버그를 여기서 다시 밟으면 화면에 뜬다
   · #84 가 끊기면 200ms 뒤 모션이 끝난다 (제약 #3) — 그리고 **Virtual Stick 은
     풀리지 않는다** (cancelMotion() 은 타이머만 죽인다, DroneModel.java:2279)
 """
@@ -61,8 +59,7 @@ def main():
 
     period = 1.0 / args.rate
     nxt = time.time()
-    n84 = n73 = n76 = 0
-    dropped73 = 0
+    n84 = n76 = 0
     t_first84 = None
     t_last84 = 0.0
     in_motion = False
@@ -100,27 +97,6 @@ def main():
                         print(f"  ⚠ type_mask={mask} (기대 {mav.MASK_VEL_YAWRATE}) "
                               f"— 앱이 속도 명령으로 안 볼 수 있다")
                     link.send(77, struct.pack("<HB", 84, 0))     # 무조건 ACCEPTED
-
-                elif mid == 73:                                  # MISSION_ITEM_INT
-                    n73 += 1
-                    lat = struct.unpack_from("<i", p, 16)[0] / 1e7
-                    lon = struct.unpack_from("<i", p, 20)[0] / 1e7
-                    z = struct.unpack_from("<f", p, 24)[0]
-                    seq, cmd = struct.unpack_from("<HH", p, 28)
-                    tsys, tcomp, frame = struct.unpack_from("<BBB", p, 32)
-                    if tsys != args.sysid:
-                        dropped73 += 1
-                        print(f"  ✗ [앱] MISSION_ITEM_INT 를 **조용히 버렸다** — "
-                              f"target_system={tsys} ≠ mSystemId={args.sysid} "
-                              f"(제약 #18. 9/11 에 goto 가 안 먹은 바로 그 원인)")
-                    else:
-                        print(f"  ✓ [앱] flyTo({lat:.7f}, {lon:.7f}, {z:.1f}) "
-                              f"cmd={cmd} frame={frame} → MISSION_ACCEPTED")
-                        link.send(47, struct.pack("<BBB", 255, 190, 0))
-                        if not vstick:
-                            vstick = True
-                            print("  [앱] flyTo 도 startMotion() 을 타므로 "
-                                  "Virtual Sticks TRUE (제약 #19)")
 
                 elif mid == 76:                                  # COMMAND_LONG
                     n76 += 1
@@ -174,9 +150,7 @@ def main():
             time.sleep(0.005)
 
     except KeyboardInterrupt:
-        print(f"\n\n받은 것: #84 속도 {n84}발 · #73 좌표이동 {n73}발"
-              f"{f' (그중 {dropped73}발은 target_system 때문에 버려짐)' if dropped73 else ''}"
-              f" · #76 명령 {n76}발")
+        print(f"\n\n받은 것: #84 속도 {n84}발 · #76 명령 {n76}발")
         if link.addr_changes:
             print(f"상대 주소가 {link.addr_changes}번 바뀌었다")
     return 0

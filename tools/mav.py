@@ -16,8 +16,6 @@ CRC_EXTRA = {
     24: 24,    # GPS_RAW_INT
     30: 28,    # ATTITUDE
     33: 104,   # GLOBAL_POSITION_INT
-    47: 153,   # MISSION_ACK
-    73: 38,    # MISSION_ITEM_INT
     74: 20,    # VFR_HUD
     76: 152,   # COMMAND_LONG
     77: 143,   # COMMAND_ACK
@@ -26,11 +24,6 @@ CRC_EXTRA = {
 
 MAV_RESULT = {0: "ACCEPTED ✓", 1: "TEMPORARILY_REJECTED", 2: "DENIED",
               3: "UNSUPPORTED", 4: "FAILED", 5: "IN_PROGRESS"}
-
-MAV_MISSION_RESULT = {0: "MISSION_ACCEPTED ✓", 1: "MISSION_ERROR",
-                       2: "MISSION_UNSUPPORTED_FRAME", 3: "MISSION_UNSUPPORTED",
-                       4: "MISSION_NO_SPACE", 5: "MISSION_INVALID",
-                       13: "MISSION_DENIED"}
 
 # MAV_CMD
 CMD_NAV_TAKEOFF = 22
@@ -44,8 +37,6 @@ CMD_DO_SET_SERVO = 183
 MASK_VEL_YAWRATE = (1 | 2 | 4) | (64 | 128 | 256) | 1024   # = 1479
 
 MAV_FRAME_BODY_NED = 8
-MAV_FRAME_GLOBAL_RELATIVE_ALT = 3
-MAV_CMD_NAV_WAYPOINT = 16
 
 
 def crc16_mcrf4xx(data, crc=0xFFFF):
@@ -193,52 +184,6 @@ class Link:
         payload += struct.pack("<HBBB", mask, 0, 0, frame)
         self.send(84, payload)
 
-    def mission_item_int(self, lat_deg, lon_deg, alt_m,
-                          frame=MAV_FRAME_GLOBAL_RELATIVE_ALT,
-                          command=MAV_CMD_NAV_WAYPOINT,
-                          target_system=1):
-        """MISSION_ITEM_INT (#73) 로 단발 FlyTo 를 보낸다.
-
-        MAVLinkReceiver.processMsgItemMessage() 가 MAV_CMD_NAV_WAYPOINT 를
-        미션 밖(!isReceivingMission)에서 받으면 mModel.flyTo(x/1e7, y/1e7, z) 를
-        직접 부른다 — 미션을 업로드하는 게 아니라 그 자리에서 한 번 날아간다.
-        (`markWaypoint()` NPE 는 앱 화면 UI 전용이라 이 경로와 무관.)
-
-        ⚠⚠ target_system=0("아무나")이 여기서는 안 통한다 — command_long() 의 관례를
-          그대로 가져왔다가 9/11 실기에서 goto 가 조용히 무시되는 버그로 이어졌다.
-          processMsgItemMessage() 맨 앞의 체크는:
-              if (mModel.getSystemId() != msg_item.target_system) return;
-          COMMAND_LONG 핸들러에만 있는 "target_system==0 이면 아무나" 예외가
-          여기엔 없다. `mModel.getSystemId()` 기본값은 1(DroneModel.java:145) —
-          그래서 기본값을 1로 둔다.
-
-        ⚠ MAVLink 는 페이로드를 필드 크기 내림차순으로 재배열해 보낸다(XML 선언
-          순서가 아니다) — 4바이트(param1-4·x·y·z) → 2바이트(seq·command) →
-          1바이트(target_system·target_component·frame·current·autocontinue) →
-          확장필드(mission_type). 순서를 XML 선언 그대로 짜면 CRC 는 맞아도
-          필드가 죄다 엉뚱한 오프셋에서 읽혀 위험하다 — 아래는 재배열된 순서다.
-
-        ⚠ z(고도)는 스케일 없이 그대로 넘어간다. flyTo() 의 고도 기준(상대/절대)은
-          소스로 재확인 못 했다 — MAV_FRAME_GLOBAL_RELATIVE_ALT 로 보내고,
-          `capture` 로 읽은 상대고도(tel["alt"])를 그대로 재사용하는 것을 전제로
-          한다. 첫 실기 시도는 짧은 거리·저고도로 확인할 것.
-        """
-        payload = struct.pack(
-            "<ffffiifHHBBBBBB",
-            0.0, 0.0, 0.0, 0.0,                    # param1-4 (waypoint 는 미사용)
-            int(round(lat_deg * 1e7)),             # x = lat*1e7
-            int(round(lon_deg * 1e7)),             # y = lon*1e7
-            alt_m,                                 # z
-            0,                                      # seq
-            command,                                # command (16=NAV_WAYPOINT)
-            target_system, 0,                       # target_system(기본 1) · target_component
-            frame,
-            0,                                       # current
-            0,                                       # autocontinue
-            0,                                       # mission_type (0=MAV_MISSION_TYPE_MISSION)
-        )
-        self.send(73, payload)
-
     def poll(self):
         """지금 도착해 있는 것을 전부 읽어 self.tel 을 갱신하고 목록을 돌려준다.
 
@@ -298,8 +243,6 @@ class Link:
                     self.tel["amp"] = struct.unpack_from("<h", p, 16)[0] / 100.0
                     self.tel["batt_pct"] = struct.unpack_from("<b", p, 30)[0]
                     self.tel["t_sys"] = time.time()
-                elif mid == 47:                            # MISSION_ACK
-                    self.tel["mission_ack"] = p[2]          # MAV_MISSION_RESULT 코드
             except Exception:
                 pass
         return out

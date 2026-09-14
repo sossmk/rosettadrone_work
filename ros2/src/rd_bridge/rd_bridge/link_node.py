@@ -317,7 +317,7 @@ class CmdVelNode(Node):
 
     # ------------------------------------------------------------------ 종료
     def shutdown(self):
-        """멈추는 명령을 확실히 남기고 끝낸다 (cmd_vel_drive.py 와 같은 마무리)."""
+        """멈추는 명령을 확실히 남기고 끝낸다 (rd_cmd.py drive 와 같은 마무리)."""
         if self.link is None or self.sent == 0:
             return
         self.get_logger().info("정지 명령 송출(1초)")
