@@ -3,8 +3,9 @@
 
     python3 tools/rd_cmd.py ping                     # T2 업링크가 열렸나 (기체 안 움직임)
     python3 tools/rd_cmd.py gimbal                   # T3 짐벌 0 → -45 → -90 → 0
-    python3 tools/rd_cmd.py gimbal --angle -30       #    한 각도만 / --yaw 는 좌우(상대각)
-    python3 tools/rd_cmd.py drive                    # 방향키 조종 (#84 20Hz)
+    python3 tools/rd_cmd.py gimbal --angle -30       #    한 각도만
+    python3 tools/rd_cmd.py gimbal --yaw             #    좌우 0 → +30 → 0 → -30 → 0 (방향 실기 확인용)
+    python3 tools/rd_cmd.py drive                    # 방향키 조종 + w/s 고도 + r/f 틸트 (#84 20Hz)
     python3 tools/rd_cmd.py drive --dry-run          #    전송 없이 키 반응만
     python3 tools/rd_cmd.py vel --axes               # T5 축·부호 확인 순서 (SIM 에서)
     python3 tools/rd_cmd.py vel --vx 0.5 --secs 3    #    한 축만
@@ -121,7 +122,12 @@ def cmd_gimbal(args):
     """DO_SET_SERVO(183). 앱에 DO_MOUNT_CONTROL(205)·GIMBAL_MANAGER(1000) 은 미구현이다.
 
     DroneModel.doSetGimbal(): 각도 = (PWM - 1500) / 5.5
-    채널 9 = pitch (절대각) · 채널 8 = yaw (**상대각 — 누적된다**)
+    채널 9 = pitch (ABSOLUTE_ANGLE) — 9/9 실기 확인
+    채널 8 = yaw — RELATIVE_ANGLE 로 **(새 값 - 앱이 기억한 직전 값)** 만큼 돌린다
+      (DroneModel.java:2019-2021). 기억값은 앱 시작 때 0 이므로 같은 값을 두 번 보내면
+      두 번째는 0° 회전이다. 즉 "앱 시작 때 방향 기준 각도"처럼 동작하지만, 짐벌이
+      다른 이유(RC 휠·기체 회전 추종)로 돌면 그 기준이 어긋난다.
+      ⚠ 부호(+ 가 시계인지)와 Mavic 2 에서 yaw 가 실제로 도는지는 **실기 미확인**.
     """
     link = connect(args.port)
     if link is None:
@@ -130,13 +136,15 @@ def cmd_gimbal(args):
     if args.angle is not None:
         seq = [("yaw" if args.yaw else "pitch", args.angle)]
     elif args.yaw:
-        seq = [("yaw +30°", 30.0), ("yaw -30°", -30.0)]
+        # 매번 0 을 거친다 — 앱이 직전 값과의 차이만큼 돌리므로 0 을 보내면 시작 방향으로 온다
+        seq = [("yaw +30°", 30.0), ("yaw 0° 복귀", 0.0), ("yaw -30°", -30.0), ("yaw 0° 복귀", 0.0)]
     else:
         seq = [("수평 0°", 0.0), ("아래 -45°", -45.0), ("수직 -90°", -90.0), ("수평 복귀", 0.0)]
 
     print("\n짐벌을 움직인다 — **카메라를 눈으로 보세요**")
     if args.yaw:
-        print("  ⚠ yaw 는 상대각이라 누적된다. 원위치는 손으로 맞춰야 한다")
+        print("  ⚠ 볼 것: +30° 에서 카메라가 기수 기준 **오른쪽(위에서 봐서 시계)** 인가 왼쪽인가")
+        print("  ⚠ 기준은 앱 시작 때 방향이다. 앱 재시작 없이 RC 휠로 돌렸다면 0° 가 정면이 아닐 수 있다")
     ok = 0
     for label, angle in seq:
         pwm = 1500.0 + angle * 5.5
@@ -182,7 +190,14 @@ def read_keys(timeout):
 
 
 def cmd_drive(args):
-    """방향키 조종. ↑↓ 전진/후진 · ←→ 좌/우 · a/d 회전 · space 정지 · q 종료. 고도는 RC 로.
+    """방향키 조종. ↑↓ 전진/후진 · ←→ 좌/우 · w/s 상승/하강 · a/d 회전 · space 정지 · q 종료.
+    r/f 카메라 틸트 위/아래 (--tilt-step 씩, 0° 수평 ~ -90° 수직).
+
+    w 는 vz>0 = 위 (9/9 SIM 실측, MAVLink NED 와 반대 — 제약 #2).
+
+    틸트는 DO_SET_SERVO ch9 (ABSOLUTE_ANGLE) 로 목표각을 보낸다. 시작값은 0° 로 가정한다
+    (앱의 m_ServoPos_pitch 초기값). 앱은 2초에 걸쳐 돌리므로 키를 연타하면 도중에 새 목표로
+    바뀔 뿐이고, 명령은 목표가 바뀌었을 때만 0.3초에 한 번 이하로 보낸다.
 
     터미널엔 keyup 이 없어서, 축마다 마지막 입력 시각을 두고 300ms 새 입력이 없으면
     그 축을 0 으로 만든다. 키를 누르고 있으면 OS 오토리핏이 입력을 채운다.
@@ -199,10 +214,13 @@ def cmd_drive(args):
 
     keymap = {"up": ("vx", args.max_vx), "down": ("vx", -args.max_vx),
               "right": ("vy", args.max_vy), "left": ("vy", -args.max_vy),
+              "w": ("vz", args.max_vz), "s": ("vz", -args.max_vz),
               "d": ("yaw", args.max_yaw), "a": ("yaw", -args.max_yaw)}
-    cur = {"vx": 0.0, "vy": 0.0, "yaw": 0.0}
+    cur = {"vx": 0.0, "vy": 0.0, "vz": 0.0, "yaw": 0.0}
     last = dict(cur)
     sent = acks = 0
+    tilt = tilt_sent = 0.0
+    t_tilt = 0.0
 
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
@@ -214,6 +232,9 @@ def cmd_drive(args):
                 if k in keymap:
                     axis, v = keymap[k]
                     cur[axis], last[axis] = v, time.time()
+                elif k in ("r", "f"):
+                    step = args.tilt_step if k == "r" else -args.tilt_step
+                    tilt = max(-90.0, min(0.0, tilt + step))
                 elif k == " ":
                     cur = {a: 0.0 for a in cur}
                     last = {a: 0.0 for a in cur}
@@ -227,12 +248,16 @@ def cmd_drive(args):
                 if now - last[axis] > decay:
                     cur[axis] = 0.0
             if link:
-                link.set_velocity(cur["vx"], cur["vy"], 0.0, cur["yaw"])
+                link.set_velocity(cur["vx"], cur["vy"], cur["vz"], cur["yaw"])
                 link.heartbeat()
                 sent += 1
                 acks += count_ack84(link)
+                if tilt != tilt_sent and now - t_tilt >= 0.3:
+                    link.command_long(mav.CMD_DO_SET_SERVO, float(CH_PITCH), 1500.0 + tilt * 5.5)
+                    tilt_sent, t_tilt = tilt, now
             t = link.tel if link else {}
-            sys.stdout.write(f"\rvx={cur['vx']:+.2f} vy={cur['vy']:+.2f} yaw={cur['yaw']:+.1f}°/s"
+            sys.stdout.write(f"\rvx={cur['vx']:+.2f} vy={cur['vy']:+.2f} vz={cur['vz']:+.2f}"
+                             f" yaw={cur['yaw']:+.1f}°/s 틸트{tilt:+.0f}°"
                              f"  보냄{sent} ACK{acks}  고도{fmt(t.get('alt'), 'm')}"
                              f" 기수{fmt(t.get('yaw'), '°', 0)}   ")
             sys.stdout.flush()
@@ -351,12 +376,15 @@ def main():
 
     p = sub.add_parser("gimbal", help="짐벌 틸트 (DO_SET_SERVO)")
     p.add_argument("--angle", type=float, help="이 각도 하나만 (기본: 0 → -45 → -90 → 0)")
-    p.add_argument("--yaw", action="store_true", help="pitch 대신 yaw(상대각·누적)")
+    p.add_argument("--yaw", action="store_true", help="pitch 대신 yaw (부호·동작 실기 미확인)")
     p.add_argument("--hold", type=float, default=3.5, help="단계마다 머무는 초 (2초 넘게)")
 
     p = sub.add_parser("drive", help="방향키 조종 (#84 20Hz)")
     p.add_argument("--max-vx", type=float, default=0.5, dest="max_vx")
     p.add_argument("--max-vy", type=float, default=0.5, dest="max_vy")
+    p.add_argument("--max-vz", type=float, default=0.3, dest="max_vz", help="m/s, w=위 s=아래")
+    p.add_argument("--tilt-step", type=float, default=15.0, dest="tilt_step",
+                   help="r/f 한 번에 바뀌는 틸트 각도 (deg)")
     p.add_argument("--max-yaw", type=float, default=30.0, dest="max_yaw", help="deg/s")
     p.add_argument("--dry-run", action="store_true", dest="dry_run", help="전송 없이 키 반응만")
 
