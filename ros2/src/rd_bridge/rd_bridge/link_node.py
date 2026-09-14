@@ -1,13 +1,29 @@
-#!/usr/bin/env python3
-"""/cmd_vel 구독 노드 — geometry_msgs/Twist 를 MAVLink #84 로 바꿔 20Hz 로 쏜다.
+"""링크 노드 — UDP 14550 을 독점하고 양방향을 담당한다.
 
-    ros2 run rd_bridge cmd_vel_node
-    ros2 run rd_bridge cmd_vel_node --ros-args -p dry_run:=true     # 전송 없이 변환만
+    ros2 run rd_bridge link_node
+    ros2 run rd_bridge link_node --ros-args -p dry_run:=true     # 전송 없이 변환만
 
-    # 손으로 한 발 (0.3m/s 전진) — 노드가 300ms 데드맨으로 알아서 멈춘다
-    ros2 topic pub -r 10 /cmd_vel geometry_msgs/msg/Twist '{linear: {x: 0.3}}'
+**다운링크** 앱 → 토픽 (decode_check.py 가 화면에 찍던 것을 그대로 토픽으로)
 
-⚠⚠ 기체가 움직인다. RC 모드 스위치 P · 프로펠러를 뗀 지상시험부터.
+    /rd/fix          sensor_msgs/NavSatFix        위경도 · 상대고도(altitude 에 넣는다)
+    /rd/rel_alt      std_msgs/Float32             상대고도 m (이륙 지점 기준)
+    /rd/attitude     geometry_msgs/Vector3Stamped roll · pitch · yaw, **단위 deg**
+    /rd/heading      std_msgs/Float64             기수 deg (0=북, 시계방향) = attitude.z
+    /rd/velocity     geometry_msgs/TwistStamped   대지 속도벡터 m/s, **ENU**(x=동 y=북 z=위)
+    /rd/gspeed       std_msgs/Float32             대지속도 크기 m/s
+    /rd/battery      sensor_msgs/BatteryState     전압·전류 (patches/03 적용 후 유효)
+
+⚠ **단위·좌표계를 여기서 못 박는다.** 이 저장소는 전부 deg 로 말하므로 자세도 deg 로
+  낸다(라디안 아님). 속도는 앱이 주는 NED(북·동·**아래**)를 ROS 관례인 ENU(동·북·위)로
+  바꿔 낸다 — `vz>0 이 상승`이다. 단, 이건 **#84 로 보내는 vz 와는 무관한 이야기**다
+  (그쪽은 기체 기준 BODY, 이쪽은 지구 기준 ENU).
+
+**업링크** /cmd_vel (geometry_msgs/Twist) → MAVLink #84, 20Hz
+
+⚠⚠ **UDP 14550 은 한 프로세스만 제대로 잡을 수 있다.** 두 번째 bind 는 (커널에 따라)
+  성공해 버리는데 그러면 패킷이 둘로 쪼개져 **양쪽 다 망가진다.** 그래서 다운링크와
+  업링크를 한 노드에 둔다 — 항법(nav_node) 은 이 토픽들을 구독해서 계산만 한다.
+  QGC·decode_check.py 등 14550 을 쓰는 다른 것과도 **동시에 못 쓴다.**
 
 ────────────────────────────────────────────────────────────────
 ① 축·부호 — ROS(REP-103) 와 이 앱의 규약이 다르다
@@ -18,17 +34,15 @@ vx>0=앞 · vy>0=**오른쪽** · vz>0=**위** · yawRate>0=**시계**.
 
     linear.x   →  vx      그대로
     linear.y   →  vy      **부호 반전** (왼쪽 → 오른쪽)
-    linear.z   →  vz      **그대로**
+    linear.z   →  vz      **그대로** (둘 다 위가 양수)
     angular.z  →  yawRate **부호 반전** (반시계 → 시계), rad/s → deg/s
 
-⚠ 할일.md D 의 "vz 부호를 뒤집을 것" 은 **MAVLink NED 기준으로 쓴 메모**다. NED 는
-z 가 아래가 양수니 ROS(z=위) 에서 오면 뒤집어야 맞지만, 이 앱은 그 필드를 이미
-"위가 양수"로 읽는다(제약 #2 가 말하는 바로 그 뒤집힘) — 두 번 뒤집으면 도로
-제자리다. **ROS→앱에서 실제로 뒤집히는 축은 vy 와 yaw 두 개이고, vz 는 아니다.**
-(문서 쪽은 이 커밋에서 고쳤다.)
+⚠ 할일.md 에 오래 있던 "vz 부호를 뒤집을 것" 은 **MAVLink NED 기준으로 쓴 메모**다.
+NED 는 z 가 아래가 양수니 ROS(z=위) 에서 오면 뒤집어야 맞지만, 이 앱은 그 필드를
+이미 "위가 양수"로 읽는다 — 두 번 뒤집으면 도로 제자리다. **실제로 뒤집히는 축은
+vy 와 yaw 두 개이고 vz 는 아니다.**
 
-부호가 실기에서 다르게 나오면 코드를 고치지 말고 파라미터로 뒤집을 것:
-    --ros-args -p scale_vy:=1.0
+부호가 실기에서 다르게 나오면 코드를 고치지 말고 파라미터로: `-p scale_vy:=1.0`
 
 ────────────────────────────────────────────────────────────────
 ② 언제 쏘고 언제 입을 닫는가 — 9/11 RC 사고와 직결된다
@@ -42,17 +56,10 @@ z 가 아래가 양수니 ROS(z=위) 에서 오면 뒤집어야 맞지만, 이 �
     BRAKE  Twist 가 끊겼다        → 0 을 brake_secs(기본 1.0초) 동안 쏴서 세우고
     IDLE   그 뒤 **입을 닫는다**  → 앱의 200ms 데드맨이 모션을 끝낸다
 
-⚠⚠ **입을 닫아도 Virtual Stick 은 안 풀린다.** 소스로 확인했다 — 데드맨 만료가
-부르는 cancelMotion() 은 타이머만 죽이고(DroneModel.java:2279) 조종권을 안 돌려준다.
-조종권을 RC 로 되돌리는 경로는 실질적으로 **앱 화면의 Safety(자물쇠) 버튼** 하나뿐이다
-(MainActivity:824 → setSafetyEnabled(true) → setVirtualSticksEnabled(false)).
-RC 스틱을 건드리는 경로는 자기가 세운 타이머에 자기가 걸려 실패한다(할일.md 제약 #20).
-
-    RC 로 조종권을 되돌리는 순서:
-      1. 이 노드를 끈다 (Ctrl+C — 끄지 않으면 50ms 뒤에 다시 빼앗아 간다)
-      2. 스틱에서 손을 떼고 5초 기다린다 (timerIgnoreMavLink 가 풀려야 한다)
-      3. 앱 화면의 Safety(자물쇠) 버튼을 누른다
-    그래도 안 되면 S 모드로 전환 (9/11 에 실제로 이걸로 복구했다)
+⚠⚠ **입을 닫아도 Virtual Stick 은 안 풀린다.** 데드맨 만료가 부르는 cancelMotion()
+은 타이머만 죽인다(DroneModel.java:2279). 조종권을 RC 로 되돌리는 경로는 실질적으로
+**앱 화면의 Safety(자물쇠) 버튼** 하나뿐이다(제약 #21). 순서: ①이 노드 종료
+②스틱 놓고 5초 ③Safety 버튼, 안 되면 S 모드.
 
 ③ ACCEPTED 는 성공이 아니다(제약 #1). ACK 수는 "앱이 #84 를 받았다"까지만 말해준다.
 """
@@ -66,6 +73,9 @@ import rclpy
 from geometry_msgs.msg import Twist
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
+from geometry_msgs.msg import TwistStamped, Vector3Stamped
+from sensor_msgs.msg import BatteryState, NavSatFix, NavSatStatus
+from std_msgs.msg import Float32, Float64
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mav  # noqa: E402  (tools/mav.py 의 심링크 — 링크 계층 L1 을 그대로 쓴다)
@@ -76,7 +86,7 @@ IDLE, ACTIVE, BRAKE = "IDLE", "ACTIVE", "BRAKE"
 class CmdVelNode(Node):
 
     def __init__(self):
-        super().__init__("rd_cmd_vel")
+        super().__init__("rd_link")
 
         self.declare_parameter("port", 14550)
         self.declare_parameter("rate", 20.0)
@@ -126,8 +136,19 @@ class CmdVelNode(Node):
                     "아직 아무것도 안 온다 — 앱이 켜지면 자동으로 붙는다. "
                     "안 붙으면 ./tools/link_check.sh 로 T0 부터")
 
+        # 다운링크 토픽 (decode_check.py 가 화면에 찍던 것과 같은 값)
+        self.pub_fix = self.create_publisher(NavSatFix, "rd/fix", 10)
+        self.pub_alt = self.create_publisher(Float32, "rd/rel_alt", 10)
+        self.pub_att = self.create_publisher(Vector3Stamped, "rd/attitude", 10)
+        self.pub_hdg = self.create_publisher(Float64, "rd/heading", 10)
+        self.pub_vel = self.create_publisher(TwistStamped, "rd/velocity", 10)
+        self.pub_gsp = self.create_publisher(Float32, "rd/gspeed", 10)
+        self.pub_bat = self.create_publisher(BatteryState, "rd/battery", 10)
+        self.last_pos_t = 0.0
+
         self.create_subscription(Twist, "cmd_vel", self.on_cmd, 10)
         self.create_timer(1.0 / self.rate, self.tick)
+        self.create_timer(0.2, self.publish_telemetry)      # 5Hz — 앱이 주는 만큼
         self.create_timer(2.0, self.report)
         self.get_logger().info(
             f"/cmd_vel 대기 중. 한 발도 오기 전에는 아무것도 쏘지 않는다 "
@@ -196,20 +217,89 @@ class CmdVelNode(Node):
                 if cmd == 84:
                     self.acks += 1
 
+    # -------------------------------------------------------------- 다운링크
+    def publish_telemetry(self):
+        """앱에서 온 최신 값을 토픽으로 낸다. 새 값이 없으면 발행하지 않는다.
+
+        ⚠ 같은 값을 계속 재발행하면 구독자(항법)가 좌표가 살아있다고 착각한다.
+          링크가 끊긴 것과 기체가 멈춘 것은 구별돼야 한다 — 그래서 t_pos 가
+          갱신됐을 때만 /rd/fix 를 낸다.
+        """
+        if self.link is None:
+            return
+        t = self.link.tel
+        stamp = self.get_clock().now().to_msg()
+
+        t_pos = t.get("t_pos", 0.0)
+        if t_pos > self.last_pos_t and "lat" in t:
+            self.last_pos_t = t_pos
+            fix = NavSatFix()
+            fix.header.stamp = stamp
+            fix.header.frame_id = "wgs84"
+            fix.latitude = t["lat"]
+            fix.longitude = t["lon"]
+            # ⚠ 여기 들어가는 것은 **상대고도**다(이륙 지점 기준). NavSatFix.altitude
+            #   는 원래 타원체고도지만, 이 앱에서 우리가 쓸 수 있는 건 상대고도이고
+            #   flyTo 대체 유도도 상대고도로 한다. 헷갈리지 않게 amsl 은 안 쓴다.
+            fix.altitude = t.get("alt", 0.0)
+            st = NavSatStatus()
+            # MAVLink GPS_FIX_TYPE: 0=없음 1=없음 2=2D 3=3D 이상
+            st.status = (NavSatStatus.STATUS_FIX if t.get("fix", 0) >= 2
+                         else NavSatStatus.STATUS_NO_FIX)
+            st.service = NavSatStatus.SERVICE_GPS
+            fix.status = st
+            self.pub_fix.publish(fix)
+
+            m = Float32(); m.data = float(t.get("alt", 0.0)); self.pub_alt.publish(m)
+
+            if "vn" in t:
+                v = TwistStamped()
+                v.header.stamp = stamp
+                v.header.frame_id = "enu"
+                v.twist.linear.x = t["ve"]          # 동  ← NED 의 east
+                v.twist.linear.y = t["vn"]          # 북  ← NED 의 north
+                v.twist.linear.z = -t["vd"]         # 위  ← NED 의 down 을 뒤집는다
+                self.pub_vel.publish(v)
+
+        if "yaw" in t:
+            m = Float64(); m.data = float(t["yaw"]); self.pub_hdg.publish(m)
+        if "t_att" in t:
+            a = Vector3Stamped()
+            a.header.stamp = stamp
+            a.header.frame_id = "body"
+            a.vector.x = float(t.get("roll", 0.0))      # deg
+            a.vector.y = float(t.get("pitch", 0.0))     # deg
+            a.vector.z = float(t.get("yaw", 0.0))       # deg (0=북, 시계방향)
+            self.pub_att.publish(a)
+        if "gspeed" in t:
+            m = Float32(); m.data = float(t["gspeed"]); self.pub_gsp.publish(m)
+        if "volt" in t:
+            b = BatteryState()
+            b.header.stamp = stamp
+            b.voltage = float(t["volt"])
+            b.current = float(t.get("amp", 0.0))
+            pct = t.get("batt_pct", -1)
+            b.percentage = float(pct) / 100.0 if pct is not None and pct >= 0 else float("nan")
+            b.present = t["volt"] > 0.0
+            self.pub_bat.publish(b)
+
     # ------------------------------------------------------------------ 상태
     def report(self):
-        if self.state == IDLE and self.sent == 0:
+        if self.state == IDLE and self.sent == 0 and not (self.link and self.link.tel):
             return
         t = self.link.tel if self.link else {}
         alt = t.get("alt")
         hdg = t.get("yaw")
         vx, vy, vz, yaw = self.cmd if self.state == ACTIVE else (0.0, 0.0, 0.0, 0.0)
+        sats, volt = t.get("sats"), t.get("volt")
         self.get_logger().info(
             f"[{self.state}] vx={vx:+.2f} vy={vy:+.2f} vz={vz:+.2f} yaw={yaw:+.1f}°/s "
             f"· 보냄{self.sent} ACK{self.acks}"
             f"{f' · 캡에 걸림{self.clamped}' if self.clamped else ''}"
             f" · 고도{'?' if alt is None else f'{alt:.1f}m'}"
-            f" 기수{'?' if hdg is None else f'{hdg:.0f}°'}")
+            f" 기수{'?' if hdg is None else f'{hdg:.0f}°'}"
+            f"{f' 위성{sats}' if sats is not None else ''}"
+            f"{f' {volt:.1f}V' if volt else ''}")
 
     # ------------------------------------------------------------------ 종료
     def shutdown(self):

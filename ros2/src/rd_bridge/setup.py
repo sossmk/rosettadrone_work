@@ -20,7 +20,8 @@ setup(
     entry_points={
         "console_scripts": [
             "video_node = rd_bridge.video_node:main",
-            "cmd_vel_node = rd_bridge.cmd_vel_node:main",
+            "link_node = rd_bridge.link_node:main",
+            "nav_node = rd_bridge.nav_node:main",
         ],
     },
 )

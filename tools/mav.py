@@ -263,15 +263,34 @@ class Link:
                     _, lat, lon, alt, ralt = struct.unpack_from("<Iiiii", p, 0)
                     self.tel["lat"], self.tel["lon"] = lat / 1e7, lon / 1e7
                     self.tel["alt"] = ralt / 1000.0
+                    self.tel["amsl"] = alt / 1000.0
+                    # 속도 3축. ⚠ 단위 cm/s, **NED**(북·동·**아래**) 다 — 이 메시지는
+                    #   #84 와 달리 MAVLink 규약 그대로다(앱이 손대지 않는다).
+                    #   vd>0 이 **하강**이다. #84 의 vz>0=상승과 반대이니 주의.
+                    vn, ve, vd = struct.unpack_from("<hhh", p, 20)
+                    self.tel["vn"] = vn / 100.0
+                    self.tel["ve"] = ve / 100.0
+                    self.tel["vd"] = vd / 100.0
+                    # ⚠ 위치가 언제 온 것인지. 유도 루프는 오래된 좌표로 날면 안 된다
+                    self.tel["t_pos"] = time.time()
                 elif mid == 30:                            # ATTITUDE
                     _, r, pi, y = struct.unpack_from("<Ifff", p, 0)
+                    self.tel["roll"] = math.degrees(r)
+                    self.tel["pitch"] = math.degrees(pi)
                     self.tel["yaw"] = math.degrees(y) % 360.0
+                    self.tel["t_att"] = time.time()
                 elif mid == 74:                            # VFR_HUD
                     _, gsp, altf, climb = struct.unpack_from("<ffff", p, 0)
                     self.tel["gspeed"] = gsp
                     self.tel["climb"] = climb
                 elif mid == 24:                            # GPS_RAW_INT
                     self.tel["fix"], self.tel["sats"] = p[28], p[29]
+                elif mid == 1:                             # SYS_STATUS
+                    # 오프셋은 decode_check.py 와 같다. 앱은 patches/03 적용 후
+                    # 일반 배터리 콜백을 쓴다 — 16.98V·13.05A (9/10 실측)
+                    self.tel["volt"] = struct.unpack_from("<H", p, 14)[0] / 1000.0
+                    self.tel["amp"] = struct.unpack_from("<h", p, 16)[0] / 100.0
+                    self.tel["batt_pct"] = struct.unpack_from("<b", p, 30)[0]
                 elif mid == 47:                            # MISSION_ACK
                     self.tel["mission_ack"] = p[2]          # MAV_MISSION_RESULT 코드
             except Exception:

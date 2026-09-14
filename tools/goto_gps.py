@@ -1,8 +1,24 @@
 #!/usr/bin/env python3
-"""좌표 이동 — 특정 지점을 측정해 두고, 나중에 그 좌표로 단발 이동한다.
+"""좌표 측정 — 지점의 좌표를 재서 저장한다.
 
     python3 tools/goto_gps.py capture                      # 현재 좌표를 실시간으로 보고 저장
-    python3 tools/goto_gps.py goto <LAT> <LON> [--alt M]   # 그 좌표로 단발 이동
+    python3 tools/goto_gps.py goto <LAT> <LON> [--alt M]   # ⛔ 폐기됨 (아래)
+
+⛔⛔ **`goto` 는 폐기됐다 (2026-09-14).** 앱의 `flyTo()` 를 쓰지 않기로 했다 —
+   **항법 제어권을 우리가 갖는다.** 대신 ROS 항법 노드를 쓸 것:
+
+       ros2 launch rd_bridge bridge.launch.py
+       ros2 topic pub --once /nav/goal sensor_msgs/msg/NavSatFix \
+           '{latitude: <LAT>, longitude: <LON>, altitude: <상대고도>}'
+
+   왜 바꿨는가: `flyTo()` 는 DJI 웨이포인트 미션이 아니라 **앱 안에서 PID 로 속도를
+   계산해 `setVelocities()` 를 부르는 것**이다(제약 #19) — 우리가 그대로 할 수 있고,
+   그래야 이득·감속 프로파일·도착 판정을 우리가 정하고 **태그 추종과 같은 루프에
+   넣을 수 있다**(정밀 착륙에 필요). `MISSION_ITEM_INT` 의 `target_system` 함정
+   (제약 #18)도 지나간다. 자세한 것은 `ros2/src/rd_bridge/rd_bridge/nav_node.py`.
+
+   **`capture` 는 계속 쓴다** — 항법에 줄 목표 좌표를 재는 데 여전히 필요하다.
+   `goto` 는 실행하면 경고를 찍고 확인을 받는다(코드는 참고용으로 남겨 둔다).
 
 워크플로: ①RC로 지점까지 수동 비행 → ②capture 로 좌표 측정·저장 → ③RC로 수동 복귀
 → ④저장했던(또는 그때 화면에 찍힌) 좌표를 goto 에 그대로 입력.
@@ -103,6 +119,23 @@ def cmd_capture(args):
 
 
 def cmd_goto(args):
+    # ⛔ 폐기된 경로다 (2026-09-14). 실수로 쓰지 않게 확인을 받는다 — 파일 맨 위 참고.
+    print("=" * 70)
+    print("⛔ 이 경로는 폐기됐습니다 — 앱의 flyTo() 를 쓰지 않기로 했습니다.")
+    print("   항법 제어권은 우리가 가집니다. 대신 이것을 쓰세요:")
+    print()
+    print("     ros2 launch rd_bridge bridge.launch.py")
+    print("     ros2 topic pub --once /nav/goal sensor_msgs/msg/NavSatFix \\")
+    print(f"       '{{latitude: {args.lat}, longitude: {args.lon}, altitude: <상대고도>}}'")
+    print("=" * 70)
+    try:
+        if input("그래도 옛 경로로 보내겠습니까? (yes 를 입력) ").strip() != "yes":
+            print("취소했습니다.")
+            return 1
+    except (EOFError, KeyboardInterrupt):
+        print("\n취소했습니다.")
+        return 1
+
     link = connect(args.port)
     if link is None:
         return 1
