@@ -144,11 +144,13 @@ class CmdVelNode(Node):
         self.pub_vel = self.create_publisher(TwistStamped, "rd/velocity", 10)
         self.pub_gsp = self.create_publisher(Float32, "rd/gspeed", 10)
         self.pub_bat = self.create_publisher(BatteryState, "rd/battery", 10)
-        self.last_pos_t = 0.0
+        # 마지막으로 발행한 값의 수신시각. 앱은 메시지마다 주기가 다르다
+        # (자세 10Hz · 위치 5Hz · GPS 3.3Hz · 배터리 1Hz) — 고정 주기로 발행하면
+        # 빠른 것은 깎이고 느린 것은 같은 값이 중복으로 나간다.
+        self.seen = {"pos": 0.0, "att": 0.0, "hud": 0.0, "sys": 0.0}
 
         self.create_subscription(Twist, "cmd_vel", self.on_cmd, 10)
         self.create_timer(1.0 / self.rate, self.tick)
-        self.create_timer(0.2, self.publish_telemetry)      # 5Hz — 앱이 주는 만큼
         self.create_timer(2.0, self.report)
         self.get_logger().info(
             f"/cmd_vel 대기 중. 한 발도 오기 전에는 아무것도 쏘지 않는다 "
@@ -210,29 +212,34 @@ class CmdVelNode(Node):
         self.sent += 1
 
     def _drain(self):
-        """받은 것을 읽어 텔레메트리·ACK 를 갱신한다. 앱 주소도 여기서 따라간다."""
+        """받은 것을 읽어 텔레메트리·ACK 를 갱신하고 **새 값만** 발행한다.
+
+        앱 주소도 여기서 따라간다(mav.Link.poll 참고). 20Hz 로 불리지만 발행은
+        새 값이 왔을 때만 나간다 — 앱이 주는 주기를 그대로 따라간다.
+        """
         for mid, p in self.link.poll():
             if mid == 77:
                 cmd, _ = struct.unpack_from("<HB", p, 0)
                 if cmd == 84:
                     self.acks += 1
+        self.publish_telemetry()
 
     # -------------------------------------------------------------- 다운링크
     def publish_telemetry(self):
-        """앱에서 온 최신 값을 토픽으로 낸다. 새 값이 없으면 발행하지 않는다.
+        """앱에서 **새로 온** 값만 토픽으로 낸다.
 
-        ⚠ 같은 값을 계속 재발행하면 구독자(항법)가 좌표가 살아있다고 착각한다.
-          링크가 끊긴 것과 기체가 멈춘 것은 구별돼야 한다 — 그래서 t_pos 가
-          갱신됐을 때만 /rd/fix 를 낸다.
+        ⚠ 같은 값을 재발행하지 않는다. 구독자(항법)가 "좌표가 살아있다"고 착각하면
+          안 된다 — 링크가 끊긴 것과 기체가 멈춰 있는 것은 구별돼야 한다.
+          nav_node 의 좌표 신선도 게이트가 이 전제 위에 서 있다.
         """
         if self.link is None:
             return
         t = self.link.tel
         stamp = self.get_clock().now().to_msg()
 
-        t_pos = t.get("t_pos", 0.0)
-        if t_pos > self.last_pos_t and "lat" in t:
-            self.last_pos_t = t_pos
+        # ── 위치·속도 (#33, 5Hz)
+        if t.get("t_pos", 0.0) > self.seen["pos"]:
+            self.seen["pos"] = t["t_pos"]
             fix = NavSatFix()
             fix.header.stamp = stamp
             fix.header.frame_id = "wgs84"
@@ -240,10 +247,10 @@ class CmdVelNode(Node):
             fix.longitude = t["lon"]
             # ⚠ 여기 들어가는 것은 **상대고도**다(이륙 지점 기준). NavSatFix.altitude
             #   는 원래 타원체고도지만, 이 앱에서 우리가 쓸 수 있는 건 상대고도이고
-            #   flyTo 대체 유도도 상대고도로 한다. 헷갈리지 않게 amsl 은 안 쓴다.
+            #   유도도 상대고도로 한다. 헷갈리지 않게 amsl 은 안 쓴다.
             fix.altitude = t.get("alt", 0.0)
             st = NavSatStatus()
-            # MAVLink GPS_FIX_TYPE: 0=없음 1=없음 2=2D 3=3D 이상
+            # MAVLink GPS_FIX_TYPE: 0·1=없음 2=2D 3 이상=3D
             st.status = (NavSatStatus.STATUS_FIX if t.get("fix", 0) >= 2
                          else NavSatStatus.STATUS_NO_FIX)
             st.service = NavSatStatus.SERVICE_GPS
@@ -261,9 +268,9 @@ class CmdVelNode(Node):
                 v.twist.linear.z = -t["vd"]         # 위  ← NED 의 down 을 뒤집는다
                 self.pub_vel.publish(v)
 
-        if "yaw" in t:
-            m = Float64(); m.data = float(t["yaw"]); self.pub_hdg.publish(m)
-        if "t_att" in t:
+        # ── 자세 (#30, 10Hz) — 여기가 가장 빠르다. 깎지 않는다
+        if t.get("t_att", 0.0) > self.seen["att"]:
+            self.seen["att"] = t["t_att"]
             a = Vector3Stamped()
             a.header.stamp = stamp
             a.header.frame_id = "body"
@@ -271,16 +278,23 @@ class CmdVelNode(Node):
             a.vector.y = float(t.get("pitch", 0.0))     # deg
             a.vector.z = float(t.get("yaw", 0.0))       # deg (0=북, 시계방향)
             self.pub_att.publish(a)
-        if "gspeed" in t:
-            m = Float32(); m.data = float(t["gspeed"]); self.pub_gsp.publish(m)
-        if "volt" in t:
+            m = Float64(); m.data = float(t.get("yaw", 0.0)); self.pub_hdg.publish(m)
+
+        # ── 대지속도 (#74, 10Hz)
+        if t.get("t_hud", 0.0) > self.seen["hud"]:
+            self.seen["hud"] = t["t_hud"]
+            m = Float32(); m.data = float(t.get("gspeed", 0.0)); self.pub_gsp.publish(m)
+
+        # ── 배터리 (#1, 1Hz)
+        if t.get("t_sys", 0.0) > self.seen["sys"]:
+            self.seen["sys"] = t["t_sys"]
             b = BatteryState()
             b.header.stamp = stamp
-            b.voltage = float(t["volt"])
+            b.voltage = float(t.get("volt", 0.0))
             b.current = float(t.get("amp", 0.0))
             pct = t.get("batt_pct", -1)
             b.percentage = float(pct) / 100.0 if pct is not None and pct >= 0 else float("nan")
-            b.present = t["volt"] > 0.0
+            b.present = t.get("volt", 0.0) > 0.0
             self.pub_bat.publish(b)
 
     # ------------------------------------------------------------------ 상태

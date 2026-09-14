@@ -124,6 +124,10 @@ class Link:
         self.sock.settimeout(0.02)
 
         # 최근 텔레메트리 (poll() 이 갱신한다)
+        #   값이 **언제 온 것인지**도 같이 넣는다: t_pos(#33) · t_att(#30) ·
+        #   t_hud(#74) · t_gps(#24) · t_sys(#1). 앱이 메시지마다 다른 주기로
+        #   보내므로(자세 10Hz · 위치 5Hz · GPS 3.3Hz · 배터리 1Hz), 이걸 봐야
+        #   "새 값"과 "옛 값 재발행"을 구별할 수 있다.
         self.tel = {}
         self.addr_changes = 0     # 앱의 송신 포트가 바뀐 횟수 (아래 poll() 참고)
 
@@ -283,14 +287,17 @@ class Link:
                     _, gsp, altf, climb = struct.unpack_from("<ffff", p, 0)
                     self.tel["gspeed"] = gsp
                     self.tel["climb"] = climb
+                    self.tel["t_hud"] = time.time()
                 elif mid == 24:                            # GPS_RAW_INT
                     self.tel["fix"], self.tel["sats"] = p[28], p[29]
+                    self.tel["t_gps"] = time.time()
                 elif mid == 1:                             # SYS_STATUS
                     # 오프셋은 decode_check.py 와 같다. 앱은 patches/03 적용 후
                     # 일반 배터리 콜백을 쓴다 — 16.98V·13.05A (9/10 실측)
                     self.tel["volt"] = struct.unpack_from("<H", p, 14)[0] / 1000.0
                     self.tel["amp"] = struct.unpack_from("<h", p, 16)[0] / 100.0
                     self.tel["batt_pct"] = struct.unpack_from("<b", p, 30)[0]
+                    self.tel["t_sys"] = time.time()
                 elif mid == 47:                            # MISSION_ACK
                     self.tel["mission_ack"] = p[2]          # MAV_MISSION_RESULT 코드
             except Exception:
