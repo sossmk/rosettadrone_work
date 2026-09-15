@@ -2,7 +2,8 @@
 """항법 노드 — 앱 flyTo() 를 대체하는 단순 P 제어.
 
     ros2 run rd_bridge nav_node
-    # 현재 위치 기준으로 북 5m (x=북 m, y=동 m, z=상대고도 m, z<=0 이면 고도 유지)
+    # 현재 위치 기준으로 앞 5m (x=앞 m, y=오른쪽 m, z=상대고도 m, z<=0 이면 고도 유지)
+    # 목표는 받는 순간의 기수로 고정된다 — 비행 중에 기수가 돌아도 목표 지점은 그대로
     ros2 topic pub --once /nav/goal_offset geometry_msgs/msg/Vector3 '{x: 5.0, y: 0.0, z: 0.0}'
     # 좌표로 (altitude = 상대고도)
     ros2 topic pub --once /nav/goal sensor_msgs/msg/NavSatFix '{latitude: 37.5, longitude: 126.9, altitude: 5.0}'
@@ -66,11 +67,15 @@ class NavNode(Node):
         self.start(m.latitude, m.longitude, m.altitude)
 
     def on_offset(self, m):
-        if self.pos is None:
-            return self.get_logger().error("아직 위치가 없다 — link_node 확인")
+        if self.pos is None or self.hdg is None:
+            return self.get_logger().error("아직 위치·기수가 없다 — link_node 확인")
         lat, lon, alt = self.pos
-        glat = lat + math.degrees(m.x / R_EARTH)
-        glon = lon + math.degrees(m.y / (R_EARTH * math.cos(math.radians(lat))))
+        # 기체 기준(앞·오른쪽) → 지구 기준(북·동). 받는 순간의 기수로 한 번만 돌린다
+        h = math.radians(self.hdg)
+        north = m.x * math.cos(h) - m.y * math.sin(h)
+        east = m.x * math.sin(h) + m.y * math.cos(h)
+        glat = lat + math.degrees(north / R_EARTH)
+        glon = lon + math.degrees(east / (R_EARTH * math.cos(math.radians(lat))))
         self.start(glat, glon, m.z if m.z > 0 else alt)
 
     def start(self, lat, lon, alt):

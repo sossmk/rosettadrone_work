@@ -33,7 +33,10 @@ cd ros2 && colcon build --symlink-install
 source install/setup.bash
 ```
 
-추가 apt 설치가 없다. `h264parse`(plugins-bad)는 필요 없다.
+`h264parse`(plugins-bad)는 필요 없다. AprilTag(`tag:=true`)를 쓸 때만:
+```bash
+sudo apt update && sudo apt install -y ros-jazzy-apriltag-ros ros-jazzy-camera-calibration
+```
 
 ## 실행
 
@@ -41,6 +44,7 @@ source install/setup.bash
 ros2 launch rd_bridge bridge.launch.py              # 영상 + 링크 + 항법
 ros2 launch rd_bridge bridge.launch.py nav:=false   # 항법 빼고 (수동 cmd_vel)
 ros2 launch rd_bridge bridge.launch.py link:=false  # 영상만 (기체를 안 건드린다)
+ros2 launch rd_bridge bridge.launch.py tag:=true link:=false nav:=false   # 영상 + AprilTag
 ```
 
 띄워 두는 것 자체는 기체를 건드리지 않는다 — `link_node` 는 `/cmd_vel` 이 오기 전에
@@ -80,6 +84,48 @@ python3 tools/topic_check.py echo /rd/fix
 ⚠ 같은 값을 재발행하지 않는다 — 구독자가 "좌표가 살아있다"고 착각하면 안 된다.
 링크가 끊긴 것과 기체가 멈춰 있는 것은 구별돼야 한다.
 
+**영상** (`video_node`) `/image_raw` · `/camera_info`(**대략값**, 아래) — 둘은 같은 stamp·`frame_id=camera`
+
+## AprilTag — 거리·기울기 청사진 (2026-09-15)
+
+`apriltag_ros`(apt) 가 `/image_raw` + `/camera_info` 를 받아 **`/tf` 에 카메라→태그 자세**를 낸다.
+
+**보정 전 대략값.** Mavic 2 Pro 대각 화각 77°, 스트림 1632x1088(대각 1961px) →
+`f = 980.7 / tan 38.5° ≈ 1233` → video_node 기본값 `fx=fy=1250`, 중심=프레임 가운데, 왜곡 0.
+거리는 f 에 비례해 틀리므로 **±10% 정도**. 보정하면 `-p fx:=… -p fy:=… -p cx:=… -p cy:=…` 만 바꾼다.
+
+**태그.** `tags/tag36h11_id0.png`(36h11, ID 0) 를 인쇄한다. 그림은 12칸이고 가운데 검은 사각형이 8칸이다.
+**검은 사각형 바깥 한 변을 자로 재서** `config/tags.yaml` 의 `size`(m)에 넣는다 — 흰 여백은 빼고.
+(A4 에 꽉 차게 뽑으면 칸당 약 1.7cm → size ≈ 0.14). 고친 뒤 `colcon build` 다시.
+검출 한계 가늠: 16cm 태그가 10m 에서 1250×0.16/10 = 20px.
+
+```bash
+ros2 launch rd_bridge bridge.launch.py tag:=true link:=false nav:=false
+ros2 topic hz /detections                          # 태그가 보이면 영상 fps 근처
+ros2 run tf2_ros tf2_echo camera tag36h11:0        # 거리·자세
+```
+
+**읽는 법** — `Translation [x y z]` m, 카메라 광학 좌표계:
+
+| | 방향 | 짐벌 -90°(아래)일 때 |
+|---|---|---|
+| x | 화면 오른쪽 | 수평 오차 |
+| y | 화면 아래 | 수평 오차 |
+| **z** | **카메라 앞 = 거리** | **≈ 고도** |
+
+`Rotation RPY` 는 태그가 카메라에 대해 틀어진 각이다. **정면에 세운 값을 먼저 적어 두고**
+기울였을 때의 차이로 본다(기준 자세가 0 이 아닐 수 있다).
+
+**확인할 것 (기체 카메라 앞, 줄자)**
+
+| 실제 거리 | z | 차이 % | 30° 돌렸을 때 RPY 변화 |
+|---|---|---|---|
+| 1 m | | | |
+| 2 m | | | |
+| 3 m | | | |
+
+차이가 **일정 비율**이면 f 문제(보정으로 해결), **들쭉날쭉**이면 검출·해상도·손실 프레임 문제.
+
 ## ★ 항법을 우리가 갖는다 — `flyTo()` 를 안 쓰는 이유
 
 앱의 `flyTo()` 는 DJI 네이티브 웨이포인트 미션이 **아니다.** 매 틱 PID 로 속도를 다시
@@ -99,7 +145,8 @@ python3 tools/topic_check.py echo /rd/fix
 ### 쓰는 법
 
 ```bash
-# 현재 위치 기준: x=북 m, y=동 m, z=상대고도 m (z<=0 이면 고도 유지)
+# 현재 위치 기준: x=앞 m, y=오른쪽 m, z=상대고도 m (z<=0 이면 고도 유지)
+#   받는 순간의 기수로 북·동으로 바꿔 고정한다 (9/15 실기 후 북·동 → 기체 기준으로 변경)
 ros2 topic pub --once /nav/goal_offset geometry_msgs/msg/Vector3 '{x: 5.0, y: 0.0, z: 0.0}'
 # 좌표로 (altitude = 상대고도)
 ros2 topic pub --once /nav/goal sensor_msgs/msg/NavSatFix '{latitude: 37.5665, longitude: 126.9780, altitude: 10.0}'

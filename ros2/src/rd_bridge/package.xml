@@ -12,6 +12,7 @@
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>apriltag_ros</exec_depend>   <!-- tag:=true 일 때만. sudo apt install ros-jazzy-apriltag-ros -->
 
   <!-- 영상 경로는 OpenCV(FFMPEG·GStreamer)만 쓴다. h264parse(plugins-bad)는 필요 없다 -->
   <exec_depend>python3-opencv</exec_depend>

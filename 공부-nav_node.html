@@ -1,0 +1,413 @@
+<title>nav_node 유도 해부</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root {
+  --ground: #f3f5f4;
+  --surface: #ffffff;
+  --ink: #17201d;
+  --muted: #5b6763;
+  --line: #d3dbd8;
+  --accent: #0e6e62;
+  --accent-soft: #e0efec;
+  --second: #9a6410;
+  --second-soft: #f6ecd9;
+  --warn: #b42318;
+  --warn-soft: #fbe9e7;
+  --code-bg: #eef2f0;
+  --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #111615; --surface: #19201f; --ink: #e3eae7; --muted: #9aa6a2; --line: #2d3735;
+    --accent: #4fc1ae; --accent-soft: #173330; --second: #e0a94f; --second-soft: #36290f;
+    --warn: #f08a7e; --warn-soft: #3a1c19; --code-bg: #141a19;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #111615; --surface: #19201f; --ink: #e3eae7; --muted: #9aa6a2; --line: #2d3735;
+  --accent: #4fc1ae; --accent-soft: #173330; --second: #e0a94f; --second-soft: #36290f;
+  --warn: #f08a7e; --warn-soft: #3a1c19; --code-bg: #141a19;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--ground); color: var(--ink);
+  font-family: var(--sans); font-size: 16px; line-height: 1.7;
+  padding-inline: 20px; padding-block: 40px 80px;
+}
+.wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
+header { display: flex; flex-direction: column; gap: 12px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; color: var(--accent); text-transform: uppercase; }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: 24px; line-height: 1.3; margin: 0; text-wrap: balance; }
+h3 { font-size: 17px; margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.lead { color: var(--muted); font-size: 17px; }
+section { display: flex; flex-direction: column; gap: 18px; }
+section > .sub { color: var(--muted); }
+code, .m { font-family: var(--mono); font-size: .88em; }
+p code, li code, td code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+ul, ol { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 6px; max-width: 68ch; }
+a { color: var(--accent); }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.toc a { font-size: 14px; text-decoration: none; border: 1px solid var(--line); padding: 4px 12px; border-radius: 999px; color: var(--ink); background: var(--surface); }
+nav.toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.flow .node { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; display: flex; flex-direction: column; line-height: 1.35; }
+.flow .node b { font-family: var(--mono); font-size: 13px; }
+.flow .node span { font-size: 12px; color: var(--muted); }
+.flow .node.us { border-color: var(--accent); background: var(--accent-soft); }
+.flow .arrow { color: var(--muted); font-family: var(--mono); }
+
+.step { display: grid; grid-template-columns: 7.5rem 1fr; gap: 6px 20px; padding-block: 18px; border-top: 1px solid var(--line); }
+.step:last-child { border-bottom: 1px solid var(--line); }
+.step .k { font-weight: 700; color: var(--accent); }
+.step .body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+@media (max-width: 560px) { .step { grid-template-columns: 1fr; } }
+
+.formula { font-family: var(--mono); font-size: 14px; background: var(--code-bg); border-radius: 6px; padding: 12px 14px; overflow-x: auto; white-space: pre; line-height: 1.6; }
+.ex { font-size: 14px; color: var(--muted); }
+.ex b { color: var(--ink); font-weight: 500; }
+
+.callout { background: var(--second-soft); border-left: 3px solid var(--second); padding: 14px 18px; border-radius: 0 6px 6px 0; display: flex; flex-direction: column; gap: 8px; }
+.callout h3 { color: var(--second); }
+
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+figure .scroll { overflow-x: auto; }
+figure svg { display: block; width: 100%; height: auto; min-width: 320px; }
+figcaption { font-size: 13px; color: var(--muted); }
+.duo { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+svg text { font-family: var(--sans); fill: var(--ink); }
+svg .mono { font-family: var(--mono); }
+svg .mut { fill: var(--muted); }
+svg .acc { fill: var(--accent); }
+svg .sec { fill: var(--second); }
+
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; letter-spacing: .05em; color: var(--muted); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+td.same { color: var(--accent); }
+td.diff { color: var(--second); }
+
+details.code { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+details.code > summary { cursor: pointer; padding: 12px 16px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+details.code > summary b { font-family: var(--mono); font-size: 14px; }
+details.code > summary span { font-size: 13px; color: var(--muted); }
+pre.src { margin: 0; border-top: 1px solid var(--line); background: var(--code-bg); overflow-x: auto; padding-block: 12px; font-family: var(--mono); font-size: 13px; line-height: 1.55; counter-reset: ln; }
+pre.src span.l { display: block; padding-right: 16px; white-space: pre; }
+pre.src span.l::before { counter-increment: ln; content: counter(ln); display: inline-block; width: 3.2em; padding-right: 1em; text-align: right; color: var(--muted); opacity: .6; user-select: none; }
+pre.src span.c { color: var(--muted); }
+pre.src span.hl { background: var(--accent-soft); }
+.notes { display: flex; flex-direction: column; gap: 10px; }
+.notes div { display: grid; grid-template-columns: 11rem 1fr; gap: 16px; font-size: 15px; }
+.notes div > code { color: var(--accent); background: none; padding: 0; font-size: 13px; padding-top: 2px; }
+@media (max-width: 560px) { .notes div { grid-template-columns: 1fr; gap: 2px; } }
+
+.q { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; display: flex; flex-direction: column; gap: 8px; }
+.q summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+.q details > div { padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.num { font-variant-numeric: tabular-nums; }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">rd_bridge · nav_node.py · 공부 노트</div>
+  <h1>좌표 하나가 속도 명령이 되기까지</h1>
+  <p class="lead">위경도 목표를 받아 초당 20번 <code>/cmd_vel</code> 을 내는 유도기를 네 단계로 쪼개 읽는다. LOS 가 아니라 <b>포화 P 제어로 점을 추종</b>한다. 앱의 <code>flyTo()</code> 와 식은 같고 도착 판정만 다르다.</p>
+  <nav class="toc" aria-label="목차">
+    <a href="#flow">흐름</a><a href="#steps">네 단계</a><a href="#profile">속도 프로파일</a><a href="#offset">goal_offset 회전</a><a href="#code">코드 전문</a><a href="#app">앱 flyTo 비교</a><a href="#limits">한계와 LOS</a><a href="#quiz">연습 문제</a>
+  </nav>
+</header>
+
+<section id="flow">
+  <h2>흐름</h2>
+  <div class="flow">
+    <div class="node"><b>/nav/goal</b><span>NavSatFix · 위경도+상대고도</span></div>
+    <div class="arrow">→</div>
+    <div class="node us"><b>nav_node</b><span>20Hz tick · P 제어</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>/cmd_vel</b><span>Twist · 앱 규약</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>link_node</b><span>캡 · 데드맨 · 브레이크</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>MAVLink #84</b><span>BODY_NED 속도</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>앱 setVelocities</b><span>200ms 유효</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>DJI 비행제어</b><span>속도 루프 (GPS)</span></div>
+  </div>
+  <p>되돌아오는 길은 <code>link_node</code> 가 앱 텔레메트리를 풀어 내는 <code>/rd/fix</code>(위치, 약 5Hz)와 <code>/rd/heading</code>(기수, 약 10Hz)이다. nav_node 는 <b>위치 루프</b>만 담당하고, 바람을 이기며 실제로 그 속도를 내는 <b>속도 루프</b>는 DJI 비행제어기 안에 있다. 두 루프가 겹겹이 있다는 것이 뒤의 한계 논의에서 중요하다.</p>
+</section>
+
+<section id="steps">
+  <h2>tick() 한 번에 일어나는 네 단계</h2>
+  <p class="sub">예시는 9/15 실기 조건: 위도 37.5°, 기수 180°(남향), 목표는 북쪽 5 m.</p>
+
+  <div>
+    <div class="step">
+      <div class="k">① 거리</div>
+      <div class="body">
+        <p>구면 위 두 점의 대원 거리. <code>mav.meters_between</code> 은 haversine 공식이다. 수십 m 에서는 평면 근사와 mm 단위로 같지만, 극 근처나 먼 거리에서도 틀리지 않는다.</p>
+        <div class="formula">a = sin²(Δφ/2) + cos φ₁ · cos φ₂ · sin²(Δλ/2)
+d = 2R · asin(√a)            R = 6 371 000 m</div>
+        <p class="ex">위도 1° ≈ <b class="num">111 195 m</b>. 북 5 m 는 Δφ = <b class="num">0.0000450°</b>. 경도 1° 는 cos 37.5° 만큼 짧아서 <b class="num">88 216 m</b>이다.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="k">② 방위</div>
+      <div class="body">
+        <p>현재 위치에서 목표를 볼 때의 방위각(북=0°, 시계방향). <code>mav.bearing_between</code> 은 대원 항로의 <b>출발 방위(initial bearing)</b>다. 매 tick 새로 계산하므로 계속 목표를 다시 조준하는 셈이다.</p>
+        <div class="formula">θ = atan2( sin Δλ · cos φ₂ ,
+           cos φ₁ · sin φ₂ − sin φ₁ · cos φ₂ · cos Δλ )   → 0~360°</div>
+        <p class="ex">북쪽 목표 → <b class="num">θ = 0°</b></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="k">③ 상대각</div>
+      <div class="body">
+        <p>지구 기준 방위를 기체 기준으로 바꾼다. 0=앞, +90=오른쪽, ±180=뒤. <code>+540</code> 은 음수 나머지를 피하려고 360 을 한 번 더 더한 것이다.</p>
+        <div class="formula">rel = (θ − heading + 540) mod 360 − 180</div>
+        <p class="ex">(0 − 180 + 540) mod 360 − 180 = <b class="num">180°</b> → <b>뒤</b></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="k">④ 속도</div>
+      <div class="body">
+        <p>속력은 거리에 비례하고 상한에서 자른다. 방향은 rel 로 앞·오른쪽 성분으로 나눈다. 고도는 따로 같은 모양의 P 제어다.</p>
+        <div class="formula">speed = min(max_speed, kp · d)          kp = 0.35 /s
+vx    = speed · cos(rel)                 앞 +
+vy    = speed · sin(rel)                 오른쪽 +
+vz    = clamp(kp_alt · (고도목표 − 고도), ±max_vz)</div>
+        <p class="ex">d = 5 m, max_speed 1.0 → speed = min(1.0, 1.75) = <b class="num">1.0</b> → vx = <b class="num">−1.00</b>, vy = <b class="num">0.00</b> (뒤로 1 m/s)</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <h3>9/15 에 "x:−5 가 전진" 이었던 이유</h3>
+    <p>그날 goal_offset 은 <b>지구 기준(x=북, y=동)</b> 이었다. 기수가 남쪽이면 남(x=−5)이 기체의 앞이고, 서(y=−5)가 기체의 오른쪽이다. 네 단계 계산은 맞았고, 규약이 현장 감각과 달랐다. 그래서 goal_offset 을 <b>기체 기준</b>으로 바꿨다(아래 <a href="#offset">회전</a> 참고).</p>
+  </div>
+
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 560 300" role="img" aria-label="남향 기체의 기체 축과 지구 축">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>
+        <marker id="am" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>
+      </defs>
+      <!-- 지구 축 -->
+      <line x1="60" y1="120" x2="60" y2="50" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#am)"/>
+      <line x1="60" y1="120" x2="130" y2="120" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#am)"/>
+      <text x="54" y="40" class="mut" font-size="13">북</text>
+      <text x="138" y="125" class="mut" font-size="13">동</text>
+      <text x="30" y="150" class="mut" font-size="12">지구 기준</text>
+      <!-- 기체 -->
+      <circle cx="300" cy="150" r="16" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+      <line x1="300" y1="166" x2="300" y2="245" stroke="var(--accent)" stroke-width="2.5" marker-end="url(#ah)"/>
+      <line x1="284" y1="150" x2="205" y2="150" stroke="var(--accent)" stroke-width="2.5" marker-end="url(#ah)"/>
+      <text x="310" y="238" class="acc" font-size="13" font-weight="700">앞 (+x) · 기수 180°</text>
+      <text x="170" y="138" class="acc" font-size="13" font-weight="700">오른쪽 (+y)</text>
+      <!-- 옛 규약 목표 -->
+      <circle cx="300" cy="275" r="5" fill="var(--second)"/>
+      <text x="312" y="280" class="sec mono" font-size="12">옛 {x:−5} = 남쪽 5 m</text>
+      <circle cx="185" cy="150" r="5" fill="var(--second)"/>
+      <text x="120" y="178" class="sec mono" font-size="12">옛 {y:−5} = 서쪽</text>
+      <circle cx="300" cy="60" r="5" fill="none" stroke="var(--second)" stroke-width="1.5"/>
+      <text x="312" y="65" class="sec mono" font-size="12">옛 {x:+5} = 북 = 이 기체의 뒤</text>
+    </svg>
+    </div>
+    <figcaption>위에서 본 그림. 남향 기체에서 옛 규약의 −x 는 앞, −y 는 오른쪽이 된다.</figcaption>
+  </figure>
+</section>
+
+<section id="profile">
+  <h2>속도 프로파일: 등속 구간과 감속 구간</h2>
+  <p><code>min(max_speed, kp·d)</code> 는 거리 축에서 꺾인 직선이다. 꺾이는 거리 <code>d* = max_speed / kp</code> 보다 멀면 상한 속도로 가고, 안쪽에서는 속도가 거리에 비례한다. 비례 구간에서는 <code>ḋ = −kp·d</code> 이므로 거리가 <b>지수적으로</b> 준다(시상수 1/kp ≈ <span class="num">2.86 s</span>).</p>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 560 270" role="img" aria-label="거리에 따른 명령 속력">
+      <g stroke="var(--line)" stroke-width="1">
+        <line x1="50" y1="30" x2="530" y2="30"/><line x1="50" y1="93.3" x2="530" y2="93.3"/><line x1="50" y1="156.7" x2="530" y2="156.7"/><line x1="50" y1="220" x2="530" y2="220"/>
+      </g>
+      <g class="mut" font-size="12" text-anchor="middle">
+        <text x="50" y="240">0</text><text x="130" y="240">2</text><text x="210" y="240">4</text><text x="290" y="240">6</text><text x="370" y="240">8</text><text x="450" y="240">10</text><text x="530" y="240">12</text>
+        <text x="290" y="262">목표까지 거리 d (m)</text>
+      </g>
+      <g class="mut" font-size="12" text-anchor="end">
+        <text x="42" y="224">0</text><text x="42" y="161">1</text><text x="42" y="97">2</text><text x="42" y="34">3 m/s</text>
+      </g>
+      <line x1="90" y1="30" x2="90" y2="220" stroke="var(--warn)" stroke-width="1" stroke-dasharray="4 4"/>
+      <text x="96" y="46" font-size="12" fill="var(--warn)">arrive_radius 1 m</text>
+      <polyline points="50,220 335.7,61.7 530,61.7" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+      <polyline points="50,220 164.3,156.7 530,156.7" fill="none" stroke="var(--second)" stroke-width="2.5"/>
+      <circle cx="335.7" cy="61.7" r="4" fill="var(--accent)"/>
+      <circle cx="164.3" cy="156.7" r="4" fill="var(--second)"/>
+      <text x="345" y="54" class="acc" font-size="12">max_speed 2.5 (기본) · d* = 7.14 m</text>
+      <text x="174" y="149" class="sec" font-size="12">max_speed 1.0 (9/15 시험) · d* = 2.86 m</text>
+    </svg>
+    </div>
+    <figcaption>도착 판정 순간의 명령 속력은 0.35 × 1 m = 0.35 m/s. 그 뒤 0 을 내고 link_node 가 1초 브레이크한다.</figcaption>
+  </figure>
+  <p>걸리는 시간은 두 구간을 더하면 된다. 등속 구간은 <code>(d₀ − d*) / max_speed</code>, 감속 구간은 <code>ln(d* / r) / kp</code> 이다(r = arrive_radius). 기본값으로 20 m 목표면 <span class="num">(20 − 7.14)/2.5 + ln(7.14)/0.35 ≈ 5.1 + 5.6 = 10.7 s</span>.</p>
+</section>
+
+<section id="offset">
+  <h2>goal_offset: 기체 기준 → 북·동 회전</h2>
+  <p>9/15 이후 <code>/nav/goal_offset</code> 의 x 는 앞, y 는 오른쪽이다. 받는 순간의 기수 h 로 한 번 돌려 북·동 m 로 만들고, 그것을 위경도 차이로 바꿔 <b>고정된 목표 좌표</b>를 만든다. 비행 중에 기수가 돌아도 목표는 움직이지 않는다.</p>
+  <div class="formula">북 = x · cos h − y · sin h
+동 = x · sin h + y · cos h
+Δlat = 북 / R            (rad)
+Δlon = 동 / (R · cos lat)  (rad)</div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>기수 h</th><th>입력</th><th>북</th><th>동</th><th>의미</th></tr></thead>
+      <tbody class="num">
+        <tr><td>0°</td><td><code>{x: 5}</code></td><td>+5</td><td>0</td><td>북향의 앞 = 북</td></tr>
+        <tr><td>180°</td><td><code>{x: 5}</code></td><td>−5</td><td>0</td><td>남향의 앞 = 남</td></tr>
+        <tr><td>180°</td><td><code>{y: 5}</code></td><td>0</td><td>−5</td><td>남향의 오른쪽 = 서</td></tr>
+        <tr><td>90°</td><td><code>{y: 5}</code></td><td>−5</td><td>0</td><td>동향의 오른쪽 = 남</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>이 회전은 ③ 상대각의 <b>역변환</b>이다. ③은 지구 → 기체, 여기서는 기체 → 지구. 그래서 목표를 준 직후 첫 tick 의 rel 은 <code>atan2(y, x)</code> 와 같다.</p>
+</section>
+
+<section id="code">
+  <h2>코드 전문</h2>
+  <p class="sub">저장소의 현재 파일을 그대로 옮겼다. 줄 번호는 파일의 줄 번호다.</p>
+
+  <details class="code" open>
+    <summary><b>ros2/src/rd_bridge/rd_bridge/nav_node.py</b><span>유도기 전체</span></summary>
+<pre class="src" style="counter-reset: ln 0"><span class="l c">#!/usr/bin/env python3</span><span class="l">&quot;&quot;&quot;항법 노드 — 앱 flyTo() 를 대체하는 단순 P 제어.</span><span class="l"></span><span class="l">    ros2 run rd_bridge nav_node</span><span class="l c">    # 현재 위치 기준으로 앞 5m (x=앞 m, y=오른쪽 m, z=상대고도 m, z&lt;=0 이면 고도 유지)</span><span class="l c">    # 목표는 받는 순간의 기수로 고정된다 — 비행 중에 기수가 돌아도 목표 지점은 그대로</span><span class="l">    ros2 topic pub --once /nav/goal_offset geometry_msgs/msg/Vector3 &#x27;{x: 5.0, y: 0.0, z: 0.0}&#x27;</span><span class="l c">    # 좌표로 (altitude = 상대고도)</span><span class="l">    ros2 topic pub --once /nav/goal sensor_msgs/msg/NavSatFix &#x27;{latitude: 37.5, longitude: 126.9, altitude: 5.0}&#x27;</span><span class="l c">    # 중단</span><span class="l">    ros2 topic pub --once /nav/cancel std_msgs/msg/Empty &#x27;{}&#x27;</span><span class="l"></span><span class="l">앱 flyTo() (DroneModel.processFlyTo) 도 이것과 같다: 속도 = 0.35 × 거리, 목표 방향으로.</span><span class="l">이륙은 하지 않는다. 기록은 ~/drone_ws/navlog/ 에 CSV 로 남는다.</span><span class="l">&quot;&quot;&quot;</span><span class="l">import math</span><span class="l">import os</span><span class="l">import sys</span><span class="l">import time</span><span class="l"></span><span class="l">import rclpy</span><span class="l">from geometry_msgs.msg import Twist, Vector3</span><span class="l">from rclpy.executors import ExternalShutdownException</span><span class="l">from rclpy.node import Node</span><span class="l">from sensor_msgs.msg import NavSatFix</span><span class="l">from std_msgs.msg import Empty, Float64</span><span class="l"></span><span class="l">sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))</span><span class="l">import mav  # noqa: E402</span><span class="l"></span><span class="l">R_EARTH = 6371000.0</span><span class="l"></span><span class="l"></span><span class="l">class NavNode(Node):</span><span class="l"></span><span class="l">    def __init__(self):</span><span class="l">        super().__init__(&quot;rd_nav&quot;)</span><span class="l">        for name, val in [(&quot;kp&quot;, 0.35), (&quot;max_speed&quot;, 2.5), (&quot;kp_alt&quot;, 0.35),</span><span class="l">                          (&quot;max_vz&quot;, 1.5), (&quot;arrive_radius&quot;, 1.0)]:</span><span class="l">            self.declare_parameter(name, val)</span><span class="l">        self.p = lambda name: self.get_parameter(name).value</span><span class="l"></span><span class="l">        self.pub = self.create_publisher(Twist, &quot;cmd_vel&quot;, 10)</span><span class="l">        self.create_subscription(NavSatFix, &quot;rd/fix&quot;, self.on_fix, 10)</span><span class="l">        self.create_subscription(Float64, &quot;rd/heading&quot;, self.on_hdg, 10)</span><span class="l">        self.create_subscription(NavSatFix, &quot;nav/goal&quot;, self.on_goal, 10)</span><span class="l">        self.create_subscription(Vector3, &quot;nav/goal_offset&quot;, self.on_offset, 10)</span><span class="l">        self.create_subscription(Empty, &quot;nav/cancel&quot;, lambda _: self.stop(&quot;취소&quot;), 10)</span><span class="l"></span><span class="l">        self.pos = None      # (lat, lon, alt)</span><span class="l">        self.t_pos = 0.0</span><span class="l">        self.hdg = None</span><span class="l">        self.goal = None     # (lat, lon, alt)</span><span class="l">        self.csv = None</span><span class="l">        self.t_log = 0.0</span><span class="l">        self.create_timer(0.05, self.tick)   # 20Hz</span><span class="l">        self.get_logger().info(&quot;대기 중 — /nav/goal_offset 또는 /nav/goal 로 목표를 주세요&quot;)</span><span class="l"></span><span class="l">    def on_fix(self, m):</span><span class="l">        self.pos = (m.latitude, m.longitude, m.altitude)</span><span class="l">        self.t_pos = time.time()</span><span class="l"></span><span class="l">    def on_hdg(self, m):</span><span class="l">        self.hdg = m.data</span><span class="l"></span><span class="l">    def on_goal(self, m):</span><span class="l">        self.start(m.latitude, m.longitude, m.altitude)</span><span class="l"></span><span class="l">    def on_offset(self, m):</span><span class="l">        if self.pos is None or self.hdg is None:</span><span class="l">            return self.get_logger().error(&quot;아직 위치·기수가 없다 — link_node 확인&quot;)</span><span class="l">        lat, lon, alt = self.pos</span><span class="l c">        # 기체 기준(앞·오른쪽) → 지구 기준(북·동). 받는 순간의 기수로 한 번만 돌린다</span><span class="l">        h = math.radians(self.hdg)</span><span class="l">        north = m.x * math.cos(h) - m.y * math.sin(h)</span><span class="l">        east = m.x * math.sin(h) + m.y * math.cos(h)</span><span class="l">        glat = lat + math.degrees(north / R_EARTH)</span><span class="l">        glon = lon + math.degrees(east / (R_EARTH * math.cos(math.radians(lat))))</span><span class="l">        self.start(glat, glon, m.z if m.z &gt; 0 else alt)</span><span class="l"></span><span class="l">    def start(self, lat, lon, alt):</span><span class="l">        if self.pos is None or self.hdg is None:</span><span class="l">            return self.get_logger().error(&quot;아직 위치·기수가 없다 — link_node 확인&quot;)</span><span class="l">        self.goal = (lat, lon, alt)</span><span class="l">        d = mav.meters_between(self.pos[0], self.pos[1], lat, lon)</span><span class="l">        self.get_logger().info(f&quot;▶ 목표 {lat:.7f},{lon:.7f} 고도 {alt:.1f}m — 거리 {d:.1f}m&quot;)</span><span class="l">        os.makedirs(os.path.expanduser(&quot;~/drone_ws/navlog&quot;), exist_ok=True)</span><span class="l">        path = os.path.expanduser(time.strftime(&quot;~/drone_ws/navlog/%Y%m%d-%H%M%S.csv&quot;))</span><span class="l">        self.csv = open(path, &quot;w&quot;)</span><span class="l">        self.csv.write(&quot;t,lat,lon,alt,hdg,dist,vx,vy,vz\n&quot;)</span><span class="l"></span><span class="l">    def stop(self, why):</span><span class="l">        if self.goal is None:</span><span class="l">            return</span><span class="l">        self.pub.publish(Twist())   # 0 을 한 번. 그 뒤는 link_node 가 1초 브레이크</span><span class="l">        self.goal = None</span><span class="l">        self.csv.close()</span><span class="l">        self.get_logger().info(f&quot;■ 정지 — {why}&quot;)</span><span class="l"></span><span class="l">    def tick(self):</span><span class="l">        if self.goal is None:</span><span class="l">            return</span><span class="l">        if time.time() - self.t_pos &gt; 1.0:</span><span class="l">            return self.stop(&quot;좌표가 1초 넘게 안 온다&quot;)</span><span class="l"></span><span class="l">        lat, lon, alt = self.pos</span><span class="l">        glat, glon, galt = self.goal</span><span class="l">        dist = mav.meters_between(lat, lon, glat, glon)</span><span class="l">        alt_err = galt - alt</span><span class="l">        if dist &lt; self.p(&quot;arrive_radius&quot;) and abs(alt_err) &lt; self.p(&quot;arrive_radius&quot;):</span><span class="l">            return self.stop(f&quot;도착 (거리 {dist:.2f}m, 고도오차 {alt_err:+.2f}m)&quot;)</span><span class="l"></span><span class="l c">        # ── P 제어</span><span class="l">        rel = mav.relative_bearing(mav.bearing_between(lat, lon, glat, glon), self.hdg)</span><span class="l">        speed = min(self.p(&quot;max_speed&quot;), self.p(&quot;kp&quot;) * dist)</span><span class="l">        cmd = Twist()</span><span class="l">        cmd.linear.x = speed * math.cos(math.radians(rel))</span><span class="l">        cmd.linear.y = speed * math.sin(math.radians(rel))    # 앱 규약: y&gt;0 오른쪽</span><span class="l">        cmd.linear.z = max(-self.p(&quot;max_vz&quot;), min(self.p(&quot;max_vz&quot;), self.p(&quot;kp_alt&quot;) * alt_err))</span><span class="l">        self.pub.publish(cmd)</span><span class="l"></span><span class="l">        now = time.time()</span><span class="l">        self.csv.write(f&quot;{now:.2f},{lat:.7f},{lon:.7f},{alt:.2f},{self.hdg:.1f},{dist:.2f},&quot;</span><span class="l">                       f&quot;{cmd.linear.x:.2f},{cmd.linear.y:.2f},{cmd.linear.z:.2f}\n&quot;)</span><span class="l">        if now - self.t_log &gt; 1.0:</span><span class="l">            self.t_log = now</span><span class="l">            self.get_logger().info(</span><span class="l">                f&quot;거리 {dist:4.1f}m · {mav.name_direction(rel)} · 고도 {alt:.1f}→{galt:.1f} · &quot;</span><span class="l">                f&quot;cmd vx {cmd.linear.x:+.2f} vy {cmd.linear.y:+.2f} vz {cmd.linear.z:+.2f}&quot;)</span><span class="l"></span><span class="l"></span><span class="l">def main():</span><span class="l">    rclpy.init()</span><span class="l">    node = NavNode()</span><span class="l">    try:</span><span class="l">        rclpy.spin(node)</span><span class="l">    except (KeyboardInterrupt, ExternalShutdownException):</span><span class="l">        pass</span><span class="l">    finally:</span><span class="l">        if rclpy.ok():</span><span class="l">            node.stop(&quot;노드 종료&quot;)</span><span class="l">        node.destroy_node()</span><span class="l">        if rclpy.ok():</span><span class="l">            rclpy.shutdown()</span><span class="l"></span><span class="l"></span><span class="l">if __name__ == &quot;__main__&quot;:</span><span class="l">    main()</span></pre>
+  </details>
+  <div class="notes">
+    <div><code>__init__</code><p>파라미터 5개가 조절 손잡이 전부다. 타이머 0.05 s = 20 Hz. 위치는 5 Hz 로 오므로 같은 위치로 약 4번 같은 명령을 낸다. 해롭지는 않고, link_node 데드맨(0.3 s)을 채우는 역할이다.</p></div>
+    <div><code>on_fix / on_hdg</code><p>최신 값만 저장한다. 필터링은 없다. <code>t_pos</code> 는 신선도 게이트용이다.</p></div>
+    <div><code>on_offset</code><p>기체 기준 → 북·동 → 위경도. 평면 근사지만 수백 m 까지 오차는 무시할 만하다.</p></div>
+    <div><code>start</code><p>목표를 덮어쓰기만 한다. 비행 중에 새 목표를 주면 그 자리에서 방향을 튼다. CSV 는 목표마다 새 파일이다.</p></div>
+    <div><code>stop</code><p>0 을 <b>한 번만</b> 낸다. 계속 내면 link_node 가 ACTIVE 로 남아 Virtual Stick 이 풀리지 않는다(할일.md 제약 #21).</p></div>
+    <div><code>tick — 게이트</code><p>좌표가 1 s 넘게 안 오면 멈춘다. link_node 가 새 값만 발행하기 때문에 이 게이트가 의미를 가진다.</p></div>
+    <div><code>tick — 도착</code><p>수평 거리와 고도 오차가 <b>둘 다</b> arrive_radius 안이면 끝. 한 번만 들어와도 끝이다(앱은 7번 연속).</p></div>
+    <div><code>tick — P 제어</code><p>위 네 단계 그대로다. 수평 속력은 벡터 크기로 자르므로 대각선에서도 max_speed 를 넘지 않는다.</p></div>
+  </div>
+
+  <details class="code">
+    <summary><b>tools/mav.py</b><span>기하 함수 4개 (rd_bridge/mav.py 는 심링크)</span></summary>
+<pre class="src" style="counter-reset: ln 65"><span class="l">def meters_between(lat1, lon1, lat2, lon2):</span><span class="l">    &quot;&quot;&quot;두 좌표 사이 거리 (m). 짧은 거리라 구면 근사로 충분하다.&quot;&quot;&quot;</span><span class="l">    R = 6371000.0</span><span class="l">    p1, p2 = math.radians(lat1), math.radians(lat2)</span><span class="l">    dp = math.radians(lat2 - lat1)</span><span class="l">    dl = math.radians(lon2 - lon1)</span><span class="l">    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2</span><span class="l">    return 2 * R * math.asin(min(1.0, math.sqrt(a)))</span></pre>
+<pre class="src" style="counter-reset: ln 75"><span class="l">def bearing_between(lat1, lon1, lat2, lon2):</span><span class="l">    &quot;&quot;&quot;lat1,lon1 에서 lat2,lon2 를 본 방위각 (0~360°, 북=0, 동=90).&quot;&quot;&quot;</span><span class="l">    p1, p2 = math.radians(lat1), math.radians(lat2)</span><span class="l">    dl = math.radians(lon2 - lon1)</span><span class="l">    y = math.sin(dl) * math.cos(p2)</span><span class="l">    x = math.cos(p1) * math.sin(p2) - math.sin(p1) * math.cos(p2) * math.cos(dl)</span><span class="l">    return math.degrees(math.atan2(y, x)) % 360.0</span></pre>
+<pre class="src" style="counter-reset: ln 84"><span class="l">def relative_bearing(move_bearing, heading):</span><span class="l">    &quot;&quot;&quot;이동 방위각을 기수 기준 상대각(-180~180)으로. 0=앞, +90=오른쪽, 180=뒤, -90=왼쪽.&quot;&quot;&quot;</span><span class="l">    return (move_bearing - heading + 540.0) % 360.0 - 180.0</span></pre>
+<pre class="src" style="counter-reset: ln 89"><span class="l">def name_direction(rel):</span><span class="l">    &quot;&quot;&quot;상대각을 사람 말로. 45° 폭으로 8방위.&quot;&quot;&quot;</span><span class="l">    if rel is None:</span><span class="l">        return &quot;?&quot;</span><span class="l">    r = (rel + 360.0) % 360.0</span><span class="l">    names = [&quot;앞&quot;, &quot;앞-오른쪽&quot;, &quot;오른쪽&quot;, &quot;뒤-오른쪽&quot;, &quot;뒤&quot;, &quot;뒤-왼쪽&quot;, &quot;왼쪽&quot;, &quot;앞-왼쪽&quot;]</span><span class="l">    return names[int((r + 22.5) % 360.0 // 45.0)]</span></pre>
+  </details>
+
+  <details class="code">
+    <summary><b>ros2/src/rd_bridge/rd_bridge/link_node.py</b><span>on_cmd: 부호 · 캡</span></summary>
+<pre class="src" style="counter-reset: ln 159"><span class="l">    def on_cmd(self, msg):</span><span class="l">        sx, sy, sz, syaw = self.scale</span><span class="l">        vx = msg.linear.x * sx</span><span class="l">        vy = msg.linear.y * sy</span><span class="l">        vz = msg.linear.z * sz</span><span class="l">        yaw = math.degrees(msg.angular.z) * syaw</span><span class="l"></span><span class="l">        capped = [</span><span class="l">            max(-self.cap[0], min(self.cap[0], vx)),</span><span class="l">            max(-self.cap[1], min(self.cap[1], vy)),</span><span class="l">            max(-self.cap[2], min(self.cap[2], vz)),</span><span class="l">            max(-self.cap[3], min(self.cap[3], yaw)),</span><span class="l">        ]</span><span class="l">        if any(abs(a - b) &gt; 1e-6 for a, b in zip(capped, (vx, vy, vz, yaw))):</span><span class="l">            self.clamped += 1</span><span class="l"></span><span class="l">        self.cmd = tuple(capped)</span><span class="l">        self.t_cmd = time.time()</span><span class="l">        if self.state != ACTIVE:</span><span class="l">            self.get_logger().info(f&quot;{self.state} → ACTIVE (첫 Twist 수신)&quot;)</span><span class="l">            self.state = ACTIVE</span></pre>
+  </details>
+  <p>nav_node 가 낸 값은 여기서 축마다 한 번 더 잘린다(vx·vy ±2.5, vz ±1.5, yaw ±75°/s). nav_node 의 <code>max_speed</code> 를 3 으로 올려도 이 캡에 막힌다. 캡에 걸리면 방향도 조금 틀어진다(축별로 자르기 때문이다).</p>
+</section>
+
+<section id="app">
+  <h2>앱 flyTo() 와 무엇이 같고 다른가</h2>
+  <p>원본: <code>DroneModel.java</code> <code>processFlyTo()</code> (2316~). <code>MiniPID(0.35, 0, 0)</code> 이므로 I·D 는 0 이고 순수 P 다.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>항목</th><th>앱 processFlyTo</th><th>nav_node</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>수평 이득</td><td><code>kp 0.35</code></td><td><code>kp 0.35</code></td><td class="same">같음</td></tr>
+        <tr><td>수평 상한</td><td>2.5 m/s (fw 성분에 먼저 적용)</td><td>2.5 m/s (속력에 적용)</td><td class="same">같음</td></tr>
+        <tr><td>방향 분해</td><td><code>direction = rotation(brng, yaw)</code> → cos·sin</td><td><code>rel</code> → cos·sin</td><td class="same">같음</td></tr>
+        <tr><td>측방 오차</td><td><code>right_dist = offset</code> 을 계산하지만 <code>idealPos</code> 가 현재 위치와 같아서 사실상 0</td><td>없음</td><td class="same">결과 같음</td></tr>
+        <tr><td>출력 필터</td><td><code>setOutputFilter(0.1)</code> 저역통과</td><td>없음</td><td class="diff">다름</td></tr>
+        <tr><td>도착</td><td>0.3 m 안에 <b>7번 연속</b></td><td>1.0 m 안에 1번 (고도 포함)</td><td class="diff">다름</td></tr>
+        <tr><td>고도</td><td>kp 0.35, ±3.0 m/s</td><td>kp 0.35, ±1.5 m/s</td><td class="diff">다름</td></tr>
+        <tr><td>기수</td><td>목표·POI 를 보도록 kp 2.0 yaw 제어 가능</td><td>기수를 안 건드림</td><td class="diff">다름</td></tr>
+        <tr><td>관측</td><td>로그 없음</td><td>1 s 로그 + CSV 20 Hz</td><td class="diff">다름</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>측방 오차 줄은 읽어 볼 가치가 있다. <code>get_location_intermediet(dest, hypotenuse, brng − 180)</code> 은 목표에서 현재 거리만큼 현재 쪽으로 간 점, 곧 <b>현재 위치 자신</b>이다. 주석은 "직선 경로에서 벗어난 오차" 를 의도했지만 출발점을 저장하지 않아 기준 직선이 없다. LOS 흉내를 내려다 점 추종이 된 코드다.</p>
+</section>
+
+<section id="limits">
+  <h2>한계, 그리고 LOS 는 언제 필요한가</h2>
+
+  <div class="step">
+    <div class="k">바람</div>
+    <div class="body"><p>위치 루프에 I 항이 없으면 보통은 정상상태 오차가 남는다. 하지만 여기서는 DJI 속도 루프가 GPS 대지속도를 맞추며 바람을 보상한다. 그래서 "0 m/s" 명령이면 제자리에 선다. 오차는 속도 루프가 못 따라가는 과도 구간과 GPS 흔들림(1~2 m) 정도다. 9/15 에 정확도가 좋았던 이유다.</p></div>
+  </div>
+  <div class="step">
+    <div class="k">경로</div>
+    <div class="body"><p>매 tick "지금 위치 → 목표" 를 다시 조준한다. 옆으로 밀리면 <b>원래 직선으로 돌아가지 않고</b> 새 위치에서 목표로 곧장 간다. 점 하나로 가는 데는 문제가 없지만, 출발점과 목표를 잇는 선을 지켜야 할 때(좁은 통로, 웨이포인트 연속, 측량 라인)는 경로가 휜다.</p></div>
+  </div>
+  <div class="step">
+    <div class="k">타력</div>
+    <div class="body"><p>SIM 실측으로 멈춘 뒤 0.6~0.8 m 더 간다. 하지만 그건 빠를 때 이야기다. 비례 구간 끝에서는 0.35 m/s 까지 줄어든 뒤 멈추므로 밀림이 작다. max_speed 를 올리면 등속 구간이 길어질 뿐 도착 속도는 같다.</p></div>
+  </div>
+  <div class="step">
+    <div class="k">LOS</div>
+    <div class="body">
+      <p>Line-of-Sight 유도는 출발점 A 와 목표 B 를 잇는 <b>직선</b>을 기준으로 한다. 선 위의 진행 거리 s 와 선에서 벗어난 거리 e(cross-track)를 구하고, 선 앞쪽 Δ(lookahead) 지점을 겨눈다.</p>
+      <div class="formula">χ_cmd = χ_path + atan(−e / Δ)      Δ 가 작을수록 선으로 급하게 복귀</div>
+      <p>선박·고정익처럼 <b>옆으로 못 가는</b> 기체에서는 방향각 하나로 이걸 해야 한다. 멀티콥터는 옆으로도 갈 수 있으므로 더 간단하게 쓸 수 있다.</p>
+      <div class="formula">v_along = min(vmax, kp · (L − s))   선을 따라
+v_cross = −k_e · e                   선으로 복귀</div>
+      <p><b>필요한 때:</b> 웨이포인트를 여러 개 이을 때, 경로 자체가 임무일 때. <b>불필요한 때:</b> 점 하나로 가기, 태그 위 호버·정밀 착륙(F·G). 이 경우 목표가 계속 움직이는 점이라 지금의 P 제어가 맞는 모양이다.</p>
+    </div>
+  </div>
+</section>
+
+<section id="quiz">
+  <h2>연습 문제</h2>
+  <p class="sub">손으로 풀고 펼쳐서 확인. 마지막 둘은 노트북의 실측 CSV 로 한다.</p>
+
+  <div class="q">
+    <p><b>1.</b> 기수 90°(동향)에서 <code>{x: 3, y: 4}</code> 를 주면 목표는 북·동으로 몇 m 인가?</p>
+    <details><summary>풀이</summary><div>
+      <p>북 = 3·cos90 − 4·sin90 = <b>−4</b>, 동 = 3·sin90 + 4·cos90 = <b>+3</b>. 남 4 m, 동 3 m. 동향의 앞 3 m 는 동, 오른쪽 4 m 는 남이므로 맞다.</p>
+    </div></details>
+  </div>
+  <div class="q">
+    <p><b>2.</b> 목표 방위 10°, 기수 350° 이다. rel 과 사람 말 방향은?</p>
+    <details><summary>풀이</summary><div>
+      <p>(10 − 350 + 540) mod 360 − 180 = 200 − 180 = <b>+20°</b> → <code>name_direction</code> 은 <b>앞</b>(±22.5° 안). 단순히 10 − 350 = −340 으로 하면 틀린다. +540 트릭이 이 경계를 처리한다.</p>
+    </div></details>
+  </div>
+  <div class="q">
+    <p><b>3.</b> 거리 4 m, rel = 120°, 기본 파라미터에서 vx·vy 는?</p>
+    <details><summary>풀이</summary><div>
+      <p>speed = min(2.5, 0.35·4) = 1.4. vx = 1.4·cos120 = <b>−0.70</b>, vy = 1.4·sin120 = <b>+1.21</b>. 뒤-오른쪽.</p>
+    </div></details>
+  </div>
+  <div class="q">
+    <p><b>4.</b> <code>max_speed:=1.0</code> 으로 10 m 목표를 주면 도착까지 대략 몇 초인가? (지연·가속 무시)</p>
+    <details><summary>풀이</summary><div>
+      <p>d* = 1.0/0.35 = 2.86 m. 등속 (10 − 2.86)/1.0 = 7.1 s, 감속 ln(2.86/1)/0.35 = 3.0 s → <b>약 10 s</b>. 실제 CSV 와 비교하면 지연과 가속 한계가 보인다.</p>
+    </div></details>
+  </div>
+  <div class="q">
+    <p><b>5.</b> 실측 CSV 에서 거리와 명령 속력을 뽑아, 비례 구간에서 속력/거리 ≈ 0.35 인지 확인하라.</p>
+    <details><summary>명령</summary><div>
+      <div class="formula">f=$(ls -t ~/drone_ws/navlog/*.csv | head -1)
+awk -F, 'NR>1 && NR%20==2 {s=sqrt($7^2+$8^2); printf "%6.1fs  d=%5.2f  v=%4.2f  v/d=%4.2f\n", $1-t0, $6, s, ($6>0?s/$6:0)} NR==2{t0=$1}' "$f"</div>
+      <p>1초 간격으로 한 줄. 멀 때는 v 가 max_speed 로 붙어 있고, 가까워지면 v/d 가 0.35 로 모인다. d 가 계단처럼 변하면 5 Hz 위치 갱신이 보이는 것이다.</p>
+    </div></details>
+  </div>
+  <div class="q">
+    <p><b>6.</b> 같은 CSV 에서 hdg 칸이 9/15 goal_offset 시험 동안 180 근처였는지 확인하라.</p>
+    <details><summary>명령</summary><div>
+      <div class="formula">awk -F, 'NR>1 {print FILENAME, $5}' ~/drone_ws/navlog/20260915-*.csv | sort -u -k1,1</div>
+    </div></details>
+  </div>
+</section>
+
+<footer>기준: nav_node.py 기체 기준 goal_offset 반영본 · 앱 소스 RosettaDrone 805ca9e · 2026-09-15</footer>
+</div>

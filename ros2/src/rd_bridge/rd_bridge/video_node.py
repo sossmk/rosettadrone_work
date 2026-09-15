@@ -29,9 +29,9 @@ Annex-B .h264 를 바로 읽는다 — 여기도 추가 설치가 없다.
 ⚠ 손실 3% (9/10 실측). 프레임이 깨져도 노드가 죽지 않아야 한다 — 디코더가 못 낸
 프레임은 그냥 건너뛰고 카운터만 올린다. 태그 검출도 이걸 견뎌야 한다.
 
-⚠ CameraInfo 는 발행하지 않는다. solvePnP 로 태그의 상대 위치를 뽑으려면 내부
-파라미터 보정이 먼저 필요한데(할일.md E), 보정 안 된 값을 그럴듯하게 흘려보내면
-나중에 거리가 왜 안 맞는지 찾기 어려워진다. 보정을 하고 나서 여기에 붙인다.
+⚠ /camera_info 는 **대략값**이다 (2026-09-15, AprilTag 청사진용). 보정 전이라
+Mavic 2 Pro 대각 화각 77° 에서 계산한 fx=fy=1250, 중심=프레임 가운데, 왜곡 0 을 낸다.
+태그 거리는 ±10% 정도 틀릴 수 있다. 보정하면 fx·fy·cx·cy 파라미터만 바꾼다.
 """
 import os
 import threading
@@ -42,7 +42,7 @@ import rclpy
 from cv_bridge import CvBridge
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
-from sensor_msgs.msg import CompressedImage, Image
+from sensor_msgs.msg import CameraInfo, CompressedImage, Image
 
 # video_view.sh 가 9/10 에 실기로 확인한 것과 같은 구성. caps 를 명시하는 이유는
 # udpsrc 가 빈 포트에서도 조용히 기다리기만 해서, 형식을 못 맞추면 "왜 안 나오지" 로
@@ -71,6 +71,10 @@ class VideoNode(Node):
         self.declare_parameter("compressed", False)
         self.declare_parameter("jpeg_quality", 80)
         self.declare_parameter("warn_after", 5.0)
+        self.declare_parameter("fx", 1250.0)     # 대략값 — 보정 전 (docstring 참고)
+        self.declare_parameter("fy", 1250.0)
+        self.declare_parameter("cx", 0.0)        # 0 = 프레임 가운데
+        self.declare_parameter("cy", 0.0)
 
         g = self.get_parameter
         self.source = os.path.expanduser(g("source").value)
@@ -86,6 +90,8 @@ class VideoNode(Node):
         self.pub_c = None
         if g("compressed").value:
             self.pub_c = self.create_publisher(CompressedImage, topic + "/compressed", 10)
+        self.pub_info = self.create_publisher(CameraInfo, "camera_info", 10)
+        self.info = None       # 첫 프레임 크기로 만든다
 
         self.bridge = CvBridge()
         self.is_live = self.source == "udp"
@@ -183,6 +189,11 @@ class VideoNode(Node):
             msg.header.frame_id = self.frame_id
             self.pub.publish(msg)
 
+            if self.info is None:
+                self.info = self._camera_info(frame.shape[1], frame.shape[0])
+            self.info.header = msg.header          # 이미지와 같은 stamp 여야 apriltag 가 짝을 맞춘다
+            self.pub_info.publish(self.info)
+
             if self.pub_c is not None:
                 ok_enc, buf = cv2.imencode(
                     ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality])
@@ -218,6 +229,21 @@ class VideoNode(Node):
                     nxt_deadline = time.time()     # 못 따라가면 밀린 빚은 버린다
 
         cap.release()
+
+    def _camera_info(self, w, h):
+        g = self.get_parameter
+        fx, fy = float(g("fx").value), float(g("fy").value)
+        cx, cy = float(g("cx").value) or w / 2.0, float(g("cy").value) or h / 2.0
+        self.get_logger().warning(
+            f"camera_info 대략값 fx={fx:.0f} fy={fy:.0f} cx={cx:.0f} cy={cy:.0f} — 보정 전, 거리 ±10%")
+        m = CameraInfo()
+        m.width, m.height = w, h
+        m.distortion_model = "plumb_bob"
+        m.d = [0.0] * 5
+        m.k = [fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0]
+        m.r = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+        m.p = [fx, 0.0, cx, 0.0, 0.0, fy, cy, 0.0, 0.0, 0.0, 1.0, 0.0]
+        return m
 
     def destroy_node(self):
         self.stop.set()

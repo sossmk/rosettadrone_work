@@ -1,0 +1,15 @@
+# apriltag_ros 설정 — bridge.launch.py tag:=true 가 쓴다
+# size = 인쇄한 태그의 **검은 테두리 바깥 한 변(m)**. 흰 여백은 빼고 자로 재서 고칠 것
+/**:
+  ros__parameters:
+    image_transport: raw
+    family: 36h11
+    size: 0.16
+    max_hamming: 0
+    detector:
+      threads: 2
+      decimate: 2.0
+      blur: 0.0
+      refine: 1
+      sharpening: 0.25
+    pose_estimation_method: "pnp"
