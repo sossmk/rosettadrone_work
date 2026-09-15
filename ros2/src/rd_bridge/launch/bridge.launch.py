@@ -5,6 +5,8 @@
     ros2 launch rd_bridge bridge.launch.py nav:=false       # 항법 빼고 (수동 cmd_vel 만)
     ros2 launch rd_bridge bridge.launch.py link:=false      # 영상만 (기체를 안 건드린다)
     ros2 launch rd_bridge bridge.launch.py tag:=true link:=false nav:=false   # 영상 + AprilTag
+    ros2 launch rd_bridge bridge.launch.py tag:=true follow:=true nav:=false \
+        camera_info_file:=$HOME/rosettadrone_work/ros2/src/rd_bridge/config/camera.yaml   # 태그 추종 (실기)
 
 노드 셋:
     video_node  영상 → /image_raw
@@ -23,6 +25,7 @@ from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -32,6 +35,9 @@ def generate_launch_description():
     link = LaunchConfiguration("link")
     nav = LaunchConfiguration("nav")
     tag = LaunchConfiguration("tag")
+    follow = LaunchConfiguration("follow")
+    cam_info = LaunchConfiguration("camera_info_file")
+    rectify = LaunchConfiguration("rectify")
 
     return LaunchDescription([
         DeclareLaunchArgument("video_source", default_value="udp",
@@ -42,10 +48,20 @@ def generate_launch_description():
         DeclareLaunchArgument("nav", default_value="true"),
         DeclareLaunchArgument("tag", default_value="false",
                               description="apriltag_ros 를 같이 띄운다 (apt 설치 필요)"),
+        DeclareLaunchArgument("follow", default_value="false",
+                              description="태그 추종 노드. nav 와 같이 쓰지 말 것 (둘 다 /cmd_vel)"),
+        DeclareLaunchArgument("camera_info_file", default_value="",
+                              description="보정 결과 YAML. 비우면 대략값(fx=fy=1250)을 쓴다"),
+        DeclareLaunchArgument("rectify", default_value="false",
+                              description="왜곡을 펴서 발행한다 (camera_info_file 이 있어야 뜻이 있다)"),
 
         Node(package="rd_bridge", executable="video_node", name="rd_video",
              output="screen",
-             parameters=[{"source": video_source, "port": video_port}]),
+             # 형을 못 박는다 — 빈 문자열이 None 으로, "false" 가 문자열로 넘어가면
+             # 노드가 InvalidParameterTypeException 으로 죽는다 (tags.yaml refine 과 같은 함정)
+             parameters=[{"source": video_source, "port": video_port,
+                          "camera_info_file": ParameterValue(cam_info, value_type=str),
+                          "rectify": ParameterValue(rectify, value_type=bool)}]),
 
         Node(package="rd_bridge", executable="link_node", name="rd_link",
              output="screen", condition=IfCondition(link),
@@ -54,10 +70,16 @@ def generate_launch_description():
         Node(package="rd_bridge", executable="nav_node", name="rd_nav",
              output="screen", condition=IfCondition(nav)),
 
-        # AprilTag → /tf (camera → tag36h11:<id>) · /detections
+        # AprilTag → /tf (camera → tag0) · /detections
+        # ⚠ image_rect 라는 이름이지만 /image_raw 를 물린다. 왜곡 보정까지 하려면
+        #    video_node 에 camera_info_file 과 rectify:=true 를 준다 (거기서 같이 편다)
         Node(package="apriltag_ros", executable="apriltag_node", name="apriltag",
              output="screen", condition=IfCondition(tag),
              remappings=[("image_rect", "/image_raw"), ("camera_info", "/camera_info")],
              parameters=[os.path.join(get_package_share_directory("rd_bridge"),
                                       "config", "tags.yaml")]),
+
+        # 태그 추종 — 뜨자마자 움직이지 않는다. /tag/follow true 를 받아야 명령을 낸다
+        Node(package="rd_bridge", executable="tag_follow_node", name="rd_tag_follow",
+             output="screen", condition=IfCondition(follow)),
     ])

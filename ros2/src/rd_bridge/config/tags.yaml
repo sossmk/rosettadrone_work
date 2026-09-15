@@ -4,12 +4,23 @@
   ros__parameters:
     image_transport: raw
     family: 36h11
-    size: 0.16
+    # tags/tag36h11-id0-120mm-A4.pdf 를 100% 로 뽑았을 때의 값.
+    # 다르게 뽑았으면 자로 재서 고친다 (tools/make_print.py 가 값을 알려 준다)
+    size: 0.120
     max_hamming: 0
     detector:
       threads: 2
-      decimate: 2.0
+      # 2.0 은 검출용 해상도를 반으로 깎는다. 짐벌 -90° 탑뷰에서 120mm 태그는
+      # 5m 에 30px 뿐이라 반으로 깎으면 못 잡는다 — 1.0 으로 둔다
+      decimate: 1.0
       blur: 0.0
+      # bool 이다. 1 을 넣으면 InvalidParameterTypeException 으로 노드가 abort(-6) 한다
       refine: true
       sharpening: 0.25
     pose_estimation_method: "pnp"
+    # 프레임 이름을 못 박는다 — 기본 이름(36h11:0 / tag36h11:0)이 판마다 달라서
+    # tf2_echo·tag_follow_node 가 헛다리를 짚는다
+    tag:
+      ids: [0]
+      frames: [tag0]
+      sizes: [0.120]

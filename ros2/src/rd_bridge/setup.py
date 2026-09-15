@@ -1,3 +1,5 @@
+from glob import glob
+
 from setuptools import setup
 
 package_name = "rd_bridge"
@@ -10,7 +12,8 @@ setup(
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
         ("share/" + package_name + "/launch", ["launch/bridge.launch.py"]),
-        ("share/" + package_name + "/config", ["config/tags.yaml"]),
+        # glob 이다 — 내일 보정으로 생길 config/camera.yaml 을 빠뜨리지 않으려고
+        ("share/" + package_name + "/config", glob("config/*.yaml")),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
@@ -23,6 +26,7 @@ setup(
             "video_node = rd_bridge.video_node:main",
             "link_node = rd_bridge.link_node:main",
             "nav_node = rd_bridge.nav_node:main",
+            "tag_follow_node = rd_bridge.tag_follow_node:main",
         ],
     },
 )

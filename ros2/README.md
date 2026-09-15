@@ -24,6 +24,8 @@ ros2/src/rd_bridge/rd_bridge/
 | `link_node` 다운링크 → 토픽 | ✅ | ⬜ |
 | `link_node` /cmd_vel → #84 20Hz | ✅ | ⬜ |
 | `nav_node` P 제어 (9/15 단순화) | ✅ | ⬜ |
+| `apriltag_node` 기동 · `/tf`(`tag0`) | ✅ | ⬜ |
+| `tag_follow_node` 계산 (태그 PNG 로) | ✅ | ⬜ |
 
 ## 빌드
 
@@ -45,10 +47,15 @@ ros2 launch rd_bridge bridge.launch.py              # 영상 + 링크 + 항법
 ros2 launch rd_bridge bridge.launch.py nav:=false   # 항법 빼고 (수동 cmd_vel)
 ros2 launch rd_bridge bridge.launch.py link:=false  # 영상만 (기체를 안 건드린다)
 ros2 launch rd_bridge bridge.launch.py tag:=true link:=false nav:=false   # 영상 + AprilTag
+ros2 launch rd_bridge bridge.launch.py tag:=true follow:=true nav:=false  # 태그 추종
+ros2 launch rd_bridge bridge.launch.py camera_info_file:=<경로>/camera.yaml rectify:=true
 ```
 
 띄워 두는 것 자체는 기체를 건드리지 않는다 — `link_node` 는 `/cmd_vel` 이 오기 전에
-한 발도 쏘지 않고, `nav_node` 는 `/nav/goal` 이 오기 전에 `/cmd_vel` 을 내지 않는다.
+한 발도 쏘지 않고, `nav_node` 는 `/nav/goal` 이 오기 전에, `tag_follow_node` 는
+`/tag/follow true` 가 오기 전에 `/cmd_vel` 을 내지 않는다.
+
+⚠ `nav_node`·`rd_cmd.py`·`tag_follow_node` 는 **셋 다 `/cmd_vel` 에 쓴다. 한 번에 하나만.**
 
 띄운 뒤 토픽이 제대로 차는지는 다른 터미널에서:
 
@@ -84,47 +91,138 @@ python3 tools/topic_check.py echo /rd/fix
 ⚠ 같은 값을 재발행하지 않는다 — 구독자가 "좌표가 살아있다"고 착각하면 안 된다.
 링크가 끊긴 것과 기체가 멈춰 있는 것은 구별돼야 한다.
 
-**영상** (`video_node`) `/image_raw` · `/camera_info`(**대략값**, 아래) — 둘은 같은 stamp·`frame_id=camera`
+**영상** (`video_node`) `/image_raw` · `/camera_info` — 둘은 같은 stamp·`frame_id=camera`
+보정 파일을 주기 전에는 `/camera_info` 가 **대략값**이다 (아래 「카메라 보정」)
+**태그** (`tag:=true`) `/detections` · `/tf`(`camera` → `tag0`)
+**추종** (`follow:=true`) `/tag/follow` (`Bool`) · `/tag/cancel` (`Empty`) → `/cmd_vel`
 
-## AprilTag — 거리·기울기 청사진 (2026-09-15)
+## 카메라 보정 (2026-09-16)
+
+보정 전에는 `video_node` 가 **대략값** `/camera_info` 를 낸다 — Mavic 2 Pro 대각 화각 77°,
+스트림 1632x1088(대각 1961px) → `f = 980.7 / tan 38.5° ≈ 1233` → `fx=fy=1250`, 중심=프레임
+가운데, 왜곡 0. 거리는 f 에 비례해 틀리므로 **±10% 정도**.
+
+체커보드로 보정하면 그 결과 파일을 그대로 먹인다 (`fx` 파라미터를 하나씩 고치지 않는다):
+
+```bash
+# 1) 영상만 띄우고
+ros2 launch rd_bridge bridge.launch.py link:=false nav:=false
+# 2) 보정 — --size 는 내부 코너 수, --square 는 한 칸 m. 자로 잰 값을 넣는다
+ros2 run camera_calibration cameracalibrator --size 9x6 --square 0.025 \
+  --no-service-check --ros-args -r image:=/image_raw
+# 3) SAVE 를 누르면 /tmp/calibrationdata.tar.gz 에 ost.yaml 이 들어 있다
+tar xzf /tmp/calibrationdata.tar.gz -C /tmp ost.yaml
+cp /tmp/ost.yaml ros2/src/rd_bridge/config/camera.yaml
+# 4) 그 파일로 다시 띄운다
+ros2 launch rd_bridge bridge.launch.py tag:=true \
+  camera_info_file:=$PWD/ros2/src/rd_bridge/config/camera.yaml rectify:=true
+```
+
+- `--no-service-check` 가 필요하다 — `video_node` 에 `set_camera_info` 서비스가 없다
+- `rectify:=true` 면 `video_node` 가 **왜곡을 펴서** 내보내고, `camera_info` 의 `K` 도 편 값으로
+  바꿔 `D` 를 0 으로 낸다. `image_proc/rectify_node` 를 안 쓰는 이유는 그게 **영상만 펴고
+  camera_info 는 그대로** 내보내서, 편 영상에 안 편 `K·D` 가 붙기 때문이다
+- 보정 해상도가 지금 영상과 다르면 에러 로그를 낸다. **고쳐 쓰지 않는다** — 다시 보정할 것
+
+## AprilTag — 거리·자세 (2026-09-15, 9/16 보완)
 
 `apriltag_ros`(apt) 가 `/image_raw` + `/camera_info` 를 받아 **`/tf` 에 카메라→태그 자세**를 낸다.
 
-**보정 전 대략값.** Mavic 2 Pro 대각 화각 77°, 스트림 1632x1088(대각 1961px) →
-`f = 980.7 / tan 38.5° ≈ 1233` → video_node 기본값 `fx=fy=1250`, 중심=프레임 가운데, 왜곡 0.
-거리는 f 에 비례해 틀리므로 **±10% 정도**. 보정하면 `-p fx:=… -p fy:=… -p cx:=… -p cy:=…` 만 바꾼다.
+⚠ **`/camera_info` 가 없으면 태그가 하나도 안 잡힌다.** apriltag_ros 는
+`image_transport::CameraSubscriber` 로 영상과 camera_info 를 **쌍으로** 구독해서, 한쪽이
+없으면 검출 콜백 자체가 안 돈다. "왜 검출이 0 이지" 의 첫 번째 용의자다.
 
-**태그.** `tags/tag36h11_id0.png`(36h11, ID 0) 를 인쇄한다. 그림은 12칸이고 가운데 검은 사각형이 8칸이다.
-**검은 사각형 바깥 한 변을 자로 재서** `config/tags.yaml` 의 `size`(m)에 넣는다 — 흰 여백은 빼고.
-(A4 에 꽉 차게 뽑으면 칸당 약 1.7cm → size ≈ 0.14). 고친 뒤 `colcon build` 다시.
-검출 한계 가늠: 16cm 태그가 10m 에서 1250×0.16/10 = 20px.
+⚠ **`/detections` 에는 자세가 없다** — family·id·중심·코너·homography 뿐이다.
+거리와 자세는 **`/tf` 로만** 나온다.
+
+**태그.** `tags/tag36h11_id0.png` 는 12칸이고 가운데 검은 사각형이 8칸이다 —
+즉 **인쇄한 그림 폭 × 2/3 = 검은 사각형 한 변**이고, 그 값이 `config/tags.yaml` 의 `size`(m)다.
+
+```bash
+python3 tools/make_print.py          # tags/tag36h11-id0-120mm-A4.pdf (그림 180mm → 태그 120mm)
+```
+인쇄는 **100%(페이지에 맞춤 끄기)**. 종이에 찍힌 100mm 눈금을 자로 재서 확인하고,
+검은 사각형도 재서 다르면 그 값을 `size` 에 넣고 `colcon build` 를 다시 한다.
+
+**검출 한계 가늠** (화면 픽셀 = fx × size / 거리, fx≈1250):
+
+| 태그 | 3m | 5m | 8m |
+|---|---|---|---|
+| 120mm (A4 한 장) | 50px | 30px | 19px |
+
+그래서 `detector.decimate` 를 **1.0** 으로 내렸다 — 2.0 은 검출용 해상도를 반으로 깎아
+탑뷰 5m 에서 15px 밖에 안 남는다.
 
 ```bash
 ros2 launch rd_bridge bridge.launch.py tag:=true link:=false nav:=false
-ros2 topic hz /detections                          # 태그가 보이면 영상 fps 근처
-ros2 run tf2_ros tf2_echo camera tag36h11:0        # 거리·자세
+ros2 topic hz /detections                # 태그가 보이면 영상 fps 근처
+ros2 run tf2_ros tf2_echo camera tag0    # 거리·자세
 ```
+
+**프레임 이름은 `tag0` 이다.** `tags.yaml` 의 `tag.ids`/`tag.frames` 로 못 박았다 —
+안 박으면 판마다 `36h11:0` / `tag36h11:0` 로 달라져 `tf2_echo` 가 헛다리를 짚는다.
 
 **읽는 법** — `Translation [x y z]` m, 카메라 광학 좌표계:
 
 | | 방향 | 짐벌 -90°(아래)일 때 |
 |---|---|---|
-| x | 화면 오른쪽 | 수평 오차 |
-| y | 화면 아래 | 수평 오차 |
-| **z** | **카메라 앞 = 거리** | **≈ 고도** |
+| x | 화면 오른쪽 | 기체 오른쪽 오차 |
+| y | 화면 아래 | 기체 **뒤** 오차 (앞 = -y) |
+| **z** | **카메라 앞 = 거리** | **≈ 태그 위 고도** |
 
-`Rotation RPY` 는 태그가 카메라에 대해 틀어진 각이다. **정면에 세운 값을 먼저 적어 두고**
-기울였을 때의 차이로 본다(기준 자세가 0 이 아닐 수 있다).
+`Rotation` 은 태그가 카메라에 대해 틀어진 각이다. 똑바로 선 태그를 똑바로 찍으면
+태그의 **x축이 화면 오른쪽(+90°)** 을 가리킨다(태그 PNG 로 실측) — `tag_follow_node` 의
+`yaw_offset` 90° 는 이 값을 0 으로 맞추려고 빼는 것이다.
+
+**안 잡힐 때** — `tools/tag_check.py` 가 네 가지 family(태그 규격)를 다 돌려 본다.
+굴러다니는 태그가 36h11 이 아닐 수 있다.
+```bash
+python3 tools/tag_check.py file 사진.jpg --sweep   # decimate 를 바꿔 가며
+python3 tools/tag_check.py live                    # /image_raw 를 보면서
+```
 
 **확인할 것 (기체 카메라 앞, 줄자)**
 
-| 실제 거리 | z | 차이 % | 30° 돌렸을 때 RPY 변화 |
-|---|---|---|---|
-| 1 m | | | |
-| 2 m | | | |
-| 3 m | | | |
+| 실제 거리 | z | 차이 % |
+|---|---|---|
+| 1 m | | |
+| 2 m | | |
+| 3 m | | |
 
-차이가 **일정 비율**이면 f 문제(보정으로 해결), **들쭉날쭉**이면 검출·해상도·손실 프레임 문제.
+차이가 **일정 비율**이면 `size` 나 f 문제(보정으로 해결), **들쭉날쭉**이면 검출·해상도·손실 프레임 문제.
+
+## 태그 추종 — `tag_follow_node` (2026-09-16)
+
+**짐벌 -90°(탑뷰)** 로 태그 위에 가서 서고, 기수를 태그에 맞춘다. `nav_node` 와 같은 단순 P 제어.
+
+```bash
+ros2 launch rd_bridge bridge.launch.py nav:=false tag:=true follow:=true \
+  camera_info_file:=$PWD/ros2/src/rd_bridge/config/camera.yaml rectify:=true
+ros2 topic pub --once /tag/follow std_msgs/msg/Bool '{data: true}'    # 켜기
+ros2 topic pub --once /tag/cancel std_msgs/msg/Empty '{}'             # 끄기
+```
+
+⚠ **`nav_node`·`rd_cmd.py` 와 동시에 쓰지 않는다** — 셋 다 `/cmd_vel` 에 쓴다.
+⚠ 뜨자마자 움직이지 않는다. `/tag/follow true` 를 받아야 명령을 낸다.
+
+| 파라미터 | 기본 | 뜻 |
+|---|---|---|
+| `tag_frame` | `tag0` | `/tf` 에서 고를 태그 프레임 |
+| `hold_alt` | 3.0 | 태그 위 몇 m 에 설까 |
+| `kp` · `max_speed` | 0.35 · 0.8 | 수평 P 이득 · m/s |
+| `kp_alt` · `max_vz` | 0.35 · 0.5 | 수직 |
+| `deadband` | 0.3 | 이 안이면 수평 정지 (m) |
+| `sign_fwd` · `sign_right` · `sign_yaw` | -1 · +1 · +1 | **실기 지상 확인으로 확정한다** |
+| `yaw_offset` | 90.0 | 똑바로 맞춰진 상태를 0° 로 (위 「읽는 법」 참고) |
+| `yaw_enable` · `kp_yaw` · `max_yaw_rate` · `yaw_deadband` | true · 0.5 · 20°/s · 5° | 기수 맞추기 |
+| `lost_secs` · `giveup_secs` | 0.5 · 3.0 | 안 보이면 제자리 → 완전 해제 |
+| `publish` | true | `false` 면 계산·로그만 (지상 dry-run) |
+
+`follow_cmd()` 한 함수에 제어를 몰아 뒀다 — **나중에 `nav_node` 의 한 모드로 그대로 옮기려고**
+(GPS 이동 → 도착 → 태그 발견 → 추종 임무 시퀀스). 기록은 `~/drone_ws/taglog/*.csv`.
+
+⚠ 짐벌 -90° 에서는 **기수를 돌리면 화면이 통째로 돈다** — 위치 루프와 yaw 루프가 서로를
+흔들 수 있다. 첫 시험은 `yaw_enable:=false` 로 위치만 본 뒤 켠다.
 
 ## ★ 항법을 우리가 갖는다 — `flyTo()` 를 안 쓰는 이유
 
@@ -207,7 +305,9 @@ REP-103(FLU) 이 아니다. 앱이 받는 뜻 그대로 쓴다 (9/9 SIM 실측, 
 
 ## 아직 없는 것
 
-- **`CameraInfo`** — 태그의 상대 위치(solvePnP)에 필요. 보정 전 값을 그럴듯하게
-  흘리면 E 에서 거리가 왜 안 맞는지 찾기 어려워지므로 일부러 안 넣었다
-- `/tag_pose` 와 태그 추종 — E·F. **유도기가 준비됐으니 여기에 태그를 먹이면 된다**
+- **실기로 확인한 카메라 보정값** — `config/camera.yaml` 은 9/16 실기에서 만든다.
+  그 전까지 `/camera_info` 는 대략값이고 거리는 ±10%
+- **태그 추종의 실기 확인** — `tag_follow_node` 는 노트북에서 계산만 맞춰 봤다.
+  `sign_fwd`·`sign_right`·`sign_yaw` 는 지상 확인 전까지 **추정값**이다
+- 임무 시퀀스 (GPS 이동 → 태그 발견 → 추종) — `nav_node` 와 합치는 건 추종이 된 뒤에
 - 이륙·착륙 명령 (A `rd_cmd.py` 의 몫)
