@@ -23,7 +23,7 @@ ros2/src/rd_bridge/rd_bridge/
 | `video_node` 실시간 | ⬜ | ⬜ |
 | `link_node` 다운링크 → 토픽 | ✅ | ⬜ |
 | `link_node` /cmd_vel → #84 20Hz | ✅ | ⬜ |
-| `nav_node` 유도·안전 게이트 | ✅ | ⬜ |
+| `nav_node` P 제어 (9/15 단순화) | ✅ | ⬜ |
 
 ## 빌드
 
@@ -94,47 +94,30 @@ python3 tools/topic_check.py echo /rd/fix
 물려받는 것은 그대로다 — `#84` 를 쓰므로 **P 모드**(#4) · **스틱 5초 차단**(#5) ·
 **Virtual Stick 조종권**(#21).
 
-### 목표 주기
+### 쓰는 법
 
 ```bash
-ros2 topic pub --once /nav/goal sensor_msgs/msg/NavSatFix \
-  '{latitude: 37.5665, longitude: 126.9780, altitude: 10.0}'   # altitude = 상대고도
+# 현재 위치 기준: x=북 m, y=동 m, z=상대고도 m (z<=0 이면 고도 유지)
+ros2 topic pub --once /nav/goal_offset geometry_msgs/msg/Vector3 '{x: 5.0, y: 0.0, z: 0.0}'
+# 좌표로 (altitude = 상대고도)
+ros2 topic pub --once /nav/goal sensor_msgs/msg/NavSatFix '{latitude: 37.5665, longitude: 126.9780, altitude: 10.0}'
 ros2 topic pub --once /nav/cancel std_msgs/msg/Empty '{}'      # 중단
 ```
 
-목표 좌표는 `python3 tools/gps_capture.py` 로 잰다 (브리지를 띄우기 전에 — 같은 포트를 쓴다).
-
-### 유도 법칙
+### 하는 일 — 앱 flyTo() 와 같은 P 제어
 
 ```
-dist, brg = 목표까지 거리·방위각
-rel       = brg - 기수                      (0=앞, +90=오른쪽)
-speed     = min(max_speed, kp_pos × max(0, dist - coast))
-vx = speed·cos(rel)    vy = -speed·sin(rel)   ← ROS FLU 는 y 가 왼쪽
-vz = clamp(kp_alt × 고도오차)
+rel   = 목표 방위 - 기수
+speed = min(max_speed, kp × 거리)          kp 0.35 (앱과 같다), max_speed 0.5
+vx = speed·cos(rel)   vy = -speed·sin(rel)  ← ROS y 는 왼쪽
+vz = clamp(kp_alt × 고도오차, ±max_vz)
 ```
 
-⚠ `speed` 에서 **`coast`(기본 0.7m)를 빼는 이유**: 정지 명령 후에도 **0.6~0.8m 더 간다**
-(제약 #6, 9/9 실측). 목표보다 `coast` 앞에서 속도를 0 으로 만들고 **타력으로 들어가게**
-한다. 끝까지 밀면 반드시 지나친다.
-
-### 안전 게이트 — 항법이 우리 것이니 이건 우리 책임이다
-
-| | 무엇 | 기본값 |
-|---|---|---|
-| 1 | **좌표가 오래되면 즉시 정지** | `stale_secs` 0.6초 |
-| 2 | fix 없으면 목표 거부 / 비행 중 상실하면 중단 | — |
-| 3 | **지오펜스** — 먼 목표 거부, 벗어나면 중단 | `max_range` 50m |
-| 4 | **진척 없으면 중단** ← P 모드가 아니어서 명령이 조용히 버려지는 경우가 여기서 잡힌다 | 5초에 0.5m |
-| 5 | 최대 시간 | `max_secs` 120초 |
-| 6 | 너무 낮은 목표 고도 거부 | `min_goal_alt` 2m |
-| 7 | 멈출 때 0 을 0.5초 쏜 뒤 **발행을 끊는다** | — |
-
-⚠ **속도 캡이 두 군데 있다** — `nav_node`(`max_speed` 0.5) 와 `link_node`(`max_vx`·
-`max_vy` 0.5). link 쪽이 마지막 클램프다. 올릴 때는 **둘 다** 올려야 한다(일부러
-이중으로 뒀다).
-
-⚠ `nav_node` 는 **이륙을 하지 않는다.** 이미 떠 있는 상태를 전제한다.
+- 거리·고도오차가 둘 다 `arrive_radius`(1.0m) 안이면 0 을 한 번 내고 멈춘다
+- 좌표가 1초 넘게 안 오면 멈춘다
+- 기록: `~/drone_ws/navlog/<시각>.csv` (t, lat, lon, alt, hdg, dist, vx, vy, vz)
+- 속도 캡은 `link_node`(`max_vx`·`max_vy` 0.5) 에도 있다. 올릴 때는 둘 다
+- 이륙은 하지 않는다
 
 ## 축·부호 — ROS 와 앱의 규약이 다르다
 
