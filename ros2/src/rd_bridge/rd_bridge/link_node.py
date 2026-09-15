@@ -26,23 +26,20 @@
   QGC·decode_check.py 등 14550 을 쓰는 다른 것과도 **동시에 못 쓴다.**
 
 ────────────────────────────────────────────────────────────────
-① 축·부호 — ROS(REP-103) 와 이 앱의 규약이 다르다
+① 축·부호 — /cmd_vel 은 **앱 규약 그대로** 받는다 (2026-09-15 결정)
 ────────────────────────────────────────────────────────────────
-ROS REP-103 의 기체 기준계는 **FLU**(x=앞, y=**왼쪽**, z=위, angular.z>0=**반시계**).
-앱이 받는 #84 의 의미는 9/9 SIM 실측으로 확정돼 있다(할일.md 제약 #2):
-vx>0=앞 · vy>0=**오른쪽** · vz>0=**위** · yawRate>0=**시계**.
+REP-103(FLU) 이 아니다. 9/9 SIM 실측의 앱 규약(할일.md 제약 #2)을 그대로 쓴다:
 
-    linear.x   →  vx      그대로
-    linear.y   →  vy      **부호 반전** (왼쪽 → 오른쪽)
-    linear.z   →  vz      **그대로** (둘 다 위가 양수)
-    angular.z  →  yawRate **부호 반전** (반시계 → 시계), rad/s → deg/s
+    linear.x   vx       >0 = 앞
+    linear.y   vy       >0 = **오른쪽**
+    linear.z   vz       >0 = 위
+    angular.z  yawRate  >0 = **시계** (단위 rad/s, 여기서 deg/s 로 바꾼다)
 
-⚠ 할일.md 에 오래 있던 "vz 부호를 뒤집을 것" 은 **MAVLink NED 기준으로 쓴 메모**다.
-NED 는 z 가 아래가 양수니 ROS(z=위) 에서 오면 뒤집어야 맞지만, 이 앱은 그 필드를
-이미 "위가 양수"로 읽는다 — 두 번 뒤집으면 도로 제자리다. **실제로 뒤집히는 축은
-vy 와 yaw 두 개이고 vz 는 아니다.**
+그래서 변환이 없다(scale_* 전부 1). ⚠ teleop_twist_keyboard 같은 ROS 표준 도구는
+좌우·회전이 반대로 간다.
 
-부호가 실기에서 다르게 나오면 코드를 고치지 말고 파라미터로: `-p scale_vy:=1.0`
+**명령** /rd/command (Float64MultiArray: [명령번호, p1..p7]) → COMMAND_LONG(#76)
+       /rd/ack     (Int32MultiArray:   [명령번호, 결과])  ← COMMAND_ACK(#77)
 
 ────────────────────────────────────────────────────────────────
 ② 언제 쏘고 언제 입을 닫는가 — 9/11 RC 사고와 직결된다
@@ -75,7 +72,7 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from geometry_msgs.msg import TwistStamped, Vector3Stamped
 from sensor_msgs.msg import BatteryState, NavSatFix, NavSatStatus
-from std_msgs.msg import Float32, Float64
+from std_msgs.msg import Float32, Float64, Float64MultiArray, Int32MultiArray
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mav  # noqa: E402  (tools/mav.py 의 심링크 — 링크 계층 L1 을 그대로 쓴다)
@@ -92,14 +89,14 @@ class CmdVelNode(Node):
         self.declare_parameter("rate", 20.0)
         self.declare_parameter("deadman", 0.3)
         self.declare_parameter("brake_secs", 1.0)
-        self.declare_parameter("max_vx", 0.5)
-        self.declare_parameter("max_vy", 0.5)
-        self.declare_parameter("max_vz", 0.5)
-        self.declare_parameter("max_yaw_rate", 30.0)     # deg/s
+        self.declare_parameter("max_vx", 2.5)
+        self.declare_parameter("max_vy", 2.5)
+        self.declare_parameter("max_vz", 1.5)
+        self.declare_parameter("max_yaw_rate", 75.0)     # deg/s
         self.declare_parameter("scale_vx", 1.0)
-        self.declare_parameter("scale_vy", -1.0)         # ROS y=왼쪽 → 앱 vy=오른쪽
+        self.declare_parameter("scale_vy", 1.0)          # /cmd_vel 은 앱 규약 — 변환 없음
         self.declare_parameter("scale_vz", 1.0)          # 둘 다 위가 양수 — 반전 없음
-        self.declare_parameter("scale_yaw", -1.0)        # ROS 반시계 → 앱 시계
+        self.declare_parameter("scale_yaw", 1.0)
         self.declare_parameter("dry_run", False)
         self.declare_parameter("discover_secs", 6.0)
 
@@ -150,6 +147,8 @@ class CmdVelNode(Node):
         self.seen = {"pos": 0.0, "att": 0.0, "hud": 0.0, "sys": 0.0}
 
         self.create_subscription(Twist, "cmd_vel", self.on_cmd, 10)
+        self.create_subscription(Float64MultiArray, "rd/command", self.on_command, 10)
+        self.pub_ack = self.create_publisher(Int32MultiArray, "rd/ack", 10)
         self.create_timer(1.0 / self.rate, self.tick)
         self.create_timer(2.0, self.report)
         self.get_logger().info(
@@ -179,6 +178,16 @@ class CmdVelNode(Node):
         if self.state != ACTIVE:
             self.get_logger().info(f"{self.state} → ACTIVE (첫 Twist 수신)")
             self.state = ACTIVE
+
+    # ------------------------------------------------------------ 명령 수신
+    def on_command(self, msg):
+        """[명령번호, p1..p7] → COMMAND_LONG. 짐벌·이륙 등 (rd_cmd.py 가 쓴다)."""
+        d = list(msg.data)
+        if not d:
+            return
+        self.get_logger().info(f"COMMAND_LONG {int(d[0])} {d[1:8]}")
+        if self.link is not None:
+            self.link.command_long(int(d[0]), *d[1:8])
 
     # -------------------------------------------------------------- 20Hz 송신
     def tick(self):
@@ -219,9 +228,10 @@ class CmdVelNode(Node):
         """
         for mid, p in self.link.poll():
             if mid == 77:
-                cmd, _ = struct.unpack_from("<HB", p, 0)
+                cmd, res = struct.unpack_from("<HB", p, 0)
                 if cmd == 84:
                     self.acks += 1
+                self.pub_ack.publish(Int32MultiArray(data=[cmd, res]))
         self.publish_telemetry()
 
     # -------------------------------------------------------------- 다운링크

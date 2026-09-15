@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """업링크(PC → 앱) 명령 도구 — 명령을 보내고 앱의 반응을 본다.
 
+⚠ **브리지(link_node) 가 떠 있어야 한다.** 이 도구는 UDP 를 직접 잡지 않고 토픽으로 말한다
+  (/cmd_vel · /rd/command → link_node → 앱). 그래서 조종하면서 `ros2 topic echo` 를 볼 수 있다.
+
+    ros2 launch rd_bridge bridge.launch.py nav:=false     # 먼저 (다른 터미널)
+
     python3 tools/rd_cmd.py ping                     # T2 업링크가 열렸나 (기체 안 움직임)
     python3 tools/rd_cmd.py gimbal                   # T3 짐벌 0 → -45 → -90 → 0
     python3 tools/rd_cmd.py gimbal --angle -30       #    한 각도만
@@ -10,8 +15,8 @@
     python3 tools/rd_cmd.py vel --axes               # T5 축·부호 확인 순서 (SIM 에서)
     python3 tools/rd_cmd.py vel --vx 0.5 --secs 3    #    한 축만
 
-모든 서브명령에 `--port 14550`. UDP 14550 을 잡으므로 QGC·decode_check.py·link_node
-와 **동시에 못 쓴다.** 기체 없이 시험하려면 다른 터미널에 `python3 tools/fake_app.py`.
+기체 없이 시험하려면 다른 터미널에 `python3 tools/fake_app.py` 를 띄우고 브리지를 붙인다.
+속도는 link_node 캡(수평 2.5 · 수직 1.5 m/s · 75°/s)에서 한 번 더 깎인다.
 앞으로 takeoff/land/rtl 도 여기에 붙인다 (할일.md A).
 
 ────────────────────────────────────────────────────────────────
@@ -32,24 +37,89 @@
 ⚠ **ACCEPTED 는 성공이 아니다** (DroneModel.java:2029 — DJI 가 에러를 내도 무조건 ACCEPTED).
   짐벌은 눈으로, 이동은 좌표·기수 변화로 판정한다.
 """
-import argparse, os, select, struct, sys, termios, time, tty
+import argparse, math, os, select, sys, termios, threading, time, tty
+
+import rclpy
+from geometry_msgs.msg import Twist
+from rclpy.node import Node
+from sensor_msgs.msg import NavSatFix
+from std_msgs.msg import Float64, Float64MultiArray, Int32MultiArray
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import mav
+import mav   # 명령 번호 · 거리·방위 계산만 쓴다
+
+SPIN = {"stop": False, "thread": None, "node": None}
 
 CMD_REQUEST_AUTOPILOT_CAPABILITIES = 520
 CH_PITCH, CH_YAW = 9, 8
 
 
-def connect(port):
-    link = mav.Link(port=port)
-    print(f"앱의 송신 포트를 찾는 중… (0.0.0.0:{port} 에서 수신)")
-    addr = link.discover(6.0)
-    if not addr:
-        print("  ✗ 아무것도 안 온다. 먼저: ./tools/link_check.sh")
+class Bridge(Node):
+    """link_node 와 이야기하는 창구. /cmd_vel 은 앱 규약(vy>0 오른쪽, yaw>0 시계)."""
+
+    def __init__(self):
+        super().__init__("rd_cmd")
+        self.pub_vel = self.create_publisher(Twist, "cmd_vel", 10)
+        self.pub_cmd = self.create_publisher(Float64MultiArray, "rd/command", 10)
+        self.create_subscription(NavSatFix, "rd/fix", self.on_fix, 10)
+        self.create_subscription(Float64, "rd/heading", self.on_hdg, 10)
+        self.create_subscription(Int32MultiArray, "rd/ack", self.on_ack, 50)
+        self.tel = {}
+        self.acks = []       # (받은시각, 명령번호, 결과)
+        self.acks84 = 0
+
+    def on_fix(self, m):
+        self.tel.update(lat=m.latitude, lon=m.longitude, alt=m.altitude)
+
+    def on_hdg(self, m):
+        self.tel["yaw"] = m.data
+
+    def on_ack(self, m):
+        cmd, res = m.data[0], m.data[1]
+        if cmd == 84:
+            self.acks84 += 1
+        else:
+            self.acks.append((time.time(), cmd, res))
+
+    def vel(self, vx, vy, vz, yaw_deg=0.0):
+        t = Twist()
+        t.linear.x, t.linear.y, t.linear.z = float(vx), float(vy), float(vz)
+        t.angular.z = math.radians(yaw_deg)
+        self.pub_vel.publish(t)
+
+    def command(self, cmd, *params):
+        self.pub_cmd.publish(Float64MultiArray(data=[float(cmd)] + [float(x) for x in params]))
+
+    def wait_ack(self, cmd, secs=6.0):
+        t0 = time.time()
+        while time.time() - t0 < secs:
+            for t, c, r in self.acks:
+                if t >= t0 and c == cmd:
+                    return r, t - t0
+            time.sleep(0.02)
+        return None, secs
+
+
+def connect():
+    """브리지가 떠 있는지 /rd/heading 으로 확인한다."""
+    rclpy.init()
+    b = Bridge()
+
+    def spin():
+        while not SPIN["stop"]:
+            rclpy.spin_once(b, timeout_sec=0.1)
+    SPIN["node"], SPIN["thread"] = b, threading.Thread(target=spin, daemon=True)
+    SPIN["thread"].start()
+    print("브리지(link_node) 확인 중… (/rd/heading)")
+    t0 = time.time()
+    while time.time() - t0 < 6.0 and "yaw" not in b.tel:
+        time.sleep(0.1)
+    if "yaw" not in b.tel:
+        print("  ✗ /rd/heading 이 안 온다. 먼저: ros2 launch rd_bridge bridge.launch.py nav:=false")
         return None
-    print(f"  ✓ 앱 = {addr[0]}:{addr[1]}")
-    return link
+    time.sleep(0.5)      # 퍼블리셔가 link_node 와 짝지어질 시간
+    print(f"  ✓ 기수 {b.tel['yaw']:.0f}° · 고도 {fmt(b.tel.get('alt'), 'm')}")
+    return b
 
 
 def countdown(link, what):
@@ -59,7 +129,7 @@ def countdown(link, what):
     print("=" * 62)
     for i in range(5, 0, -1):
         print(f"  {i}초 후 시작… (Ctrl+C 로 중단)", end="\r", flush=True)
-        link.heartbeat(); link.poll(); time.sleep(1.0)
+        time.sleep(1.0)
     print(" " * 40)
 
 
@@ -68,16 +138,8 @@ def stop(link, rate=20):
     print("\n… 정지 명령 송출(1초)")
     t0 = time.time()
     while time.time() - t0 < 1.0:
-        link.set_velocity(0, 0, 0, 0)
+        link.vel(0, 0, 0, 0)
         time.sleep(1.0 / rate)
-
-
-def count_ack84(link):
-    n = 0
-    for mid, p in link.poll():
-        if mid == 77 and struct.unpack_from("<H", p, 0)[0] == 84:
-            n += 1
-    return n
 
 
 def fmt(v, unit="", nd=1):
@@ -86,24 +148,18 @@ def fmt(v, unit="", nd=1):
 
 # ------------------------------------------------------------------ ping
 def cmd_ping(args):
-    """HEARTBEAT + REQUEST_AUTOPILOT_CAPABILITIES(520) → COMMAND_ACK · AUTOPILOT_VERSION."""
-    link = connect(args.port)
+    """REQUEST_AUTOPILOT_CAPABILITIES(520) → COMMAND_ACK."""
+    link = connect()
     if link is None:
         return 1
-    print(f"\nHEARTBEAT + 명령 520 송신 · {args.secs:.0f}초 대기")
-    acks, version = set(), None
+    print(f"\n명령 520 송신 · {args.secs:.0f}초 대기")
     t0, sent = time.time(), 0
     while time.time() - t0 < args.secs:
         if time.time() - t0 > sent:                     # 1초에 한 번
-            link.heartbeat()
-            link.command_long(CMD_REQUEST_AUTOPILOT_CAPABILITIES, 1.0)
+            link.command(CMD_REQUEST_AUTOPILOT_CAPABILITIES, 1.0)
             sent += 1
-        for mid, p in link.poll():
-            if mid == 77:
-                acks.add(struct.unpack_from("<HB", p, 0))
-            elif mid == 148:
-                version = struct.unpack_from("<Q", p, 0)[0]
-        time.sleep(0.01)
+        time.sleep(0.05)
+    acks = {(c, r) for t, c, r in link.acks if t >= t0}
 
     print()
     if acks:
@@ -112,8 +168,6 @@ def cmd_ping(args):
             print(f"      명령 {c} → {mav.MAV_RESULT.get(r, r)}")
     else:
         print("  ✗ COMMAND_ACK 없음 — 앱이 우리 패킷을 안 받고 있다")
-    if version is not None:
-        print(f"  ✓ AUTOPILOT_VERSION 도착 — capabilities=0x{version:016x}")
     return 0 if acks else 1
 
 
@@ -129,7 +183,7 @@ def cmd_gimbal(args):
       다른 이유(RC 휠·기체 회전 추종)로 돌면 그 기준이 어긋난다.
       ⚠ 부호(+ 가 시계인지)와 Mavic 2 에서 yaw 가 실제로 도는지는 **실기 미확인**.
     """
-    link = connect(args.port)
+    link = connect()
     if link is None:
         return 1
     ch = CH_YAW if args.yaw else CH_PITCH
@@ -149,7 +203,7 @@ def cmd_gimbal(args):
     for label, angle in seq:
         pwm = 1500.0 + angle * 5.5
         print(f"  {label:<12} 채널 {ch} · {angle:+.0f}° · PWM {pwm:.1f} … ", end="", flush=True)
-        link.command_long(mav.CMD_DO_SET_SERVO, float(ch), pwm)
+        link.command(mav.CMD_DO_SET_SERVO, float(ch), pwm)
         res, dt = link.wait_ack(mav.CMD_DO_SET_SERVO, secs=8.0)
         if res is None:
             print("ACK 없음 ✗")
@@ -207,7 +261,7 @@ def cmd_drive(args):
     if args.dry_run:
         print("[dry-run] 전송 없이 키 입력·감쇠만 확인합니다. q 로 종료.")
     else:
-        link = connect(args.port)
+        link = connect()
         if link is None:
             return 1
         countdown(link, "기체가 움직입니다")
@@ -218,7 +272,7 @@ def cmd_drive(args):
               "d": ("yaw", args.max_yaw), "a": ("yaw", -args.max_yaw)}
     cur = {"vx": 0.0, "vy": 0.0, "vz": 0.0, "yaw": 0.0}
     last = dict(cur)
-    sent = acks = 0
+    sent = 0
     tilt = tilt_sent = 0.0
     t_tilt = 0.0
 
@@ -248,17 +302,15 @@ def cmd_drive(args):
                 if now - last[axis] > decay:
                     cur[axis] = 0.0
             if link:
-                link.set_velocity(cur["vx"], cur["vy"], cur["vz"], cur["yaw"])
-                link.heartbeat()
+                link.vel(cur["vx"], cur["vy"], cur["vz"], cur["yaw"])
                 sent += 1
-                acks += count_ack84(link)
                 if tilt != tilt_sent and now - t_tilt >= 0.3:
-                    link.command_long(mav.CMD_DO_SET_SERVO, float(CH_PITCH), 1500.0 + tilt * 5.5)
+                    link.command(mav.CMD_DO_SET_SERVO, float(CH_PITCH), 1500.0 + tilt * 5.5)
                     tilt_sent, t_tilt = tilt, now
             t = link.tel if link else {}
             sys.stdout.write(f"\rvx={cur['vx']:+.2f} vy={cur['vy']:+.2f} vz={cur['vz']:+.2f}"
                              f" yaw={cur['yaw']:+.1f}°/s 틸트{tilt:+.0f}°"
-                             f"  보냄{sent} ACK{acks}  고도{fmt(t.get('alt'), 'm')}"
+                             f"  보냄{sent} ACK{link.acks84 if link else 0}  고도{fmt(t.get('alt'), 'm')}"
                              f" 기수{fmt(t.get('yaw'), '°', 0)}   ")
             sys.stdout.flush()
     except KeyboardInterrupt:
@@ -267,7 +319,7 @@ def cmd_drive(args):
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
         if link:
             stop(link, rate)
-            print(f"총 송신 {sent}회 · ACK(84) {acks}회")
+            print(f"총 송신 {sent}회 · ACK(84) {link.acks84}회")
             print("⚠ RC 로 되돌리기: S 모드 전환 (또는 스틱 놓고 5초 → 앱 Safety 버튼)")
     return 0
 
@@ -296,19 +348,17 @@ def run_step(link, name, vx, vy, vz, yr, secs, hint, rate):
     print(f"\n  ▶ {name}  vx={vx:+.2f} vy={vy:+.2f} vz={vz:+.2f} yawRate={yr:+.1f}°/s ({secs:.0f}초)")
     if hint:
         print(f"    볼 것: {hint}")
-    link.poll()
     t = link.tel
     b = (t.get("lat"), t.get("lon"), t.get("alt"), t.get("yaw"))
-    sent = acks = 0
+    sent, acks0 = 0, link.acks84
     t0 = nxt = time.time()
     while time.time() - t0 < secs:
         if time.time() >= nxt:
-            link.set_velocity(vx, vy, vz, yr)
+            link.vel(vx, vy, vz, yr)
             sent += 1
             nxt += 1.0 / rate
-        link.heartbeat()
-        acks += count_ack84(link)
         time.sleep(0.002)
+    acks = link.acks84 - acks0
     a = (t.get("lat"), t.get("lon"), t.get("alt"), t.get("yaw"))
 
     dist = mav.meters_between(b[0], b[1], a[0], a[1]) if None not in b[:2] + a[:2] else None
@@ -328,19 +378,19 @@ def cmd_vel(args):
     if args.rate < 5:
         print("✗ --rate 는 5 이상 (200ms 데드맨). 20 권장")
         return 1
-    link = connect(args.port)
+    link = connect()
     if link is None:
         return 1
     countdown(link, "기체가 움직입니다")
 
     if args.takeoff is not None:
         print(f"이륙 — 목표 {args.takeoff:.0f} m")
-        link.command_long(mav.CMD_NAV_TAKEOFF, 0, 0, 0, 0, 0, 0, args.takeoff)
+        link.command(mav.CMD_NAV_TAKEOFF, 0, 0, 0, 0, 0, 0, args.takeoff)
         res, _ = link.wait_ack(mav.CMD_NAV_TAKEOFF, secs=10.0)
         print(f"  ACK: {mav.MAV_RESULT.get(res, res) if res is not None else '없음 ✗'}")
         t0 = time.time()
         while time.time() - t0 < 25 and (link.tel.get("alt") or 0) < args.takeoff * 0.8:
-            link.heartbeat(); link.poll(); time.sleep(0.1)
+            time.sleep(0.1)
         print(f"  현재 고도 {fmt(link.tel.get('alt'), 'm')}")
 
     if any(v is not None for v in (args.vx, args.vy, args.vz, args.yr)):
@@ -368,7 +418,6 @@ def cmd_vel(args):
 # ------------------------------------------------------------------ main
 def main():
     ap = argparse.ArgumentParser(description="업링크 명령 도구 (ping · gimbal · drive · vel)")
-    ap.add_argument("--port", type=int, default=14550)
     sub = ap.add_subparsers(dest="mode", required=True)
 
     p = sub.add_parser("ping", help="업링크가 열렸나 — 기체 안 움직임")
@@ -380,12 +429,12 @@ def main():
     p.add_argument("--hold", type=float, default=3.5, help="단계마다 머무는 초 (2초 넘게)")
 
     p = sub.add_parser("drive", help="방향키 조종 (#84 20Hz)")
-    p.add_argument("--max-vx", type=float, default=0.5, dest="max_vx")
-    p.add_argument("--max-vy", type=float, default=0.5, dest="max_vy")
-    p.add_argument("--max-vz", type=float, default=0.3, dest="max_vz", help="m/s, w=위 s=아래")
+    p.add_argument("--max-vx", type=float, default=2.5, dest="max_vx", help="m/s (link_node 캡 2.5)")
+    p.add_argument("--max-vy", type=float, default=2.5, dest="max_vy")
+    p.add_argument("--max-vz", type=float, default=1.5, dest="max_vz", help="m/s, w=위 s=아래")
     p.add_argument("--tilt-step", type=float, default=15.0, dest="tilt_step",
                    help="r/f 한 번에 바뀌는 틸트 각도 (deg)")
-    p.add_argument("--max-yaw", type=float, default=30.0, dest="max_yaw", help="deg/s")
+    p.add_argument("--max-yaw", type=float, default=75.0, dest="max_yaw", help="deg/s")
     p.add_argument("--dry-run", action="store_true", dest="dry_run", help="전송 없이 키 반응만")
 
     p = sub.add_parser("vel", help="스크립트 속도 명령 + 이동 방향 측정")
@@ -399,7 +448,15 @@ def main():
     p.add_argument("--takeoff", type=float, metavar="ALT", help="먼저 이 고도(m)로 이륙")
 
     args = ap.parse_args()
-    return {"ping": cmd_ping, "gimbal": cmd_gimbal, "drive": cmd_drive, "vel": cmd_vel}[args.mode](args)
+    try:
+        return {"ping": cmd_ping, "gimbal": cmd_gimbal, "drive": cmd_drive, "vel": cmd_vel}[args.mode](args)
+    finally:
+        if SPIN["thread"] is not None:
+            SPIN["stop"] = True
+            SPIN["thread"].join()
+            SPIN["node"].destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":

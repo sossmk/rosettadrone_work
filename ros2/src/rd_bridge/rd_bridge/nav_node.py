@@ -34,8 +34,8 @@ class NavNode(Node):
 
     def __init__(self):
         super().__init__("rd_nav")
-        for name, val in [("kp", 0.35), ("max_speed", 0.5), ("kp_alt", 0.35),
-                          ("max_vz", 0.5), ("arrive_radius", 1.0)]:
+        for name, val in [("kp", 0.35), ("max_speed", 2.5), ("kp_alt", 0.35),
+                          ("max_vz", 1.5), ("arrive_radius", 1.0)]:
             self.declare_parameter(name, val)
         self.p = lambda name: self.get_parameter(name).value
 
@@ -110,7 +110,7 @@ class NavNode(Node):
         speed = min(self.p("max_speed"), self.p("kp") * dist)
         cmd = Twist()
         cmd.linear.x = speed * math.cos(math.radians(rel))
-        cmd.linear.y = -speed * math.sin(math.radians(rel))   # ROS y 는 왼쪽
+        cmd.linear.y = speed * math.sin(math.radians(rel))    # 앱 규약: y>0 오른쪽
         cmd.linear.z = max(-self.p("max_vz"), min(self.p("max_vz"), self.p("kp_alt") * alt_err))
         self.pub.publish(cmd)
 

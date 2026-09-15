@@ -56,7 +56,7 @@ python3 tools/topic_check.py echo /rd/fix
 
 ⚠⚠ **UDP 14550 은 `link_node` 가 독점한다.** 두 번째 bind 는 커널에 따라 성공해
 버리는데 그러면 패킷이 둘로 쪼개져 **양쪽 다 망가진다.** QGC·`decode_check.py`·
-`rd_cmd.py`·`gps_capture.py` 와 **동시에 못 쓴다.**
+`gps_capture.py` 와 **동시에 못 쓴다.** `rd_cmd.py` 는 이제 브리지를 거치므로 같이 쓴다.
 
 ## 토픽
 
@@ -71,8 +71,10 @@ python3 tools/topic_check.py echo /rd/fix
 | `/rd/velocity` | `geometry_msgs/TwistStamped` | 대지 속도벡터 m/s, **ENU**(x=동 y=북 z=위) |
 | `/rd/gspeed` | `std_msgs/Float32` | 대지속도 크기 m/s |
 | `/rd/battery` | `sensor_msgs/BatteryState` | 전압·전류 (`patches/03` 적용 후 유효) |
+| `/rd/ack` | `std_msgs/Int32MultiArray` | `[명령번호, 결과]` — COMMAND_ACK |
 
-**업링크** `/cmd_vel` (`geometry_msgs/Twist`) → #84, 20Hz
+**업링크** `/cmd_vel` (`geometry_msgs/Twist`, 앱 규약) → #84, 20Hz · 캡 수평 2.5 / 수직 1.5 m/s / 75°/s
+`/rd/command` (`std_msgs/Float64MultiArray`: `[명령번호, p1..p7]`) → COMMAND_LONG. `rd_cmd.py` 가 짐벌·이륙에 쓴다
 **항법** `/nav/goal` (`NavSatFix`) · `/nav/cancel` (`Empty`) · `/nav/status` · `/nav/distance`
 
 ⚠ 같은 값을 재발행하지 않는다 — 구독자가 "좌표가 살아있다"고 착각하면 안 된다.
@@ -108,38 +110,32 @@ ros2 topic pub --once /nav/cancel std_msgs/msg/Empty '{}'      # 중단
 
 ```
 rel   = 목표 방위 - 기수
-speed = min(max_speed, kp × 거리)          kp 0.35 (앱과 같다), max_speed 0.5
-vx = speed·cos(rel)   vy = -speed·sin(rel)  ← ROS y 는 왼쪽
+speed = min(max_speed, kp × 거리)          kp 0.35 (앱과 같다), max_speed 2.5
+vx = speed·cos(rel)   vy = speed·sin(rel)   ← 앱 규약: y>0 오른쪽
 vz = clamp(kp_alt × 고도오차, ±max_vz)
 ```
 
 - 거리·고도오차가 둘 다 `arrive_radius`(1.0m) 안이면 0 을 한 번 내고 멈춘다
 - 좌표가 1초 넘게 안 오면 멈춘다
 - 기록: `~/drone_ws/navlog/<시각>.csv` (t, lat, lon, alt, hdg, dist, vx, vy, vz)
-- 속도 캡은 `link_node`(`max_vx`·`max_vy` 0.5) 에도 있다. 올릴 때는 둘 다
+- 속도 캡은 `link_node`(`max_vx`·`max_vy` 2.5) 에도 있다
 - 이륙은 하지 않는다
 
-## 축·부호 — ROS 와 앱의 규약이 다르다
+## 축·부호 — /cmd_vel 은 앱 규약 그대로 (2026-09-15)
 
-ROS REP-103 기체계는 **FLU**(x=앞, y=**왼쪽**, z=위, angular.z>0=**반시계**).
-앱은 vx>0=앞, vy>0=**오른쪽**, vz>0=**위**, yawRate>0=**시계** (9/9 SIM 실측, 제약 #2).
+REP-103(FLU) 이 아니다. 앱이 받는 뜻 그대로 쓴다 (9/9 SIM 실측, 제약 #2):
 
-| ROS | → 앱 | |
+| `/cmd_vel` | 앱 | >0 의 뜻 |
 |---|---|---|
-| `linear.x` | `vx` | 그대로 |
-| `linear.y` | `vy` | **반전** (왼쪽→오른쪽) |
-| `linear.z` | `vz` | **그대로** — 둘 다 위가 양수 |
-| `angular.z` | `yawRate` | **반전** + rad/s→deg/s |
+| `linear.x` | `vx` | 앞 |
+| `linear.y` | `vy` | **오른쪽** |
+| `linear.z` | `vz` | 위 |
+| `angular.z` (rad/s) | `yawRate` (deg/s) | **시계** |
 
-⚠ 할일.md 에 오래 있던 "vz 부호를 뒤집을 것" 은 **MAVLink NED 기준으로 쓴 메모**였다.
-NED 는 z 가 아래 양수라 ROS(z=위)에서 오면 뒤집어야 맞지만, 이 앱은 그 필드를 이미
-"위가 양수"로 읽는다 — 두 번 뒤집으면 도로 제자리다. **뒤집히는 축은 `vy` 와
-`angular.z` 이고 `vz` 는 아니다.** (2026-09-14 에 고쳤다.)
+`link_node` 는 부호를 바꾸지 않는다(`scale_*` 전부 1). ⚠ `teleop_twist_keyboard` 같은 ROS
+표준 도구는 좌우·회전이 반대로 간다.
 
-실기에서 다르면 코드를 고치지 말고 파라미터로: `-p scale_vy:=1.0`
-
-⚠ 혼동 주의 — `/rd/velocity`(다운링크)의 `z>0=위` 는 **지구 기준 ENU** 이야기이고,
-`/cmd_vel` 의 `linear.z` 는 **기체 기준 BODY** 다. 둘은 다른 좌표계다.
+⚠ `/rd/velocity`(다운링크)는 **지구 기준 ENU** 이고 `/cmd_vel` 은 **기체 기준**이다. 다른 좌표계다.
 
 ## ⚠ 조종권을 RC 로 되돌리는 순서
 
