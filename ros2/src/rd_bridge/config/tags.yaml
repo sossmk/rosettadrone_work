@@ -6,7 +6,7 @@
     family: 36h11
     # tags/tag36h11-id0-120mm-A4.pdf 를 100% 로 뽑았을 때의 값.
     # 다르게 뽑았으면 자로 재서 고친다 (tools/make_print.py 가 값을 알려 준다)
-    size: 0.120
+    size: 0.192
     max_hamming: 0
     detector:
       threads: 2
