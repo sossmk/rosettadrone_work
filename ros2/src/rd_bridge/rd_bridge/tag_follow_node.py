@@ -65,7 +65,9 @@ def follow_cmd(fwd, right, alt_err, yaw_err, p):
     if dist < p("deadband"):
         vx = vy = 0.0
     else:
-        speed = min(p("max_speed"), p("kp") * dist)
+        # min_speed 바닥 — 순수 P 는 가까워질수록 명령이 0 으로 죽는데 DJI 는
+        # 0.1m/s 같은 명령에 사실상 반응하지 않는다. 기본 0.0 = 끔.
+        speed = min(p("max_speed"), max(p("min_speed"), p("kp") * dist))
         vx, vy = speed * fwd / dist, speed * right / dist
     vz = clamp(p("kp_alt") * -alt_err, p("max_vz"))
     if not p("yaw_enable") or abs(yaw_err) < p("yaw_deadband"):
@@ -79,7 +81,8 @@ class TagFollowNode(Node):
 
     def __init__(self):
         super().__init__("rd_tag_follow")
-        for name, val in [("tag_frame", "tag0"), ("kp", 0.35), ("max_speed", 0.8),
+        for name, val in [("tag_frame", "tag0"), ("kp", 0.35),
+                          ("min_speed", 0.0), ("max_speed", 0.8),
                           ("kp_alt", 0.35), ("max_vz", 0.5), ("hold_alt", 3.0),
                           ("deadband", 0.3), ("lost_secs", 0.5), ("giveup_secs", 10.0),
                           ("sign_fwd", -1.0), ("sign_right", 1.0), ("sign_yaw", 1.0),

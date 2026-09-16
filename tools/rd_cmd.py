@@ -14,6 +14,7 @@
     python3 tools/rd_cmd.py drive --dry-run          #    전송 없이 키 반응만
     python3 tools/rd_cmd.py vel --axes               # T5 축·부호 확인 순서 (SIM 에서)
     python3 tools/rd_cmd.py vel --vx 0.5 --secs 3    #    한 축만
+    python3 tools/rd_cmd.py follow                  # 태그 추종 켜고 끄기 + 실기 튜닝
 
 기체 없이 시험하려면 다른 터미널에 `python3 tools/fake_app.py` 를 띄우고 브리지를 붙인다.
 속도는 link_node 캡(수평 2.5 · 수직 1.5 m/s · 75°/s)에서 한 번 더 깎인다.
@@ -41,9 +42,12 @@ import argparse, math, os, select, sys, termios, threading, time, tty
 
 import rclpy
 from geometry_msgs.msg import Twist
+from rcl_interfaces.msg import Parameter as ParamMsg, ParameterType, ParameterValue
+from rcl_interfaces.srv import GetParameters, SetParameters
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
-from std_msgs.msg import Float64, Float64MultiArray, Int32MultiArray
+from std_msgs.msg import Bool, Float64, Float64MultiArray, Int32MultiArray
+from tf2_msgs.msg import TFMessage
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mav   # 명령 번호 · 거리·방위 계산만 쓴다
@@ -415,9 +419,166 @@ def cmd_vel(args):
     return 0
 
 
+# ---------------------------------------------------------------- follow
+FOLLOW_NODE = "/rd_tag_follow"
+
+# 튜닝 키 → (파라미터, 증감, 하한, 상한). 실기에서 내려놓고 고치는 시간이 제일 아깝다
+TUNE = {
+    "[": ("kp",           -0.05, 0.05,  3.0), "]": ("kp",           +0.05, 0.05,  3.0),
+    ",": ("max_speed",    -0.10, 0.10,  2.5), ".": ("max_speed",    +0.10, 0.10,  2.5),
+    ";": ("min_speed",    -0.05, 0.00,  1.0), "'": ("min_speed",    +0.05, 0.00,  1.0),
+    "-": ("hold_alt",     -0.50, 0.50, 30.0), "=": ("hold_alt",     +0.50, 0.50, 30.0),
+    "o": ("deadband",     -0.10, 0.10,  3.0), "p": ("deadband",     +0.10, 0.10,  3.0),
+    "n": ("yaw_deadband", -1.00, 1.00, 45.0), "m": ("yaw_deadband", +1.00, 1.00, 45.0),
+}
+TUNE_HELP = ("[ ] kp · , . max_speed · ; ' min_speed · - = hold_alt · "
+             "o p deadband · n m yaw_deadband · y yaw 켜고끄기")
+
+
+def wait_future(fut, secs=2.0):
+    """⚠ spin_until_future_complete 를 쓰면 안 된다 — connect() 의 spin 스레드와 겹친다."""
+    t0 = time.time()
+    while not fut.done() and time.time() - t0 < secs:
+        time.sleep(0.01)
+    return fut.result() if fut.done() else None
+
+
+class Tuner:
+    """추종 노드의 파라미터를 날면서 읽고 쓴다 (rcl_interfaces 서비스)."""
+
+    def __init__(self, node, target=FOLLOW_NODE):
+        self.cli_get = node.create_client(GetParameters, f"{target}/get_parameters")
+        self.cli_set = node.create_client(SetParameters, f"{target}/set_parameters")
+        self.ok = self.cli_get.wait_for_service(timeout_sec=4.0)
+
+    def read(self, names):
+        if not self.ok:
+            return {}
+        r = wait_future(self.cli_get.call_async(GetParameters.Request(names=list(names))))
+        if r is None or len(r.values) != len(names):
+            return {}
+        pick = {ParameterType.PARAMETER_BOOL: "bool_value",
+                ParameterType.PARAMETER_INTEGER: "integer_value",
+                ParameterType.PARAMETER_DOUBLE: "double_value",
+                ParameterType.PARAMETER_STRING: "string_value"}
+        return {n: getattr(v, pick[v.type]) for n, v in zip(names, r.values)}
+
+    def write(self, name, value):
+        if isinstance(value, bool):
+            pv = ParameterValue(type=ParameterType.PARAMETER_BOOL, bool_value=value)
+        else:
+            pv = ParameterValue(type=ParameterType.PARAMETER_DOUBLE, double_value=float(value))
+        r = wait_future(self.cli_set.call_async(
+            SetParameters.Request(parameters=[ParamMsg(name=name, value=pv)])))
+        return bool(r and r.results and r.results[0].successful)
+
+
+def cmd_follow(args):
+    """태그 추종을 한 터미널에서 켜고 끄고 튜닝한다 (터미널 4·5 를 대신한다).
+
+    space 시작/정지 · q 종료 · 그 밖의 키는 TUNE_HELP.
+
+    ⚠ 이 도구는 **/cmd_vel 을 한 발도 안 쏜다.** 기체를 움직이는 것은 추종 노드고
+      이쪽은 /tag/follow 를 토글할 뿐이다. 그래서 drive·vel 과 달리 여기서 Ctrl+C 를
+      눌러도 이 도구가 기체를 세우지 못한다 — 대신 나가기 전에 false 를 두 번 보내고,
+      그걸 받은 노드가 0 을 내면 link_node 의 1초 브레이크가 선다.
+    """
+    link = connect()
+    if link is None:
+        return 1
+
+    tuner = Tuner(link)
+    names = ("kp", "min_speed", "max_speed", "hold_alt", "deadband", "yaw_deadband",
+             "yaw_enable", "sign_fwd", "sign_right")
+    par = tuner.read(names)
+    if not par:
+        print(f"  ✗ {FOLLOW_NODE} 의 파라미터를 못 읽는다 — 추종 노드가 안 떠 있다")
+        print("     ros2 launch rd_bridge bridge.launch.py tag:=true follow:=true nav:=false \\")
+        print("         camera_info_file:=$HOME/rosettadrone_work/ros2/src/rd_bridge/config/camera.yaml")
+        return 1
+
+    tag = {"t": 0.0, "x": 0.0, "y": 0.0, "z": 0.0}
+    cmd = {"t": 0.0, "v": (0.0, 0.0, 0.0, 0.0)}
+
+    def on_tf(msg):
+        for tf in msg.transforms:
+            if tf.child_frame_id == args.tag_frame:
+                p = tf.transform.translation
+                tag.update(t=time.time(), x=p.x, y=p.y, z=p.z)
+
+    def on_cmd(m):
+        cmd.update(t=time.time(), v=(m.linear.x, m.linear.y, m.linear.z,
+                                     math.degrees(m.angular.z)))
+
+    pub = link.create_publisher(Bool, "tag/follow", 10)
+    link.create_subscription(TFMessage, "/tf", on_tf, 50)
+    link.create_subscription(Twist, "cmd_vel", on_cmd, 10)
+    time.sleep(0.6)      # 퍼블리셔가 추종 노드와 짝지어질 시간 (첫 토글을 잃지 않게)
+
+    print("\n" + "=" * 72)
+    print("  ⚠ space 를 누르면 기체가 태그를 따라 **움직인다**. RC 모드 스위치 P")
+    print("  ⚠ 조종권은 저절로 RC 로 안 돌아온다 — 급하면 S 모드 전환")
+    print("=" * 72)
+    print(f"  space 시작/정지 · q 종료\n  {TUNE_HELP}\n")
+
+    armed = False
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    tty.setcbreak(fd)
+    try:
+        nxt, quit_ = time.time(), False
+        while not quit_:
+            for k in read_keys(max(0.0, nxt - time.time())):
+                if k == " ":
+                    armed = not armed
+                    pub.publish(Bool(data=armed))
+                elif k == "q":
+                    quit_ = True
+                elif k == "y":
+                    par["yaw_enable"] = not par["yaw_enable"]
+                    tuner.write("yaw_enable", par["yaw_enable"])
+                elif k in TUNE:
+                    name, step, lo, hi = TUNE[k]
+                    par[name] = round(min(hi, max(lo, par[name] + step)), 2)
+                    tuner.write(name, par[name])
+            now = time.time()
+            if now < nxt:
+                continue
+            nxt += 0.2                                   # 5Hz 로만 그린다
+
+            age = now - tag["t"]
+            if tag["t"] == 0.0:
+                see = "태그 본 적 없음       "
+            elif age > 1.0:
+                see = f"태그 {age:4.1f}초 전       "
+            else:
+                see = (f"앞{par['sign_fwd'] * tag['y']:+.2f} "
+                       f"오{par['sign_right'] * tag['x']:+.2f} z{tag['z']:4.2f}m")
+            state = "대기  " if not armed else ("추종중" if now - cmd["t"] < 1.5 else "명령끊김")
+            vx, vy, vz, wz = cmd["v"]
+            sys.stdout.write(
+                f"\r[{state}] {see} · cmd {vx:+.2f} {vy:+.2f} {vz:+.2f} {wz:+3.0f}°/s"
+                f" · kp{par['kp']:.2f} spd{par['min_speed']:.2f}~{par['max_speed']:.2f}"
+                f" alt{par['hold_alt']:.1f} db{par['deadband']:.1f}/{par['yaw_deadband']:.0f}°"
+                f" yaw{'켬' if par['yaw_enable'] else '끔'}"
+                f" · 고도{fmt(link.tel.get('alt'), 'm')}   ")
+            sys.stdout.flush()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        for _ in range(2):                    # 무슨 일이 있어도 정지시키고 나간다
+            pub.publish(Bool(data=False))
+            time.sleep(0.3)
+        print("\n■ /tag/follow false 송출 — 노드가 0 을 내고 link_node 가 1초 브레이크")
+        print("⚠ RC 로 되돌리기: S 모드 전환 (또는 스틱 놓고 5초 → 앱 Safety 버튼)")
+    return 0
+
+
 # ------------------------------------------------------------------ main
 def main():
-    ap = argparse.ArgumentParser(description="업링크 명령 도구 (ping · gimbal · drive · vel)")
+    ap = argparse.ArgumentParser(
+        description="업링크 명령 도구 (ping · gimbal · drive · vel · follow)")
     sub = ap.add_subparsers(dest="mode", required=True)
 
     p = sub.add_parser("ping", help="업링크가 열렸나 — 기체 안 움직임")
@@ -447,9 +608,14 @@ def main():
     p.add_argument("--axes", action="store_true", help="축·부호 확인용 짧은 순서")
     p.add_argument("--takeoff", type=float, metavar="ALT", help="먼저 이 고도(m)로 이륙")
 
+    p = sub.add_parser("follow", help="태그 추종 켜고 끄기 + 실기 튜닝 (터미널 하나로)")
+    p.add_argument("--tag-frame", default="tag0", dest="tag_frame",
+                   help="tags.yaml 의 frames 와 같아야 한다")
+
     args = ap.parse_args()
     try:
-        return {"ping": cmd_ping, "gimbal": cmd_gimbal, "drive": cmd_drive, "vel": cmd_vel}[args.mode](args)
+        return {"ping": cmd_ping, "gimbal": cmd_gimbal, "drive": cmd_drive,
+                "vel": cmd_vel, "follow": cmd_follow}[args.mode](args)
     finally:
         if SPIN["thread"] is not None:
             SPIN["stop"] = True
