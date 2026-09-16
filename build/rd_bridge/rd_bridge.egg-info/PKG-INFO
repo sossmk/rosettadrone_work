@@ -1,7 +1,0 @@
-Metadata-Version: 2.1
-Name: rd-bridge
-Version: 0.1.0
-Summary: RosettaDrone ↔ ROS 2 브리지 (영상 발행 · cmd_vel 구독)
-Maintainer: 김성민
-Maintainer-email: rlatjdals6142@gmail.com
-License: MIT

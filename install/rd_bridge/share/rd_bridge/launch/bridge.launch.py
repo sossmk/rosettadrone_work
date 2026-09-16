@@ -1,1 +1,0 @@
-/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/launch/bridge.launch.py
