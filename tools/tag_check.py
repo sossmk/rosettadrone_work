@@ -1,23 +1,16 @@
 #!/usr/bin/env python3
-"""AprilTag 가 왜 안 잡히나 — 사진·영상에서 태그를 찾아 그 이유를 말해 준다.
+"""AprilTag 가 왜 안 잡히나 — 사진·영상에서 태그를 찾아 이유를 말해 준다.
 
     python3 tools/tag_check.py file 사진.jpg           # 사진 한 장
     python3 tools/tag_check.py file 사진.jpg --sweep   # decimate 를 바꿔 가며
     python3 tools/tag_check.py live                    # /image_raw 구독 (브리지가 켜져 있어야 한다)
 
-`family`(태그 규격) 는 AprilTag 의 인코딩 이름이다 — 36h11 은 6x6 비트에 최소 해밍거리 11.
-**규격이 다르면 같은 그림이라도 검출기가 아예 못 읽는다.** 굴러다니는 태그가 36h11 이 아니면
-`config/tags.yaml` 의 `family` 를 여기서 나온 이름으로 바꿔야 한다.
-
 내는 값
-    family · id     tags.yaml 의 family 를 정한다
+    family · id     규격이 다르면 검출기가 아예 못 읽는다 — tags.yaml 의 family 를 이 값으로
     중심 (px)       화면 어디에 있나
-    회전각 (deg)    똑바로 선 태그가 0°, 화면 기준 시계 +.
-                    tag_follow_node 의 yaw 오차와 같은 양이라 부호 확인에 그대로 쓴다
-    크기 (px)       진단용 — 안 잡힐 때 "너무 작아서"인지 가리는 값. 임무에는 안 쓴다
-
-apriltag_ros 의 `detector.decimate` 는 검출 전에 영상을 1/N 로 줄인다. --sweep 은 그걸
-흉내 내서 "어느 decimate 까지 잡히나" 를 보여 준다 — tags.yaml 에 넣을 값을 그대로 고른다.
+    회전각 (deg)    똑바로 선 태그 0°, 시계 + — tag_follow_node 의 yaw 오차와 같은 양
+    크기 (px)       안 잡힐 때 "너무 작아서"인지 가리는 값
+    --sweep         어느 decimate 까지 잡히나 — tags.yaml 에 넣을 값을 고른다
 """
 import argparse
 import math

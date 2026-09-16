@@ -87,7 +87,7 @@ RM500 앱 설정에 **전부** 넣으세요:
 ./tools/link_check.sh                  # T0 링크 위생
 ros2 launch rd_bridge bridge.launch.py nav:=false    # 브리지 (다른 터미널)
 ros2 topic echo /rd/battery            # T1 다운링크 + 배터리 전압
-ros2 topic hz /image_raw               # T4 영상 (~30Hz). 안 나오면 video_node.py docstring 의 gst-launch 로 창부터
+ros2 topic hz /camera_info             # T4 영상 (~30Hz — 영상과 1:1). 안 나오면 video_node.py docstring 의 gst-launch 로 창부터
 ```
 
 **정상이면 이렇게 나옵니다** (2026-09-10 실측):
@@ -143,7 +143,7 @@ RM500 의 USB 옵션을 **`Transfer files`(MTP)** 로 두고 케이블을 꽂으
 | `patches/` | **앱 소스 패치 4개.** `02` 가 영상을 살리는 핵심 (Manifest 의 `VideoService` 주석 복구) |
 | `구조.html` | **전체 구조 한 장 요약** — 층·데이터 흐름·토픽·언제 어떤 도구를 쓰나 (브라우저로 연다) |
 | `tools/link_check.sh` | **기체 켜기 전 링크 위생.** IP·포트점유·방화벽을 한 번에 보고, **앱에 넣을 GCS IP 를 찍어 준다** |
-| `tools/rd_cmd.py` | **업링크 명령 도구.** `ping`(업링크 열렸나) · `gimbal`(짐벌 틸트) · `drive`(방향키 조종) · `vel`(속도 명령 + 이동 방향 측정) · `follow`(태그 추종 시작·튜닝) · `mission`(경유점 비행). ⚠ 조종권은 저절로 RC 로 안 돌아온다 — S 모드 전환(9/11 실기) |
+| `tools/rd_cmd.py` | **업링크 명령 도구.** `ping`(업링크 열렸나) · `gimbal`(짐벌 틸트) · `takeoff`(이륙) · `drive`(방향키 조종) · `follow`(태그 추종 시작·튜닝) · `mission`(경유점 비행). ⚠ 조종권은 저절로 RC 로 안 돌아온다 — S 모드 전환(9/11 실기) |
 | `tools/tag_check.py` | **태그가 왜 안 잡히나** — 사진·영상에서 태그를 찾아 이유를 말해 준다 |
 | `토픽.md` | **토픽 한 장** — 형식·주기·단위·좌표계. 주기 확인은 `ros2 topic hz` |
 | `missions/` | 경유점 파일 (`rd_cmd.py mission`) |

@@ -1,26 +1,21 @@
 #!/usr/bin/env python3
-"""태그 추종 노드 — AprilTag 위로 가서 서고, 기수를 태그에 맞춘다.
+"""태그 추종 노드 — AprilTag 위로 가서 서고, 기수를 태그에 맞춘다 (짐벌 -90° 탑뷰 기준).
 
-    # 영상 + 태그 + 링크 (항법은 끈다 — /cmd_vel 을 둘이 같이 쓰면 안 된다)
-    ros2 launch rd_bridge bridge.launch.py tag:=true nav:=false follow:=true
-    # 켜기 / 끄기
-    ros2 topic pub --once /tag/follow std_msgs/msg/Bool '{data: true}'
-    ros2 topic pub --once /tag/cancel std_msgs/msg/Empty '{}'
+    ros2 launch rd_bridge bridge.launch.py tag:=true follow:=true nav:=false
+    python3 tools/rd_cmd.py follow        # space 시작/정지 · 파라미터 튜닝
+    # 또는 직접: /tag/follow (Bool) true·false · /tag/cancel (Empty)
 
-⚠ **짐벌 -90°(탑뷰) 기준**이다. 카메라가 바닥을 보고 태그가 바닥에 있다고 본다.
-⚠ `nav_node`·`rd_cmd.py` 와 **동시에 쓰지 않는다** — 셋 다 /cmd_vel 에 쓴다.
-⚠ 뜨자마자 움직이지 않는다. `/tag/follow true` 를 받아야 명령을 낸다.
+⚠ /tag/follow true 를 받기 전에는 /cmd_vel 을 안 낸다.
+⚠ nav_node 와 동시에 켜지 않는다 — 둘 다 /cmd_vel 에 쓴다.
 
-좌표 — apriltag_ros 가 /tf 에 내는 것은 **카메라 광학 좌표**다:
-    x = 화면 오른쪽 · y = 화면 아래 · z = 렌즈 앞 (= 탑뷰에서 태그까지 거리 ≈ 고도)
-짐벌 -90° 에서 화면 위가 기수 앞이므로 앞 = -y, 오른쪽 = +x 로 본다. **이 부호는 실기에서
-지상 확인 후 확정한다** — 뒤집혀 있으면 코드가 아니라 sign_fwd·sign_right 를 바꾼다.
+/tf 의 태그 위치는 **카메라 광학 좌표**다 (x=화면 오른쪽 · y=화면 아래 · z=거리≈고도).
+탑뷰에서 화면 위가 기수 앞이라 앞 = sign_fwd·y (-1), 오른쪽 = sign_right·x (+1).
+부호가 실기에서 뒤집혀 나오면 코드가 아니라 sign_* 를 바꾼다.
 
-yaw 는 태그의 x축이 기수에서 몇 도 돌아갔나로 잰다. 똑바로 선 태그를 똑바로 찍으면
-그 x축이 **화면 오른쪽(= +90°)** 을 가리킨다(태그 PNG 로 실측). 그래서 yaw_offset 90° 를
-빼서 **똑바로 맞춰진 상태 = 0°** 로 만든다. 다른 기준으로 맞추고 싶으면 이 값만 바꾼다.
+yaw 오차 = 태그 x축이 기수에서 돈 각도 - yaw_offset(90°). 똑바로 선 태그를 똑바로 찍으면
+x축이 화면 오른쪽(+90°)을 가리키므로, 90° 를 빼서 "맞춰진 상태 = 0°" 로 만든다.
 
-제어는 nav_node 와 같은 단순 P. 기록은 ~/drone_ws/taglog/ 에 CSV 로 남는다.
+제어는 단순 P. 기록은 ~/drone_ws/taglog/ 에 CSV — **줄이 헤더뿐이면 태그를 한 번도 못 본 것이다.**
 """
 import math
 import os
@@ -56,7 +51,7 @@ def tag_axes(t):
 
 
 def follow_cmd(fwd, right, alt_err, yaw_err, p):
-    """오차 → 속도 명령. **나중에 nav_node 의 한 모드로 그대로 옮길 함수.**
+    """오차 → 속도 명령.
 
     fwd·right·alt_err 는 m (기체 기준), yaw_err 는 deg (시계가 +).
     돌려주는 것은 /cmd_vel 규약: x=앞 · y=오른쪽 · z=위 m/s, wz=시계 rad/s.
@@ -65,8 +60,7 @@ def follow_cmd(fwd, right, alt_err, yaw_err, p):
     if dist < p("deadband"):
         vx = vy = 0.0
     else:
-        # min_speed 바닥 — 순수 P 는 가까워질수록 명령이 0 으로 죽는데 DJI 는
-        # 0.1m/s 같은 명령에 사실상 반응하지 않는다. 기본 0.0 = 끔.
+        # min_speed — 가까워지면 P 명령이 기체가 반응 못 할 만큼 작아진다. 0 = 끔
         speed = min(p("max_speed"), max(p("min_speed"), p("kp") * dist))
         vx, vy = speed * fwd / dist, speed * right / dist
     vz = clamp(p("kp_alt") * -alt_err, p("max_vz"))

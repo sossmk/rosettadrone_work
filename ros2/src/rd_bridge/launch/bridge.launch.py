@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """브리지를 한 번에 띄운다.
 
-    ros2 launch rd_bridge bridge.launch.py                  # 영상 + 링크 + 항법
-    ros2 launch rd_bridge bridge.launch.py nav:=false       # 항법 빼고 (수동 cmd_vel 만)
-    ros2 launch rd_bridge bridge.launch.py link:=false      # 영상만 (기체를 안 건드린다)
-    ros2 launch rd_bridge bridge.launch.py tag:=true link:=false nav:=false   # 영상 + AprilTag
+    ros2 launch rd_bridge bridge.launch.py                  # 영상 + 링크 + 항법 (경유점)
+    ros2 launch rd_bridge bridge.launch.py nav:=false       # 항법 빼고 (drive 등 수동)
+    ros2 launch rd_bridge bridge.launch.py link:=false      # 기체를 안 건드린다
     ros2 launch rd_bridge bridge.launch.py tag:=true follow:=true nav:=false \
-        camera_info_file:=$HOME/rosettadrone_work/ros2/src/rd_bridge/config/camera.yaml   # 태그 추종 (실기)
+        camera_info_file:=$HOME/rosettadrone_work/ros2/src/rd_bridge/config/camera.yaml   # 태그 추종
 
-노드 셋:
-    video_node  영상 → /image_raw
-    link_node   UDP 14550 독점 — 다운링크 → /rd/*, /cmd_vel → MAVLink #84
-    nav_node    /nav/goal → 유도 루프(우리 것) → /cmd_vel
+    video_node       영상 → /image_raw · /camera_info
+    link_node        UDP 14550 — 다운링크 → /rd/* · /cmd_vel → #84
+    nav_node         경유점 → /cmd_vel                     (nav, 기본 켬)
+    apriltag_node    영상 → /detections · /tf (camera→tag0)  (tag)
+    tag_follow_node  /tf → /cmd_vel                        (follow)
 
-⚠ link_node 는 /cmd_vel 이 오기 전에는 한 발도 쏘지 않고, nav_node 는 /nav/goal 이
-  오기 전에는 /cmd_vel 을 내지 않는다. 그래서 띄워 두는 것 자체는 기체를 건드리지 않는다.
-⚠⚠ UDP 14550 은 link_node 가 독점한다 — QGC·gps_capture.py 와 동시에 못 쓴다.
+띄우기만 해서는 기체가 안 움직인다 — 항법·추종은 목표나 /tag/follow 를 받아야 명령을 낸다.
+⚠ nav 와 follow 를 같이 켜지 않는다 (둘 다 /cmd_vel).
+⚠ 14550 은 link_node 가 독점한다 — QGC·gps_capture.py 와 같이 못 쓴다.
 """
 import os
 

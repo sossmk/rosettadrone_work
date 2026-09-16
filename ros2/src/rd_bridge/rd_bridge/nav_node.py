@@ -1,31 +1,22 @@
 #!/usr/bin/env python3
-"""항법 노드 — 앱 flyTo() 를 대체하는 단순 P 제어. 경유점 여러 개를 차례로 간다.
+"""항법 노드 — 경유점을 차례로 간다. 속도 = kp × 거리 (단순 P).
 
     ros2 run rd_bridge nav_node
-    # 한 점 — 현재 위치 기준 앞 5m (x=앞 m, y=오른쪽 m, z=상대고도 m)
-    ros2 topic pub --once /nav/goal_offset geometry_msgs/msg/Vector3 '{x: 5.0, y: 0.0, z: 0.0}'
-    # 한 점 — 좌표로 (altitude = 상대고도)
+    python3 tools/rd_cmd.py mission missions/square10.txt         # 파일로 (space 시작/중단)
+    # 또는 직접 — alt 는 상대고도, 0 이하면 받는 순간의 고도 유지
     ros2 topic pub --once /nav/goal sensor_msgs/msg/NavSatFix '{latitude: 37.5, longitude: 126.9, altitude: 5.0}'
-    # 여러 점 — [lat, lon, alt] 를 이어 붙인다
-    ros2 topic pub --once /nav/mission std_msgs/msg/Float64MultiArray \\
-        '{data: [37.5665123, 126.9780456, 5.0,  37.5666000, 126.9781000, 5.0]}'
-    # 여러 점 — [앞, 오른쪽, alt] 를 이어 붙인다 (전부 받는 순간의 위치·기수 기준)
-    ros2 topic pub --once /nav/mission_offset std_msgs/msg/Float64MultiArray \\
-        '{data: [10, 0, 0,  10, 10, 0,  0, 10, 0,  0, 0, 0]}'
-    # 중단
+    ros2 topic pub --once /nav/goal_offset geometry_msgs/msg/Vector3 '{x: 5.0, y: 0.0, z: 0.0}'   # x=앞 y=오른쪽
+    ros2 topic pub --once /nav/mission std_msgs/msg/Float64MultiArray '{data: [lat, lon, alt,  lat, lon, alt]}'
+    ros2 topic pub --once /nav/mission_offset std_msgs/msg/Float64MultiArray '{data: [10,0,0,  10,10,0]}'
     ros2 topic pub --once /nav/cancel std_msgs/msg/Empty '{}'
-    # 파일로 — tools/rd_cmd.py mission missions/square10.txt
+    ros2 topic echo /nav/wp --field data          # 진행 [지금 번호, 전체]
 
-고도: **0 이하면 받는 순간의 고도를 유지한다** (네 입력 모두 같다).
-offset: 전부 **받는 순간의 위치·기수 기준**이다 — 앞 점 기준이 아니다. 비행 중에 기수가 돌아도
-목표 지점은 그대로.
-
-경유점마다 **감속해서 선 뒤** 다음으로 간다(stop-and-go). 속도 = kp × 거리라 점에 가까울수록
-느려진다. 중간점에서는 stop() 을 부르지 않는다 — 0 을 내면 link_node 가 1초 브레이크를 건다.
-새 목표가 오면 진행 중인 미션을 버리고 바꾼다.
-
-앱 flyTo() (DroneModel.processFlyTo) 도 이것과 같다: 속도 = 0.35 × 거리, 목표 방향으로.
-이륙은 하지 않는다. 기록은 ~/drone_ws/navlog/ 에 미션당 CSV 하나로 남는다.
+· offset 은 전부 **받는 순간의 위치·기수 기준**이다 (앞 점 기준이 아니다)
+· 경유점마다 감속해서 선 뒤 다음으로 간다. 중간점에서는 0 을 내지 않는다
+  (내면 link_node 가 1초 브레이크를 건다)
+· 새 목표가 오면 진행 중인 미션을 버린다
+· 좌표가 1초 넘게 안 오면 멈춘다. 이륙은 하지 않는다
+· 기록은 ~/drone_ws/navlog/ 에 미션당 CSV 하나
 """
 import math
 import os

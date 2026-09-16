@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
-"""좌표 측정 — 지점의 좌표를 재서 저장한다. 항법(nav_node)에 줄 목표를 여기서 잰다.
+"""좌표 측정 — RC 로 날아가 Enter 를 누르면 그 자리 좌표를 저장한다.
 
-    python3 tools/gps_capture.py          # 1Hz 로 좌표를 보고, Enter 로 그 순간 값을 저장
+    python3 tools/gps_capture.py      # 1Hz 로 좌표 표시 · Enter 로 저장
+    cat ~/drone_ws/capture/waypoints.jsonl
 
-워크플로: ① RC 로 지점까지 수동 비행 → ② 이 도구로 좌표 저장 → ③ RC 로 복귀 →
-④ 저장한 좌표를 목표로 준다:
-
-    ros2 launch rd_bridge bridge.launch.py
-    ros2 topic pub --once /nav/goal sensor_msgs/msg/NavSatFix \
-        '{latitude: <LAT>, longitude: <LON>, altitude: <상대고도>}'
-
-UDP 14550 을 잡으므로 link_node 와 동시에 못 쓴다 — 재고 나서 끄고 브리지를 띄운다.
-⚠ 고도는 **상대고도**(이륙 지점 기준)다. nav_node 도 상대고도로 유도한다.
+잰 좌표는 missions/*.txt 에 `gps <위도> <경도> [고도]` 로 옮긴다 (rd_cmd.py mission).
+⚠ 14550 을 직접 잡는다 — 브리지(link_node)를 끄고 쓴다.
+⚠ 고도는 상대고도(이륙 지점 기준)다.
 """
 import argparse, datetime, json, os, select, sys, time
 
@@ -79,7 +74,8 @@ def main():
                     f.write(json.dumps(entry, ensure_ascii=False) + "\n")
                 alt_arg = f"{alt:.1f}" if alt is not None else "<상대고도>"
                 print(f"\n  ✓ 저장: lat={lat:.7f} lon={lon:.7f} alt={fmt(alt,'m',1)}")
-                print(f"    목표로 줄 때: ros2 topic pub --once /nav/goal sensor_msgs/msg/NavSatFix "
+                print(f"    미션 파일에: gps  {lat:.7f}  {lon:.7f}  {alt_arg}")
+                print(f"    바로 줄 때:  ros2 topic pub --once /nav/goal sensor_msgs/msg/NavSatFix "
                       f"'{{latitude: {lat:.7f}, longitude: {lon:.7f}, altitude: {alt_arg}}}'\n")
     except KeyboardInterrupt:
         print("\n  종료")

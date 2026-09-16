@@ -1,64 +1,31 @@
-"""링크 노드 — UDP 14550 을 독점하고 양방향을 담당한다.
+"""링크 노드 — UDP 14550 을 혼자 잡고 앱과 양방향으로 말한다.
 
     ros2 run rd_bridge link_node
     ros2 run rd_bridge link_node --ros-args -p dry_run:=true     # 전송 없이 변환만
 
-**다운링크** 앱 → 토픽
+다운링크 (앱 → 토픽, 새 값이 올 때만 발행 — 주기는 토픽.md)
+    /rd/fix       NavSatFix         위경도 · altitude 에 **상대고도**
+    /rd/rel_alt   Float32           상대고도 m
+    /rd/attitude  Vector3Stamped    roll · pitch · yaw **deg**
+    /rd/heading   Float64           기수 deg (0=북, 시계)
+    /rd/velocity  TwistStamped      대지속도 **ENU** m/s (z>0 상승)
+    /rd/gspeed    Float32           대지속도 크기 m/s
+    /rd/battery   BatteryState      전압 · 전류 (patches/03 필요)
+    /rd/ack       Int32MultiArray   [명령번호, 결과]
 
-    /rd/fix          sensor_msgs/NavSatFix        위경도 · 상대고도(altitude 에 넣는다)
-    /rd/rel_alt      std_msgs/Float32             상대고도 m (이륙 지점 기준)
-    /rd/attitude     geometry_msgs/Vector3Stamped roll · pitch · yaw, **단위 deg**
-    /rd/heading      std_msgs/Float64             기수 deg (0=북, 시계방향) = attitude.z
-    /rd/velocity     geometry_msgs/TwistStamped   대지 속도벡터 m/s, **ENU**(x=동 y=북 z=위)
-    /rd/gspeed       std_msgs/Float32             대지속도 크기 m/s
-    /rd/battery      sensor_msgs/BatteryState     전압·전류 (patches/03 적용 후 유효)
+업링크 (토픽 → 앱)
+    /cmd_vel      Twist             → #84, 20Hz. **앱 규약**: x>0 앞 · y>0 오른쪽 · z>0 위 ·
+                                      angular.z>0 시계(rad/s). REP-103 이 아니다
+    /rd/command   Float64MultiArray [명령번호, p1..p7] → COMMAND_LONG
 
-⚠ **단위·좌표계를 여기서 못 박는다.** 이 저장소는 전부 deg 로 말하므로 자세도 deg 로
-  낸다(라디안 아님). 속도는 앱이 주는 NED(북·동·**아래**)를 ROS 관례인 ENU(동·북·위)로
-  바꿔 낸다 — `vz>0 이 상승`이다. 단, 이건 **#84 로 보내는 vz 와는 무관한 이야기**다
-  (그쪽은 기체 기준 BODY, 이쪽은 지구 기준 ENU).
+/cmd_vel 이 오기 전에는 #84 를 한 발도 안 쏜다 — 앱은 #84 를 받는 순간 Virtual Stick 을
+켜고, 그동안 RC 스틱이 안 먹는다.
+    IDLE → (Twist 옴) → ACTIVE 20Hz → (0.3초 끊김) → BRAKE 0 을 1초 → IDLE 송신 정지
 
-**업링크** /cmd_vel (geometry_msgs/Twist) → MAVLink #84, 20Hz
-
-⚠⚠ **UDP 14550 은 한 프로세스만 제대로 잡을 수 있다.** 두 번째 bind 는 (커널에 따라)
-  성공해 버리는데 그러면 패킷이 둘로 쪼개져 **양쪽 다 망가진다.** 그래서 다운링크와
-  업링크를 한 노드에 둔다 — 항법(nav_node) 은 이 토픽들을 구독해서 계산만 한다.
-  QGC·gps_capture.py 등 14550 을 쓰는 다른 것과도 **동시에 못 쓴다.**
-
-────────────────────────────────────────────────────────────────
-① 축·부호 — /cmd_vel 은 **앱 규약 그대로** 받는다 (2026-09-15 결정)
-────────────────────────────────────────────────────────────────
-REP-103(FLU) 이 아니다. 9/9 SIM 실측의 앱 규약(할일.md 제약 #2)을 그대로 쓴다:
-
-    linear.x   vx       >0 = 앞
-    linear.y   vy       >0 = **오른쪽**
-    linear.z   vz       >0 = 위
-    angular.z  yawRate  >0 = **시계** (단위 rad/s, 여기서 deg/s 로 바꾼다)
-
-그래서 변환이 없다(scale_* 전부 1). ⚠ teleop_twist_keyboard 같은 ROS 표준 도구는
-좌우·회전이 반대로 간다.
-
-**명령** /rd/command (Float64MultiArray: [명령번호, p1..p7]) → COMMAND_LONG(#76)
-       /rd/ack     (Int32MultiArray:   [명령번호, 결과])  ← COMMAND_ACK(#77)
-
-────────────────────────────────────────────────────────────────
-② 언제 쏘고 언제 입을 닫는가 — 9/11 RC 사고와 직결된다
-────────────────────────────────────────────────────────────────
-앱은 #84 를 하나 받으면 startMotion() 에서 **setVirtualSticksEnabled(true)** 를
-부른다(DroneModel.java:2257). Virtual Stick 이 켜져 있는 동안 DJI 는 **물리 RC
-스틱을 무시**한다. 그래서 이 노드는 "0 이라도 계속 쏘는" 설계를 하지 않는다:
-
-    IDLE   /cmd_vel 이 온 적 없다 → **한 발도 안 쏜다** (Virtual Stick 을 안 켠다)
-    ACTIVE Twist 가 계속 온다     → 20Hz 로 그 값을 쏜다
-    BRAKE  Twist 가 끊겼다        → 0 을 brake_secs(기본 1.0초) 동안 쏴서 세우고
-    IDLE   그 뒤 **입을 닫는다**  → 앱의 200ms 데드맨이 모션을 끝낸다
-
-⚠⚠ **입을 닫아도 Virtual Stick 은 안 풀린다.** 데드맨 만료가 부르는 cancelMotion()
-은 타이머만 죽인다(DroneModel.java:2279). 조종권을 RC 로 되돌리는 경로는 실질적으로
-**앱 화면의 Safety(자물쇠) 버튼** 하나뿐이다(제약 #21). 순서: ①이 노드 종료
-②스틱 놓고 5초 ③Safety 버튼, 안 되면 S 모드.
-
-③ ACCEPTED 는 성공이 아니다(제약 #1). ACK 수는 "앱이 #84 를 받았다"까지만 말해준다.
+⚠ IDLE 로 돌아가도 Virtual Stick 은 안 풀린다. RC 로 되돌리기: 이 노드 종료 → 스틱 놓고
+  5초 → 앱 Safety 버튼, 안 되면 S 모드.
+⚠ 14550 은 한 프로세스만 잡는다 — QGC·gps_capture.py 와 같이 못 쓴다.
+⚠ 앱의 ACK 는 무조건 ACCEPTED 다. ACK 수는 "앱이 받았다"까지만 말해 준다.
 """
 import math
 import os
@@ -67,15 +34,14 @@ import sys
 import time
 
 import rclpy
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, TwistStamped, Vector3Stamped
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
-from geometry_msgs.msg import TwistStamped, Vector3Stamped
 from sensor_msgs.msg import BatteryState, NavSatFix, NavSatStatus
 from std_msgs.msg import Float32, Float64, Float64MultiArray, Int32MultiArray
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import mav  # noqa: E402  (tools/mav.py 의 심링크 — 링크 계층 L1 을 그대로 쓴다)
+import mav  # noqa: E402  (tools/mav.py 의 심링크)
 
 IDLE, ACTIVE, BRAKE = "IDLE", "ACTIVE", "BRAKE"
 
@@ -85,20 +51,12 @@ class CmdVelNode(Node):
     def __init__(self):
         super().__init__("rd_link")
 
-        self.declare_parameter("port", 14550)
-        self.declare_parameter("rate", 20.0)
-        self.declare_parameter("deadman", 0.3)
-        self.declare_parameter("brake_secs", 1.0)
-        self.declare_parameter("max_vx", 2.5)
-        self.declare_parameter("max_vy", 2.5)
-        self.declare_parameter("max_vz", 1.5)
-        self.declare_parameter("max_yaw_rate", 75.0)     # deg/s
-        self.declare_parameter("scale_vx", 1.0)
-        self.declare_parameter("scale_vy", 1.0)          # /cmd_vel 은 앱 규약 — 변환 없음
-        self.declare_parameter("scale_vz", 1.0)          # 둘 다 위가 양수 — 반전 없음
-        self.declare_parameter("scale_yaw", 1.0)
-        self.declare_parameter("dry_run", False)
-        self.declare_parameter("discover_secs", 6.0)
+        # max_* 는 안전 캡(yaw 는 deg/s). scale_* 는 전부 1 — /cmd_vel 이 이미 앱 규약이다
+        for name, val in [("port", 14550), ("rate", 20.0), ("deadman", 0.3), ("brake_secs", 1.0),
+                          ("max_vx", 2.5), ("max_vy", 2.5), ("max_vz", 1.5), ("max_yaw_rate", 75.0),
+                          ("scale_vx", 1.0), ("scale_vy", 1.0), ("scale_vz", 1.0), ("scale_yaw", 1.0),
+                          ("dry_run", False), ("discover_secs", 6.0)]:
+            self.declare_parameter(name, val)
 
         g = self.get_parameter
         self.rate = g("rate").value
@@ -110,7 +68,7 @@ class CmdVelNode(Node):
                       g("scale_vz").value, g("scale_yaw").value)
         self.dry_run = g("dry_run").value
 
-        self.cmd = (0.0, 0.0, 0.0, 0.0)      # 앱 규약으로 변환·클램프된 마지막 값
+        self.cmd = (0.0, 0.0, 0.0, 0.0)      # 클램프된 마지막 값 (yaw 는 deg/s)
         self.t_cmd = 0.0                      # 마지막 Twist 도착 시각
         self.t_brake = 0.0                    # BRAKE 로 들어간 시각
         self.state = IDLE
@@ -128,7 +86,7 @@ class CmdVelNode(Node):
             if addr:
                 self.get_logger().info(f"앱 = {addr[0]}:{addr[1]}")
             else:
-                # 앱이 늦게 켜져도 된다. poll() 이 봉투에서 주소를 잡아준다(제약 #7)
+                # 앱이 늦게 켜져도 된다 — poll() 이 주소를 잡는다
                 self.get_logger().warning(
                     "아직 아무것도 안 온다 — 앱이 켜지면 자동으로 붙는다. "
                     "안 붙으면 ./tools/link_check.sh 로 T0 부터")
@@ -141,9 +99,7 @@ class CmdVelNode(Node):
         self.pub_vel = self.create_publisher(TwistStamped, "rd/velocity", 10)
         self.pub_gsp = self.create_publisher(Float32, "rd/gspeed", 10)
         self.pub_bat = self.create_publisher(BatteryState, "rd/battery", 10)
-        # 마지막으로 발행한 값의 수신시각. 앱은 메시지마다 주기가 다르다
-        # (자세 10Hz · 위치 5Hz · GPS 3.3Hz · 배터리 1Hz) — 고정 주기로 발행하면
-        # 빠른 것은 깎이고 느린 것은 같은 값이 중복으로 나간다.
+        # 종류별로 마지막에 발행한 값의 수신 시각 — 새 값만 낸다
         self.seen = {"pos": 0.0, "att": 0.0, "hud": 0.0, "sys": 0.0}
 
         self.create_subscription(Twist, "cmd_vel", self.on_cmd, 10)
@@ -152,8 +108,7 @@ class CmdVelNode(Node):
         self.create_timer(1.0 / self.rate, self.tick)
         self.create_timer(2.0, self.report)
         self.get_logger().info(
-            f"/cmd_vel 대기 중. 한 발도 오기 전에는 아무것도 쏘지 않는다 "
-            f"(Virtual Stick 을 미리 켜지 않기 위해서 — docstring ② 참고). "
+            f"/cmd_vel 대기 중 — 오기 전에는 #84 를 쏘지 않는다. "
             f"캡 vx±{self.cap[0]} vy±{self.cap[1]} vz±{self.cap[2]} yaw±{self.cap[3]}°/s")
 
     # ------------------------------------------------------------ Twist 수신
@@ -181,7 +136,7 @@ class CmdVelNode(Node):
 
     # ------------------------------------------------------------ 명령 수신
     def on_command(self, msg):
-        """[명령번호, p1..p7] → COMMAND_LONG. 짐벌·이륙 등 (rd_cmd.py 가 쓴다)."""
+        """[명령번호, p1..p7] → COMMAND_LONG (짐벌·이륙)."""
         d = list(msg.data)
         if not d:
             return
@@ -205,8 +160,7 @@ class CmdVelNode(Node):
                 "RC 로 넘기려면 이 노드를 끄고 앱의 Safety 버튼을 누를 것")
 
         if self.state == IDLE:
-            # 하트비트만 유지한다. 앱의 GCS_TIMEOUT 은 2초이고, 하트비트는
-            # 모션을 일으키지 않으므로 Virtual Stick 도 켜지 않는다.
+            # 하트비트만 — 모션을 안 일으키므로 Virtual Stick 을 안 켠다
             if self.link is not None:
                 self.link.heartbeat()
                 self._drain()
@@ -221,11 +175,7 @@ class CmdVelNode(Node):
         self.sent += 1
 
     def _drain(self):
-        """받은 것을 읽어 텔레메트리·ACK 를 갱신하고 **새 값만** 발행한다.
-
-        앱 주소도 여기서 따라간다(mav.Link.poll 참고). 20Hz 로 불리지만 발행은
-        새 값이 왔을 때만 나간다 — 앱이 주는 주기를 그대로 따라간다.
-        """
+        """받은 것을 읽어 ACK 와 텔레메트리를 발행한다."""
         for mid, p in self.link.poll():
             if mid == 77:
                 cmd, res = struct.unpack_from("<HB", p, 0)
@@ -236,11 +186,10 @@ class CmdVelNode(Node):
 
     # -------------------------------------------------------------- 다운링크
     def publish_telemetry(self):
-        """앱에서 **새로 온** 값만 토픽으로 낸다.
+        """앱에서 **새로 온** 값만 낸다.
 
-        ⚠ 같은 값을 재발행하지 않는다. 구독자(항법)가 "좌표가 살아있다"고 착각하면
-          안 된다 — 링크가 끊긴 것과 기체가 멈춰 있는 것은 구별돼야 한다.
-          nav_node 의 좌표 신선도 게이트가 이 전제 위에 서 있다.
+        같은 값을 재발행하면 링크가 끊겨도 "좌표가 살아 있다"로 보인다 —
+        nav_node 의 좌표 신선도 검사(1초)가 이걸 전제로 한다.
         """
         if self.link is None:
             return
@@ -255,12 +204,9 @@ class CmdVelNode(Node):
             fix.header.frame_id = "wgs84"
             fix.latitude = t["lat"]
             fix.longitude = t["lon"]
-            # ⚠ 여기 들어가는 것은 **상대고도**다(이륙 지점 기준). NavSatFix.altitude
-            #   는 원래 타원체고도지만, 이 앱에서 우리가 쓸 수 있는 건 상대고도이고
-            #   유도도 상대고도로 한다. 헷갈리지 않게 amsl 은 안 쓴다.
-            fix.altitude = t.get("alt", 0.0)
+            fix.altitude = t.get("alt", 0.0)      # ⚠ 규격은 타원체고도지만 상대고도를 넣는다
             st = NavSatStatus()
-            # MAVLink GPS_FIX_TYPE: 0·1=없음 2=2D 3 이상=3D
+            # GPS_FIX_TYPE: 0·1=없음 2=2D 3 이상=3D
             st.status = (NavSatStatus.STATUS_FIX if t.get("fix", 0) >= 2
                          else NavSatStatus.STATUS_NO_FIX)
             st.service = NavSatStatus.SERVICE_GPS
@@ -278,7 +224,7 @@ class CmdVelNode(Node):
                 v.twist.linear.z = -t["vd"]         # 위  ← NED 의 down 을 뒤집는다
                 self.pub_vel.publish(v)
 
-        # ── 자세 (#30, 10Hz) — 여기가 가장 빠르다. 깎지 않는다
+        # ── 자세 (#30, 10Hz)
         if t.get("t_att", 0.0) > self.seen["att"]:
             self.seen["att"] = t["t_att"]
             a = Vector3Stamped()
@@ -327,7 +273,7 @@ class CmdVelNode(Node):
 
     # ------------------------------------------------------------------ 종료
     def shutdown(self):
-        """멈추는 명령을 확실히 남기고 끝낸다 (rd_cmd.py drive 와 같은 마무리)."""
+        """끝낼 때 0 을 1초 쏜다."""
         if self.link is None or self.sent == 0:
             return
         self.get_logger().info("정지 명령 송출(1초)")
