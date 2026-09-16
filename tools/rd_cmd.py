@@ -15,6 +15,7 @@
     python3 tools/rd_cmd.py vel --axes               # T5 축·부호 확인 순서 (SIM 에서)
     python3 tools/rd_cmd.py vel --vx 0.5 --secs 3    #    한 축만
     python3 tools/rd_cmd.py follow                  # 태그 추종 켜고 끄기 + 실기 튜닝
+    python3 tools/rd_cmd.py mission missions/square10.txt   # 경유점 비행 (nav_node)
 
 기체 없이 시험하려면 다른 터미널에 `python3 tools/fake_app.py` 를 띄우고 브리지를 붙인다.
 속도는 link_node 캡(수평 2.5 · 수직 1.5 m/s · 75°/s)에서 한 번 더 깎인다.
@@ -46,7 +47,7 @@ from rcl_interfaces.msg import Parameter as ParamMsg, ParameterType, ParameterVa
 from rcl_interfaces.srv import GetParameters, SetParameters
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix
-from std_msgs.msg import Bool, Float64, Float64MultiArray, Int32MultiArray
+from std_msgs.msg import Bool, Empty, Float64, Float64MultiArray, Int32MultiArray
 from tf2_msgs.msg import TFMessage
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -435,6 +436,14 @@ TUNE_HELP = ("[ ] kp · , . max_speed · ; ' min_speed · - = hold_alt · "
              "o p deadband · n m yaw_deadband · y yaw 켜고끄기")
 
 
+def tune(k, table, par, tuner):
+    """튜닝 키 하나를 적용한다. table 에 없는 키는 무시."""
+    if k in table:
+        name, step, lo, hi = table[k]
+        par[name] = round(min(hi, max(lo, par[name] + step)), 2)
+        tuner.write(name, par[name])
+
+
 def wait_future(fut, secs=2.0):
     """⚠ spin_until_future_complete 를 쓰면 안 된다 — connect() 의 spin 스레드와 겹친다."""
     t0 = time.time()
@@ -521,7 +530,7 @@ def cmd_follow(args):
     print("=" * 72)
     print(f"  space 시작/정지 · q 종료\n  {TUNE_HELP}\n")
 
-    armed = False
+    armed, t_arm = False, 0.0
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
     tty.setcbreak(fd)
@@ -530,17 +539,15 @@ def cmd_follow(args):
         while not quit_:
             for k in read_keys(max(0.0, nxt - time.time())):
                 if k == " ":
-                    armed = not armed
+                    armed, t_arm = not armed, time.time()
                     pub.publish(Bool(data=armed))
                 elif k == "q":
                     quit_ = True
                 elif k == "y":
                     par["yaw_enable"] = not par["yaw_enable"]
                     tuner.write("yaw_enable", par["yaw_enable"])
-                elif k in TUNE:
-                    name, step, lo, hi = TUNE[k]
-                    par[name] = round(min(hi, max(lo, par[name] + step)), 2)
-                    tuner.write(name, par[name])
+                else:
+                    tune(k, TUNE, par, tuner)
             now = time.time()
             if now < nxt:
                 continue
@@ -554,14 +561,19 @@ def cmd_follow(args):
             else:
                 see = (f"앞{par['sign_fwd'] * tag['y']:+.2f} "
                        f"오{par['sign_right'] * tag['x']:+.2f} z{tag['z']:4.2f}m")
-            state = "대기  " if not armed else ("추종중" if now - cmd["t"] < 1.5 else "명령끊김")
+            if not armed:
+                state = "대기"
+            elif now - cmd["t"] < 1.5:
+                state = "추종중"
+            else:     # 켠 직후는 아직 첫 명령이 안 왔을 뿐이다
+                state = "시작 중…" if now - t_arm < 1.5 else "명령끊김"
             vx, vy, vz, wz = cmd["v"]
             sys.stdout.write(
                 f"\r[{state}] {see} · cmd {vx:+.2f} {vy:+.2f} {vz:+.2f} {wz:+3.0f}°/s"
                 f" · kp{par['kp']:.2f} spd{par['min_speed']:.2f}~{par['max_speed']:.2f}"
                 f" alt{par['hold_alt']:.1f} db{par['deadband']:.1f}/{par['yaw_deadband']:.0f}°"
                 f" yaw{'켬' if par['yaw_enable'] else '끔'}"
-                f" · 고도{fmt(link.tel.get('alt'), 'm')}   ")
+                f" · 고도{fmt(link.tel.get('alt'), 'm')}\x1b[K")      # 줄 끝까지 지운다
             sys.stdout.flush()
     except KeyboardInterrupt:
         pass
@@ -575,10 +587,166 @@ def cmd_follow(args):
     return 0
 
 
+# --------------------------------------------------------------- mission
+NAV_NODE = "/rd_nav"
+NAV_TUNE = {
+    "[": ("kp",            -0.05, 0.05, 3.0), "]": ("kp",            +0.05, 0.05, 3.0),
+    ",": ("max_speed",     -0.10, 0.10, 2.5), ".": ("max_speed",     +0.10, 0.10, 2.5),
+    "o": ("arrive_radius", -0.50, 0.50, 10.0), "p": ("arrive_radius", +0.50, 0.50, 10.0),
+}
+NAV_TUNE_HELP = "[ ] kp · , . max_speed · o p arrive_radius"
+
+
+def load_mission(path):
+    """미션 파일 → [(종류, a, b, alt), ...]. 한 줄에 한 점, # 뒤는 주석.
+
+        gps     <위도> <경도> [고도]
+        offset  <앞 m> <오른쪽 m> [고도]
+
+    고도를 빼거나 0 이하면 시작할 때 고도를 유지한다.
+    offset 은 전부 **시작하는 순간의 위치·기수 기준**이다 (앞 점 기준이 아니다).
+    """
+    pts = []
+    for no, line in enumerate(open(path, encoding="utf-8"), 1):
+        f = line.split("#")[0].split()
+        if not f:
+            continue
+        if f[0] not in ("gps", "offset") or len(f) not in (3, 4):
+            raise ValueError(f"{path}:{no}: '{line.strip()}' — gps|offset <a> <b> [고도]")
+        pts.append((f[0], float(f[1]), float(f[2]), float(f[3]) if len(f) == 4 else 0.0))
+    if not pts:
+        raise ValueError(f"{path}: 경유점이 없다")
+    return pts
+
+
+def resolve(pts, lat, lon, hdg):
+    """offset 을 지금 위치·기수로 좌표로 바꾼다 → [(lat, lon, alt), ...]"""
+    return [(a, b, alt) if kind == "gps" else mav.offset_to_gps(lat, lon, hdg, a, b) + (alt,)
+            for kind, a, b, alt in pts]
+
+
+def print_plan(pts, goals, here):
+    print(f"\n  {'#':>2}  {'종류':<6} {'입력':<24} {'좌표':<25} {'고도':>5} {'구간':>8}")
+    prev, total = here, 0.0
+    for i, ((kind, a, b, alt), (lat, lon, _)) in enumerate(zip(pts, goals), 1):
+        leg = mav.meters_between(prev[0], prev[1], lat, lon)
+        total += leg
+        print(f"  {i:>2}  {kind:<6} {a:>11.7g} {b:>11.7g}  {lat:.7f},{lon:.7f} "
+              f"{'유지' if alt <= 0 else f'{alt:.1f}':>5} {leg:>7.1f}m")
+        prev = (lat, lon)
+    print(f"  {'':>2}  합계 {total:.1f}m")
+
+
+def cmd_mission(args):
+    """경유점 비행 — 파일을 읽어 nav_node 에 넘기고 진행을 본다.
+
+    space 시작/중단 · q 종료(중단하고 나간다) · 그 밖의 키는 NAV_TUNE_HELP.
+
+    ⚠ 이 도구도 /cmd_vel 을 직접 쏘지 않는다 — nav_node 가 낸다. tag_follow_node 와
+      같이 켜 두지 말 것 (둘 다 /cmd_vel). 급할 때는 space.
+    """
+    try:
+        pts = load_mission(args.file)
+    except (OSError, ValueError) as e:
+        print(f"✗ {e}")
+        return 1
+
+    link = connect()
+    if link is None:
+        return 1
+    tuner = Tuner(link, NAV_NODE)
+    par = tuner.read(("kp", "max_speed", "arrive_radius"))
+    if not par:
+        print(f"  ✗ {NAV_NODE} 의 파라미터를 못 읽는다 — nav_node 가 안 떠 있다")
+        print("     ros2 launch rd_bridge bridge.launch.py        (nav:=true 가 기본)")
+        return 1
+    t0 = time.time()
+    while "lat" not in link.tel and time.time() - t0 < 5.0:
+        time.sleep(0.1)
+    if "lat" not in link.tel:
+        print("  ✗ /rd/fix 가 안 온다 — 좌표 없이는 시작 못 한다")
+        return 1
+
+    here = (link.tel["lat"], link.tel["lon"])
+    print(f"\n{args.file} — 경유점 {len(pts)}개 (지금 위치·기수 {link.tel['yaw']:.0f}° 기준 미리보기)")
+    print_plan(pts, resolve(pts, *here, link.tel["yaw"]), here)
+    if any(k == "offset" for k, *_ in pts):
+        print("  ⚠ offset 은 space 를 누르는 순간의 위치·기수로 다시 계산한다")
+
+    wp = {"i": 0, "n": 0}
+    cmd = {"t": 0.0, "v": (0.0, 0.0, 0.0)}
+    link.create_subscription(Int32MultiArray, "nav/wp",
+                             lambda m: wp.update(i=m.data[0], n=m.data[1]), 10)
+    link.create_subscription(Twist, "cmd_vel", lambda m: cmd.update(
+        t=time.time(), v=(m.linear.x, m.linear.y, m.linear.z)), 10)
+    pub_mission = link.create_publisher(Float64MultiArray, "nav/mission", 10)
+    pub_cancel = link.create_publisher(Empty, "nav/cancel", 10)
+    time.sleep(0.6)      # 퍼블리셔가 nav_node 와 짝지어질 시간
+
+    print("\n" + "=" * 72)
+    print("  ⚠ space 를 누르면 기체가 **움직인다**. RC 모드 스위치 P · 스틱 놓고 5초")
+    print("  ⚠ 조종권은 저절로 RC 로 안 돌아온다 — 급하면 S 모드 전환")
+    print("=" * 72)
+    print(f"  space 시작/중단 · q 종료\n  {NAV_TUNE_HELP}\n")
+
+    goals, t_start = [], 0.0
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    tty.setcbreak(fd)
+    try:
+        nxt, quit_ = time.time(), False
+        while not quit_:
+            for k in read_keys(max(0.0, nxt - time.time())):
+                if k == " " and wp["n"]:
+                    pub_cancel.publish(Empty())
+                elif k == " ":
+                    t = link.tel
+                    goals = resolve(pts, t["lat"], t["lon"], t["yaw"])
+                    pub_mission.publish(Float64MultiArray(data=[v for g in goals for v in g]))
+                    t_start = time.time()
+                elif k == "q":
+                    quit_ = True
+                else:
+                    tune(k, NAV_TUNE, par, tuner)
+            now = time.time()
+            if now < nxt:
+                continue
+            nxt += 0.2                                   # 5Hz 로만 그린다
+
+            t = link.tel
+            if wp["n"] and wp["n"] == len(goals):
+                glat, glon, _ = goals[wp["i"] - 1]
+                d = mav.meters_between(t["lat"], t["lon"], glat, glon)
+                state = f"비행중 {wp['i']}/{wp['n']}] 목표까지 {d:5.1f}m"
+            elif wp["n"]:      # 다른 터미널에서 준 미션 — 목표를 모른다
+                state = f"비행중 {wp['i']}/{wp['n']}] (다른 곳에서 준 미션)"
+            elif not t_start:
+                state = "대기]"
+            elif now - t_start < 1.5:          # /nav/wp 가 아직 안 왔다
+                state = "시작 중…]"
+            else:
+                state = "끝남] 이유는 nav_node 로그"
+            vx, vy, vz = cmd["v"] if now - cmd["t"] < 0.5 else (0.0, 0.0, 0.0)
+            sys.stdout.write(
+                f"\r[{state} · 고도{fmt(t.get('alt'), 'm')} · cmd {vx:+.2f} {vy:+.2f} {vz:+.2f}"
+                f" · kp{par['kp']:.2f} spd{par['max_speed']:.1f} 반경{par['arrive_radius']:.1f}m\x1b[K")
+            sys.stdout.flush()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        for _ in range(2):                    # 무슨 일이 있어도 중단시키고 나간다
+            pub_cancel.publish(Empty())
+            time.sleep(0.3)
+        print("\n■ /nav/cancel 송출 — nav_node 가 0 을 내고 link_node 가 1초 브레이크")
+        print("⚠ RC 로 되돌리기: S 모드 전환 (또는 스틱 놓고 5초 → 앱 Safety 버튼)")
+    return 0
+
+
 # ------------------------------------------------------------------ main
 def main():
     ap = argparse.ArgumentParser(
-        description="업링크 명령 도구 (ping · gimbal · drive · vel · follow)")
+        description="업링크 명령 도구 (ping · gimbal · drive · vel · follow · mission)")
     sub = ap.add_subparsers(dest="mode", required=True)
 
     p = sub.add_parser("ping", help="업링크가 열렸나 — 기체 안 움직임")
@@ -612,10 +780,13 @@ def main():
     p.add_argument("--tag-frame", default="tag0", dest="tag_frame",
                    help="tags.yaml 의 frames 와 같아야 한다")
 
+    p = sub.add_parser("mission", help="경유점 비행 — 파일을 nav_node 에 넘긴다")
+    p.add_argument("file", help="missions/*.txt — 줄마다 gps|offset <a> <b> [고도]")
+
     args = ap.parse_args()
     try:
         return {"ping": cmd_ping, "gimbal": cmd_gimbal, "drive": cmd_drive,
-                "vel": cmd_vel, "follow": cmd_follow}[args.mode](args)
+                "vel": cmd_vel, "follow": cmd_follow, "mission": cmd_mission}[args.mode](args)
     finally:
         if SPIN["thread"] is not None:
             SPIN["stop"] = True

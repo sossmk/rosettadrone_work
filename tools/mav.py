@@ -82,6 +82,19 @@ def bearing_between(lat1, lon1, lat2, lon2):
     return math.degrees(math.atan2(y, x)) % 360.0
 
 
+def offset_to_gps(lat, lon, heading, fwd, right):
+    """기체 기준(앞·오른쪽 m) → 좌표. heading 은 deg (0=북, 시계).
+
+    nav_node 의 goal_offset·mission_offset 과 rd_cmd.py mission 이 같이 쓴다.
+    """
+    h = math.radians(heading)
+    north = fwd * math.cos(h) - right * math.sin(h)
+    east = fwd * math.sin(h) + right * math.cos(h)
+    R = 6371000.0
+    return (lat + math.degrees(north / R),
+            lon + math.degrees(east / (R * math.cos(math.radians(lat)))))
+
+
 def relative_bearing(move_bearing, heading):
     """이동 방위각을 기수 기준 상대각(-180~180)으로. 0=앞, +90=오른쪽, 180=뒤, -90=왼쪽."""
     return (move_bearing - heading + 540.0) % 360.0 - 180.0
