@@ -147,7 +147,7 @@ RM500 의 USB 옵션을 **`Transfer files`(MTP)** 로 두고 케이블을 꽂으
 | `tools/tag_check.py` | **태그가 왜 안 잡히나** — 사진·영상에서 태그를 찾아 이유를 말해 준다 |
 | `토픽.md` | **토픽 한 장** — 형식·주기·단위·좌표계. 주기 확인은 `ros2 topic hz` |
 | `missions/` | 경유점 파일 (`rd_cmd.py mission`) |
-| `tools/gps_capture.py` | **좌표 측정** — 현재 좌표를 재고 저장(`nav_node` 에 줄 목표) |
+| `tools/gps_capture.py` | **경로 기록** — RC 로 날며 Enter 마다 좌표를 `missions/*.txt` 에 쌓는다 (`rd_cmd.py mission` 으로 날림) |
 | `ros2/` | **ROS 2 브리지 + 항법 (`rd_bridge`).** 영상 → `/image_raw` · 다운링크 → `/rd/*` · `/cmd_vel` → #84 · **`nav_node` = 유도 루프(우리 것, `flyTo()` 대체)**. ⚠ 실기 검증 전 — `ros2/README.md` |
 | `tools/mav.py` | MAVLink v2 최소 구현(공유). CRC 는 앱의 `CRC.java` 에서 직접 뽑았다 |
 | `secrets/keys.xml` | **DJI App Key. 아래 경고 참조** |
