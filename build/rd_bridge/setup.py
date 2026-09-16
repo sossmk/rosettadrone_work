@@ -1,0 +1,1 @@
+/home/kriso/rosetta_drone_ws/rosettadrone_work/ros2/src/rd_bridge/setup.py

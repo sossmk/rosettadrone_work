@@ -1,0 +1,22 @@
+[1.698s] Invoking command in '/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build --no-deps symlink_data --force
+[2.326s] running develop
+[2.710s] running egg_info
+[2.749s] writing rd_bridge.egg-info/PKG-INFO
+[2.749s] writing dependency_links to rd_bridge.egg-info/dependency_links.txt
+[2.749s] writing entry points to rd_bridge.egg-info/entry_points.txt
+[2.750s] writing requirements to rd_bridge.egg-info/requires.txt
+[2.750s] writing top-level names to rd_bridge.egg-info/top_level.txt
+[2.828s] reading manifest file 'rd_bridge.egg-info/SOURCES.txt'
+[2.829s] writing manifest file 'rd_bridge.egg-info/SOURCES.txt'
+[2.869s] running build_ext
+[2.869s] Creating /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages/rd-bridge.egg-link (link to .)
+[2.870s] Installing link_node script to /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/rd_bridge
+[2.870s] Installing nav_node script to /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/rd_bridge
+[2.871s] Installing video_node script to /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/rd_bridge
+[2.871s] 
+[2.871s] Installed /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge
+[2.871s] running symlink_data
+[2.872s] symbolically linking /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/resource/rd_bridge -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/ament_index/resource_index/packages
+[2.872s] symbolically linking /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/package.xml -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge
+[2.872s] symbolically linking /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/launch/bridge.launch.py -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/launch
+[2.918s] Invoked command in '/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge' returned '0': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build --no-deps symlink_data --force

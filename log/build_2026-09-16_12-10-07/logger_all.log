@@ -1,0 +1,248 @@
+[0.214s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build', '--symlink-install']
+[0.214s] DEBUG:colcon:Parsed command line arguments: Namespace(log_base=None, log_level=None, verb_name='build', build_base='build', install_base='install', merge_install=False, symlink_install=True, test_result_base=None, continue_on_error=False, executor='parallel', parallel_workers=8, event_handlers=None, ignore_user_meta=False, metas=['./colcon.meta'], base_paths=['.'], packages_ignore=None, packages_ignore_regex=None, paths=None, packages_up_to=None, packages_up_to_regex=None, packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_select_by_dep=None, packages_skip_by_dep=None, packages_skip_up_to=None, packages_select_build_failed=False, packages_skip_build_finished=False, packages_select_test_failures=False, packages_skip_test_passed=False, packages_select=None, packages_skip=None, packages_select_regex=None, packages_skip_regex=None, packages_start=None, packages_end=None, allow_overriding=[], cmake_args=None, cmake_target=None, cmake_target_skip_unavailable=False, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, ament_cmake_args=None, catkin_cmake_args=None, catkin_skip_building_tests=False, mixin_files=None, mixin=None, verb_parser=<colcon_mixin.mixin.mixin_argument.MixinArgumentDecorator object at 0x751f49cb2ea0>, verb_extension=<colcon_core.verb.build.BuildVerb object at 0x751f49cb1400>, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0x751f49cb1400>>, mixin_verb=('build',))
+[0.288s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[0.288s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[0.288s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[0.288s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[0.288s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[0.288s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[0.288s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/kriso/rosetta_drone_ws/rosettadrone_work'
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[0.338s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['ignore', 'ignore_ament_install']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ignore'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(build) ignored
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['ignore', 'ignore_ament_install']
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ignore'
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(install) ignored
+[0.339s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extensions ['ignore', 'ignore_ament_install']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extension 'ignore'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(log) ignored
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(logs) by extensions ['ignore', 'ignore_ament_install']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(logs) by extension 'ignore'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(logs) by extension 'ignore_ament_install'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(logs) by extensions ['colcon_pkg']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(logs) by extension 'colcon_pkg'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(logs) by extensions ['colcon_meta']
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(logs) by extension 'colcon_meta'
+[0.340s] Level 1:colcon.colcon_core.package_identification:_identify(logs) by extensions ['ros']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(logs) by extension 'ros'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(logs) by extensions ['cmake', 'python']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(logs) by extension 'cmake'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(logs) by extension 'python'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(logs) by extensions ['python_setup_py']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(logs) by extension 'python_setup_py'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(patches) by extensions ['ignore', 'ignore_ament_install']
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(patches) by extension 'ignore'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(patches) by extension 'ignore_ament_install'
+[0.341s] Level 1:colcon.colcon_core.package_identification:_identify(patches) by extensions ['colcon_pkg']
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(patches) by extension 'colcon_pkg'
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(patches) by extensions ['colcon_meta']
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(patches) by extension 'colcon_meta'
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(patches) by extensions ['ros']
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(patches) by extension 'ros'
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(patches) by extensions ['cmake', 'python']
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(patches) by extension 'cmake'
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(patches) by extension 'python'
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(patches) by extensions ['python_setup_py']
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(patches) by extension 'python_setup_py'
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(ros2) by extensions ['ignore', 'ignore_ament_install']
+[0.342s] Level 1:colcon.colcon_core.package_identification:_identify(ros2) by extension 'ignore'
+[0.343s] Level 1:colcon.colcon_core.package_identification:_identify(ros2) by extension 'ignore_ament_install'
+[0.343s] Level 1:colcon.colcon_core.package_identification:_identify(ros2) by extensions ['colcon_pkg']
+[0.343s] Level 1:colcon.colcon_core.package_identification:_identify(ros2) by extension 'colcon_pkg'
+[0.343s] Level 1:colcon.colcon_core.package_identification:_identify(ros2) by extensions ['colcon_meta']
+[0.343s] Level 1:colcon.colcon_core.package_identification:_identify(ros2) by extension 'colcon_meta'
+[0.343s] Level 1:colcon.colcon_core.package_identification:_identify(ros2) by extensions ['ros']
+[0.343s] Level 1:colcon.colcon_core.package_identification:_identify(ros2) by extension 'ros'
+[0.343s] Level 1:colcon.colcon_core.package_identification:_identify(ros2) by extensions ['cmake', 'python']
+[0.343s] Level 1:colcon.colcon_core.package_identification:_identify(ros2) by extension 'cmake'
+[0.343s] Level 1:colcon.colcon_core.package_identification:_identify(ros2) by extension 'python'
+[0.343s] Level 1:colcon.colcon_core.package_identification:_identify(ros2) by extensions ['python_setup_py']
+[0.343s] Level 1:colcon.colcon_core.package_identification:_identify(ros2) by extension 'python_setup_py'
+[0.344s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/build) by extensions ['ignore', 'ignore_ament_install']
+[0.344s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/build) by extension 'ignore'
+[0.344s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/build) ignored
+[0.344s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/install) by extensions ['ignore', 'ignore_ament_install']
+[0.344s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/install) by extension 'ignore'
+[0.344s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/install) ignored
+[0.344s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/log) by extensions ['ignore', 'ignore_ament_install']
+[0.344s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/log) by extension 'ignore'
+[0.345s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/log) ignored
+[0.345s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src) by extensions ['ignore', 'ignore_ament_install']
+[0.345s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src) by extension 'ignore'
+[0.345s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src) by extension 'ignore_ament_install'
+[0.345s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src) by extensions ['colcon_pkg']
+[0.345s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src) by extension 'colcon_pkg'
+[0.345s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src) by extensions ['colcon_meta']
+[0.345s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src) by extension 'colcon_meta'
+[0.345s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src) by extensions ['ros']
+[0.345s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src) by extension 'ros'
+[0.346s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src) by extensions ['cmake', 'python']
+[0.346s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src) by extension 'cmake'
+[0.346s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src) by extension 'python'
+[0.346s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src) by extensions ['python_setup_py']
+[0.346s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src) by extension 'python_setup_py'
+[0.346s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src/rd_bridge) by extensions ['ignore', 'ignore_ament_install']
+[0.346s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src/rd_bridge) by extension 'ignore'
+[0.346s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src/rd_bridge) by extension 'ignore_ament_install'
+[0.346s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src/rd_bridge) by extensions ['colcon_pkg']
+[0.346s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src/rd_bridge) by extension 'colcon_pkg'
+[0.346s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src/rd_bridge) by extensions ['colcon_meta']
+[0.347s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src/rd_bridge) by extension 'colcon_meta'
+[0.347s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src/rd_bridge) by extensions ['ros']
+[0.347s] Level 1:colcon.colcon_core.package_identification:_identify(ros2/src/rd_bridge) by extension 'ros'
+[0.351s] DEBUG:colcon.colcon_core.package_identification:Package 'ros2/src/rd_bridge' with type 'ros.ament_python' and name 'rd_bridge'
+[0.351s] Level 1:colcon.colcon_core.package_identification:_identify(secrets) by extensions ['ignore', 'ignore_ament_install']
+[0.351s] Level 1:colcon.colcon_core.package_identification:_identify(secrets) by extension 'ignore'
+[0.351s] Level 1:colcon.colcon_core.package_identification:_identify(secrets) by extension 'ignore_ament_install'
+[0.351s] Level 1:colcon.colcon_core.package_identification:_identify(secrets) by extensions ['colcon_pkg']
+[0.351s] Level 1:colcon.colcon_core.package_identification:_identify(secrets) by extension 'colcon_pkg'
+[0.352s] Level 1:colcon.colcon_core.package_identification:_identify(secrets) by extensions ['colcon_meta']
+[0.352s] Level 1:colcon.colcon_core.package_identification:_identify(secrets) by extension 'colcon_meta'
+[0.352s] Level 1:colcon.colcon_core.package_identification:_identify(secrets) by extensions ['ros']
+[0.352s] Level 1:colcon.colcon_core.package_identification:_identify(secrets) by extension 'ros'
+[0.352s] Level 1:colcon.colcon_core.package_identification:_identify(secrets) by extensions ['cmake', 'python']
+[0.352s] Level 1:colcon.colcon_core.package_identification:_identify(secrets) by extension 'cmake'
+[0.352s] Level 1:colcon.colcon_core.package_identification:_identify(secrets) by extension 'python'
+[0.352s] Level 1:colcon.colcon_core.package_identification:_identify(secrets) by extensions ['python_setup_py']
+[0.352s] Level 1:colcon.colcon_core.package_identification:_identify(secrets) by extension 'python_setup_py'
+[0.352s] Level 1:colcon.colcon_core.package_identification:_identify(tags) by extensions ['ignore', 'ignore_ament_install']
+[0.352s] Level 1:colcon.colcon_core.package_identification:_identify(tags) by extension 'ignore'
+[0.353s] Level 1:colcon.colcon_core.package_identification:_identify(tags) by extension 'ignore_ament_install'
+[0.353s] Level 1:colcon.colcon_core.package_identification:_identify(tags) by extensions ['colcon_pkg']
+[0.353s] Level 1:colcon.colcon_core.package_identification:_identify(tags) by extension 'colcon_pkg'
+[0.353s] Level 1:colcon.colcon_core.package_identification:_identify(tags) by extensions ['colcon_meta']
+[0.353s] Level 1:colcon.colcon_core.package_identification:_identify(tags) by extension 'colcon_meta'
+[0.353s] Level 1:colcon.colcon_core.package_identification:_identify(tags) by extensions ['ros']
+[0.353s] Level 1:colcon.colcon_core.package_identification:_identify(tags) by extension 'ros'
+[0.353s] Level 1:colcon.colcon_core.package_identification:_identify(tags) by extensions ['cmake', 'python']
+[0.353s] Level 1:colcon.colcon_core.package_identification:_identify(tags) by extension 'cmake'
+[0.353s] Level 1:colcon.colcon_core.package_identification:_identify(tags) by extension 'python'
+[0.353s] Level 1:colcon.colcon_core.package_identification:_identify(tags) by extensions ['python_setup_py']
+[0.353s] Level 1:colcon.colcon_core.package_identification:_identify(tags) by extension 'python_setup_py'
+[0.354s] Level 1:colcon.colcon_core.package_identification:_identify(tools) by extensions ['ignore', 'ignore_ament_install']
+[0.354s] Level 1:colcon.colcon_core.package_identification:_identify(tools) by extension 'ignore'
+[0.354s] Level 1:colcon.colcon_core.package_identification:_identify(tools) by extension 'ignore_ament_install'
+[0.354s] Level 1:colcon.colcon_core.package_identification:_identify(tools) by extensions ['colcon_pkg']
+[0.354s] Level 1:colcon.colcon_core.package_identification:_identify(tools) by extension 'colcon_pkg'
+[0.354s] Level 1:colcon.colcon_core.package_identification:_identify(tools) by extensions ['colcon_meta']
+[0.354s] Level 1:colcon.colcon_core.package_identification:_identify(tools) by extension 'colcon_meta'
+[0.354s] Level 1:colcon.colcon_core.package_identification:_identify(tools) by extensions ['ros']
+[0.354s] Level 1:colcon.colcon_core.package_identification:_identify(tools) by extension 'ros'
+[0.354s] Level 1:colcon.colcon_core.package_identification:_identify(tools) by extensions ['cmake', 'python']
+[0.354s] Level 1:colcon.colcon_core.package_identification:_identify(tools) by extension 'cmake'
+[0.354s] Level 1:colcon.colcon_core.package_identification:_identify(tools) by extension 'python'
+[0.355s] Level 1:colcon.colcon_core.package_identification:_identify(tools) by extensions ['python_setup_py']
+[0.355s] Level 1:colcon.colcon_core.package_identification:_identify(tools) by extension 'python_setup_py'
+[0.355s] Level 1:colcon.colcon_core.package_identification:_identify(tools/__pycache__) by extensions ['ignore', 'ignore_ament_install']
+[0.355s] Level 1:colcon.colcon_core.package_identification:_identify(tools/__pycache__) by extension 'ignore'
+[0.355s] Level 1:colcon.colcon_core.package_identification:_identify(tools/__pycache__) by extension 'ignore_ament_install'
+[0.355s] Level 1:colcon.colcon_core.package_identification:_identify(tools/__pycache__) by extensions ['colcon_pkg']
+[0.355s] Level 1:colcon.colcon_core.package_identification:_identify(tools/__pycache__) by extension 'colcon_pkg'
+[0.355s] Level 1:colcon.colcon_core.package_identification:_identify(tools/__pycache__) by extensions ['colcon_meta']
+[0.355s] Level 1:colcon.colcon_core.package_identification:_identify(tools/__pycache__) by extension 'colcon_meta'
+[0.355s] Level 1:colcon.colcon_core.package_identification:_identify(tools/__pycache__) by extensions ['ros']
+[0.355s] Level 1:colcon.colcon_core.package_identification:_identify(tools/__pycache__) by extension 'ros'
+[0.356s] Level 1:colcon.colcon_core.package_identification:_identify(tools/__pycache__) by extensions ['cmake', 'python']
+[0.356s] Level 1:colcon.colcon_core.package_identification:_identify(tools/__pycache__) by extension 'cmake'
+[0.356s] Level 1:colcon.colcon_core.package_identification:_identify(tools/__pycache__) by extension 'python'
+[0.356s] Level 1:colcon.colcon_core.package_identification:_identify(tools/__pycache__) by extensions ['python_setup_py']
+[0.356s] Level 1:colcon.colcon_core.package_identification:_identify(tools/__pycache__) by extension 'python_setup_py'
+[0.356s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[0.356s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[0.356s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[0.356s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[0.356s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[0.390s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) check parameters
+[0.390s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) discover
+[0.393s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 1 installed packages in /home/kriso/rosettadrone_work/ros2/install
+[0.396s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 288 installed packages in /opt/ros/jazzy
+[0.398s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) using defaults
+[0.484s] Level 5:colcon.colcon_core.verb:set package 'rd_bridge' build argument 'cmake_args' from command line to 'None'
+[0.484s] Level 5:colcon.colcon_core.verb:set package 'rd_bridge' build argument 'cmake_target' from command line to 'None'
+[0.484s] Level 5:colcon.colcon_core.verb:set package 'rd_bridge' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.484s] Level 5:colcon.colcon_core.verb:set package 'rd_bridge' build argument 'cmake_clean_cache' from command line to 'False'
+[0.484s] Level 5:colcon.colcon_core.verb:set package 'rd_bridge' build argument 'cmake_clean_first' from command line to 'False'
+[0.484s] Level 5:colcon.colcon_core.verb:set package 'rd_bridge' build argument 'cmake_force_configure' from command line to 'False'
+[0.484s] Level 5:colcon.colcon_core.verb:set package 'rd_bridge' build argument 'ament_cmake_args' from command line to 'None'
+[0.484s] Level 5:colcon.colcon_core.verb:set package 'rd_bridge' build argument 'catkin_cmake_args' from command line to 'None'
+[0.484s] Level 5:colcon.colcon_core.verb:set package 'rd_bridge' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.484s] DEBUG:colcon.colcon_core.verb:Building package 'rd_bridge' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge', 'merge_install': False, 'path': '/home/kriso/rosetta_drone_ws/rosettadrone_work/ros2/src/rd_bridge', 'symlink_install': True, 'test_result_base': None}
+[0.485s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[0.486s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[0.486s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/kriso/rosetta_drone_ws/rosettadrone_work/ros2/src/rd_bridge' with build type 'ament_python'
+[0.486s] Level 1:colcon.colcon_core.shell:create_environment_hook('rd_bridge', 'ament_prefix_path')
+[0.491s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[0.491s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/hook/ament_prefix_path.ps1'
+[0.493s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/hook/ament_prefix_path.dsv'
+[0.494s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/hook/ament_prefix_path.sh'
+[0.495s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.495s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.919s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/kriso/rosetta_drone_ws/rosettadrone_work/ros2/src/rd_bridge'
+[0.919s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.919s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[2.075s] DEBUG:colcon.colcon_core.task.python.build:Available setuptools commands: build_ext, develop, update_catalog, dist_info, register, install_data, install, build_scripts, install_lib, build_clib, build_py, install_headers, alias, setopt, upload_docs, check, upload, editable_wheel, sdist, symlink_data, install_scripts, bdist_egg, bdist_rpm, init_catalog, extract_messages, bdist, easy_install, rotate, clean, egg_info, bdist_dumb, compile_catalog, install_egg_info, saveopts, build, test
+[2.740s] DEBUG:colcon.colcon_core.task.python.build:Available setuptools 'develop' options: --allow-hosts, --find-links, --index-url, --quiet, --always-unzip, --site-dirs, --install-layout, --multi-version, --zip-ok, --verbose, --editable, --no-find-links, --egg-path, --upgrade, --build-directory, --record, --help, --dry-run, --script-dir, --prefix, --no-deps, --optimize, --local-snapshots-ok, --uninstall, --version, --no-user-cfg, --exclude-scripts, --user, --install-dir, --always-copy, --force-installation-into-system-dir
+[2.741s] DEBUG:colcon.colcon_core.task.python.build:While undoing a previous installation files outside the Python library path are being ignored: /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/ament_index/resource_index/packages/rd_bridge
+[2.741s] DEBUG:colcon.colcon_core.task.python.build:While undoing a previous installation files outside the Python library path are being ignored: /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/package.xml
+[2.741s] DEBUG:colcon.colcon_core.task.python.build:While undoing a previous installation files outside the Python library path are being ignored: /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/launch/bridge.launch.py
+[2.741s] DEBUG:colcon.colcon_core.task.python.build:While undoing a previous installation files outside the Python library path are being ignored: /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/config/tags.yaml
+[2.741s] DEBUG:colcon.colcon_core.task.python.build:While undoing a previous installation files outside the Python library path are being ignored: /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/rd_bridge/link_node
+[2.741s] DEBUG:colcon.colcon_core.task.python.build:While undoing a previous installation files outside the Python library path are being ignored: /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/rd_bridge/nav_node
+[2.741s] DEBUG:colcon.colcon_core.task.python.build:While undoing a previous installation files outside the Python library path are being ignored: /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/rd_bridge/tag_follow_node
+[2.741s] DEBUG:colcon.colcon_core.task.python.build:While undoing a previous installation files outside the Python library path are being ignored: /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/rd_bridge/video_node
+[2.745s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build --no-deps symlink_data --force
+[4.149s] Level 1:colcon.colcon_core.shell:create_environment_hook('rd_bridge', 'pythonpath_develop')
+[4.150s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/share/rd_bridge/hook/pythonpath_develop.ps1'
+[4.150s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge' returned '0': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build --no-deps symlink_data --force
+[4.151s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/share/rd_bridge/hook/pythonpath_develop.dsv'
+[4.152s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/share/rd_bridge/hook/pythonpath_develop.sh'
+[4.156s] Level 1:colcon.colcon_core.environment:checking '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge' for CMake module files
+[4.157s] Level 1:colcon.colcon_core.environment:checking '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge' for CMake config files
+[4.158s] Level 1:colcon.colcon_core.environment:checking '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib'
+[4.158s] Level 1:colcon.colcon_core.environment:checking '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/bin'
+[4.158s] Level 1:colcon.colcon_core.environment:checking '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/pkgconfig/rd_bridge.pc'
+[4.159s] Level 1:colcon.colcon_core.environment:checking '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages'
+[4.159s] Level 1:colcon.colcon_core.shell:create_environment_hook('rd_bridge', 'pythonpath')
+[4.160s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/hook/pythonpath.ps1'
+[4.160s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/hook/pythonpath.dsv'
+[4.161s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/hook/pythonpath.sh'
+[4.162s] Level 1:colcon.colcon_core.environment:checking '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/bin'
+[4.162s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(rd_bridge)
+[4.163s] INFO:colcon.colcon_core.shell:Creating package script '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/package.ps1'
+[4.165s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/package.dsv'
+[4.166s] INFO:colcon.colcon_core.shell:Creating package script '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/package.sh'
+[4.167s] INFO:colcon.colcon_core.shell:Creating package script '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/package.bash'
+[4.168s] INFO:colcon.colcon_core.shell:Creating package script '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/package.zsh'
+[4.169s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/colcon-core/packages/rd_bridge)
+[4.170s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[4.170s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[4.170s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[4.171s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[4.181s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[4.181s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[4.181s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[4.206s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[4.207s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/local_setup.ps1'
+[4.208s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/_local_setup_util_ps1.py'
+[4.211s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/setup.ps1'
+[4.212s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/local_setup.sh'
+[4.213s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/_local_setup_util_sh.py'
+[4.214s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/setup.sh'
+[4.216s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/local_setup.bash'
+[4.217s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/setup.bash'
+[4.218s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/local_setup.zsh'
+[4.219s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/kriso/rosetta_drone_ws/rosettadrone_work/install/setup.zsh'

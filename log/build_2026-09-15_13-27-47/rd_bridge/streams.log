@@ -1,0 +1,50 @@
+[1.722s] Invoking command in '/home/kriso/rosetta_drone_ws/rosettadrone_work/ros2/src/rd_bridge': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/rd_bridge build --build-base /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build install --record /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/install.log --install-scripts $base/lib/rd_bridge --single-version-externally-managed install_data
+[2.273s] running egg_info
+[2.274s] creating ../../../build/rd_bridge/rd_bridge.egg-info
+[2.313s] writing ../../../build/rd_bridge/rd_bridge.egg-info/PKG-INFO
+[2.314s] writing dependency_links to ../../../build/rd_bridge/rd_bridge.egg-info/dependency_links.txt
+[2.314s] writing entry points to ../../../build/rd_bridge/rd_bridge.egg-info/entry_points.txt
+[2.315s] writing requirements to ../../../build/rd_bridge/rd_bridge.egg-info/requires.txt
+[2.315s] writing top-level names to ../../../build/rd_bridge/rd_bridge.egg-info/top_level.txt
+[2.315s] writing manifest file '../../../build/rd_bridge/rd_bridge.egg-info/SOURCES.txt'
+[2.399s] reading manifest file '../../../build/rd_bridge/rd_bridge.egg-info/SOURCES.txt'
+[2.400s] writing manifest file '../../../build/rd_bridge/rd_bridge.egg-info/SOURCES.txt'
+[2.400s] running build
+[2.400s] running build_py
+[2.401s] creating /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build
+[2.401s] creating /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build/lib
+[2.401s] creating /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build/lib/rd_bridge
+[2.401s] copying rd_bridge/nav_node.py -> /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build/lib/rd_bridge
+[2.401s] copying rd_bridge/video_node.py -> /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build/lib/rd_bridge
+[2.401s] copying rd_bridge/link_node.py -> /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build/lib/rd_bridge
+[2.402s] copying rd_bridge/__init__.py -> /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build/lib/rd_bridge
+[2.402s] copying rd_bridge/mav.py -> /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build/lib/rd_bridge
+[2.402s] running install
+[2.414s] running install_lib
+[2.457s] creating /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages/rd_bridge
+[2.458s] copying /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build/lib/rd_bridge/nav_node.py -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages/rd_bridge
+[2.458s] copying /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build/lib/rd_bridge/video_node.py -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages/rd_bridge
+[2.458s] copying /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build/lib/rd_bridge/link_node.py -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages/rd_bridge
+[2.458s] copying /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build/lib/rd_bridge/__init__.py -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages/rd_bridge
+[2.458s] copying /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build/lib/rd_bridge/mav.py -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages/rd_bridge
+[2.459s] byte-compiling /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages/rd_bridge/nav_node.py to nav_node.cpython-312.pyc
+[2.462s] byte-compiling /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages/rd_bridge/video_node.py to video_node.cpython-312.pyc
+[2.465s] byte-compiling /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages/rd_bridge/link_node.py to link_node.cpython-312.pyc
+[2.471s] byte-compiling /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages/rd_bridge/__init__.py to __init__.cpython-312.pyc
+[2.471s] byte-compiling /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages/rd_bridge/mav.py to mav.cpython-312.pyc
+[2.475s] running install_data
+[2.475s] creating /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/ament_index
+[2.475s] creating /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/ament_index/resource_index
+[2.476s] creating /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/ament_index/resource_index/packages
+[2.476s] copying resource/rd_bridge -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/ament_index/resource_index/packages
+[2.476s] copying package.xml -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge
+[2.476s] creating /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/launch
+[2.476s] copying launch/bridge.launch.py -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/launch
+[2.477s] running install_egg_info
+[2.519s] Copying ../../../build/rd_bridge/rd_bridge.egg-info to /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages/rd_bridge-0.1.0-py3.12.egg-info
+[2.521s] running install_scripts
+[2.790s] Installing link_node script to /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/rd_bridge
+[2.791s] Installing nav_node script to /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/rd_bridge
+[2.791s] Installing video_node script to /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/rd_bridge
+[2.791s] writing list of installed files to '/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/install.log'
+[2.835s] Invoked command in '/home/kriso/rosetta_drone_ws/rosettadrone_work/ros2/src/rd_bridge' returned '0': DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/rd_bridge build --build-base /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/build install --record /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/install.log --install-scripts $base/lib/rd_bridge --single-version-externally-managed install_data

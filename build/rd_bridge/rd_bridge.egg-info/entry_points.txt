@@ -1,0 +1,5 @@
+[console_scripts]
+link_node = rd_bridge.link_node:main
+nav_node = rd_bridge.nav_node:main
+tag_follow_node = rd_bridge.tag_follow_node:main
+video_node = rd_bridge.video_node:main

@@ -81,7 +81,7 @@ class TagFollowNode(Node):
         super().__init__("rd_tag_follow")
         for name, val in [("tag_frame", "tag0"), ("kp", 0.35), ("max_speed", 0.8),
                           ("kp_alt", 0.35), ("max_vz", 0.5), ("hold_alt", 3.0),
-                          ("deadband", 0.3), ("lost_secs", 0.5), ("giveup_secs", 3.0),
+                          ("deadband", 0.3), ("lost_secs", 0.5), ("giveup_secs", 10.0),
                           ("sign_fwd", -1.0), ("sign_right", 1.0), ("sign_yaw", 1.0),
                           ("yaw_offset", 90.0),
                           ("yaw_enable", True), ("kp_yaw", 0.5), ("max_yaw_rate", 20.0),

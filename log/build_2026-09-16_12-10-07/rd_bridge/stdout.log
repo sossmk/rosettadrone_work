@@ -1,0 +1,22 @@
+running develop
+running egg_info
+writing rd_bridge.egg-info/PKG-INFO
+writing dependency_links to rd_bridge.egg-info/dependency_links.txt
+writing entry points to rd_bridge.egg-info/entry_points.txt
+writing requirements to rd_bridge.egg-info/requires.txt
+writing top-level names to rd_bridge.egg-info/top_level.txt
+reading manifest file 'rd_bridge.egg-info/SOURCES.txt'
+writing manifest file 'rd_bridge.egg-info/SOURCES.txt'
+running build_ext
+Creating /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/python3.12/site-packages/rd-bridge.egg-link (link to .)
+Installing link_node script to /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/rd_bridge
+Installing nav_node script to /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/rd_bridge
+Installing tag_follow_node script to /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/rd_bridge
+Installing video_node script to /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/lib/rd_bridge
+
+Installed /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge
+running symlink_data
+symbolically linking /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/resource/rd_bridge -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/ament_index/resource_index/packages
+symbolically linking /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/package.xml -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge
+symbolically linking /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/launch/bridge.launch.py -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/launch
+symbolically linking /home/kriso/rosetta_drone_ws/rosettadrone_work/build/rd_bridge/config/tags.yaml -> /home/kriso/rosetta_drone_ws/rosettadrone_work/install/rd_bridge/share/rd_bridge/config
