@@ -15,6 +15,10 @@ __pycache__/
 ros2/build/
 ros2/install/
 ros2/log/
+# 최상위에서 colcon build 를 잘못 돌리면 여기에도 생긴다. 실제 워크스페이스는 ros2/ 다
+/build/
+/install/
+/log/
 
 # 캘리브레이션 원본 이미지 (결과 파일만 저장소에 둔다)
 calibrationdata/*.png
