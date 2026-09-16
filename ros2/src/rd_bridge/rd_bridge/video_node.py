@@ -4,6 +4,13 @@
     ros2 run rd_bridge video_node                                   # 실시간 (UDP 5600)
     ros2 run rd_bridge video_node --ros-args -p source:=~/drone_ws/capture/mavic2-real-20260910.h264
 
+영상이 안 나오면 이 노드를 끄고 창으로 먼저 본다 (5600 은 한 프로세스만 잡는다):
+
+    gst-launch-1.0 udpsrc port=5600 caps="application/x-rtp,media=video,clock-rate=90000,encoding-name=H264,payload=96" \\
+      ! rtpjitterbuffer latency=120 ! rtph264depay ! avdec_h264 ! videoconvert ! autovideosink sync=false
+
+창이 안 뜨면 앱 쪽 문제(GCS IP · Enable video feed · Video port), 뜨면 이 노드 쪽 문제다.
+
 **드론 없이 개발할 수 있다.** 2026-09-10 에 받아 둔 진짜 스트림 파일을 그대로 먹이면
 실시간과 같은 토픽이 나온다 — 태그 검출(할일.md E)·추종(F)은 이 모드로 만든다.
 
@@ -20,8 +27,8 @@
 ────────────────────────────────────────────────────────────────
 왜 GStreamer 파이프라인을 직접 짜지 않고 OpenCV 로 받는가
 ────────────────────────────────────────────────────────────────
-실시간 경로는 `udpsrc ! rtph264depay ! avdec_h264` 로, video_view.sh 가 9/10 에
-실기로 확인한 것과 같은 파이프라인이다. h264parse 가 필요 없다 —
+실시간 경로는 `udpsrc ! rtph264depay ! avdec_h264` 로, 9/10 에 실기로 확인한
+위의 창 띄우기와 같은 파이프라인이다. h264parse 가 필요 없다 —
 gstreamer1.0-plugins-bad 를 안 깔아도 된다(할일.md D 의 "없는 것" 목록은 이제
 실시간·파일 둘 다 해당 없음). 파일 경로는 OpenCV 자체 디코더(FFMPEG)가 raw
 Annex-B .h264 를 바로 읽는다 — 여기도 추가 설치가 없다.
@@ -51,7 +58,7 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from sensor_msgs.msg import CameraInfo, CompressedImage, Image
 
-# video_view.sh 가 9/10 에 실기로 확인한 것과 같은 구성. caps 를 명시하는 이유는
+# 9/10 에 실기로 확인한 구성 (docstring 의 창 띄우기와 같다). caps 를 명시하는 이유는
 # udpsrc 가 빈 포트에서도 조용히 기다리기만 해서, 형식을 못 맞추면 "왜 안 나오지" 로
 # 시간을 버리기 때문이다.
 LIVE_PIPELINE = (
@@ -112,7 +119,7 @@ class VideoNode(Node):
         if self.is_live:
             self.get_logger().info(
                 f"실시간: UDP {self.port} ← 앱 설정의 Video port. "
-                f"안 나오면 ./tools/video_view.sh 로 먼저 배관을 판정할 것")
+                f"안 나오면 이 노드를 끄고 docstring 의 gst-launch 로 창부터 띄워 볼 것")
         elif not os.path.exists(self.source):
             raise SystemExit(f"파일이 없다: {self.source}")
         else:
@@ -178,7 +185,7 @@ class VideoNode(Node):
                             f"{now - t_last_frame:.0f}초간 프레임이 없다. 앱 설정을 볼 것 — "
                             "Use GCS on an external device · GCS IP(핫스팟이 접속마다 IP를 바꾼다) · "
                             f"Enable video feed · Video port={self.port}. "
-                            "판정은 ./tools/video_view.sh")
+                            "판정은 docstring 의 gst-launch 창 띄우기")
                     time.sleep(0.02)
                     continue
 

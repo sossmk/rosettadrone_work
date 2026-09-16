@@ -220,7 +220,7 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
         <!-- tools 대안 (14550 을 대신 잡는 쪽) -->
         <rect class="box-alt" x="330" y="14" width="200" height="54" rx="8"/>
         <text x="430" y="37" text-anchor="middle" class="t-part">tools/ 도구를 쓸 때</text>
-        <text x="430" y="55" text-anchor="middle" class="t-small">decode_check · rd_cmd · gps_capture</text>
+        <text x="430" y="55" text-anchor="middle" class="t-small">gps_capture</text>
         <line class="wire-future" x1="430" y1="68" x2="430" y2="100" style="stroke: var(--part)"/>
         <text x="442" y="89" class="t-small">14550 은 한 번에 하나만</text>
 
@@ -280,7 +280,7 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
 <section>
   <div class="sec-head">
     <h2>토픽</h2>
-    <p>주기는 앱이 보내는 주기 그대로다. <code>python3 tools/topic_check.py</code> 가 이 표를 기준으로 판정한다.</p>
+    <p>주기는 앱이 보내는 주기 그대로다. <code>ros2 topic hz</code> 로 이 표와 맞춰 본다 (토픽.md).</p>
   </div>
   <div class="table-wrap">
     <table>
@@ -314,17 +314,14 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
   </div>
   <ol class="steps">
     <li><span class="cmd">./tools/link_check.sh</span><span class="why">이 PC 의 IP · 포트 점유 · 방화벽. 앱에 넣을 GCS IP 를 찍어 준다 (핫스팟 IP 는 매번 바뀐다)</span></li>
-    <li><span class="cmd">python3 tools/decode_check.py</span><span class="why">다운링크 — 좌표 · 위성 수 · 배터리 전압이 실제 값인지</span></li>
     <li><span class="cmd">python3 tools/rd_cmd.py ping</span><span class="why">업링크 — 기체를 움직이지 않고 명령이 앱에 닿는지. 짐벌은 <code>gimbal</code>, 방향키 조종은 <code>drive</code></span></li>
-    <li><span class="cmd">./tools/video_view.sh</span><span class="why">영상을 창으로 본다. 안 나오면 <code>video_probe.py</code> 가 어디서 끊겼는지 짚는다</span></li>
+    <li><span class="cmd">gst-launch-1.0 udpsrc port=5600 … ! autovideosink</span><span class="why">영상을 창으로 본다. 전체 명령은 <code>video_node.py</code> docstring</span></li>
     <li><span class="cmd">python3 tools/gps_capture.py</span><span class="why">목표 지점 좌표를 잰다 (RC 로 그 자리까지 가서 Enter)</span></li>
-    <li><span class="cmd">ros2 launch rd_bridge bridge.launch.py nav:=false → python3 tools/topic_check.py</span><span class="why">브리지를 띄우고 토픽이 기대 주기로 차는지 판정표로 본다. 그다음 nav:=true 로 /nav/goal</span></li>
+    <li><span class="cmd">ros2 launch rd_bridge bridge.launch.py nav:=false → ros2 topic hz /rd/attitude</span><span class="why">브리지를 띄우고 다운링크(좌표 · 위성 수 · 배터리)가 기대 주기로 차는지 본다. 그다음 nav:=true 로 /nav/goal</span></li>
   </ol>
   <div class="nodrone">
     <b>기체 없이 할 수 있는 것 — 배관 확인까지만</b>
-    <span><code>tools/fake_app.py</code> 앱 대역 (rd_cmd · link_node 를 붙여 본다) ·
-    <code>video_node -p source:=저장한.h264</code> 저장 영상으로 /image_raw ·
-    <code>video_probe.py --save</code> 진짜 스트림 받아 두기</span>
+    <span><code>video_node -p source:=저장한.h264</code> 저장 영상으로 /image_raw</span>
   </div>
 </section>
 

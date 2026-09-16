@@ -45,9 +45,12 @@ JDK 11 · Android SDK · NDK · 소스(커밋 고정) · **패치 4개 적용** 
 ```bash
 mkdir -p ~/drone_ws/apk
 cp ~/drone_ws/rosettadrone/app/build/outputs/apk/debug/app-debug.apk ~/drone_ws/apk/
-python3 tools/file_bridge.py 8000 ~/drone_ws/apk
-# RM500 브라우저로 http://<이 PC IP>:8000/
+python3 -m http.server 8000 -d ~/drone_ws/apk
+# RM500 브라우저로 http://<이 PC IP>:8000/ → apk 를 누르면 설치 관리자가 뜬다
 ```
+
+USB 데이터선이 안 통해서(9/10) HTTP 로 옮긴다. 파일 관리자는 apk 를 필터로 숨겨서 안 된다.
+RM500 → PC 로 파일을 올려야 하면 `git show v1-2026-09-16:tools/file_bridge.py > /tmp/file_bridge.py`
 
 ⚠ **다른 PC 에서 빌드한 앱이 이미 깔려 있으면 덮어쓰기가 안 됩니다.**
 디버그 서명이 PC마다 달라서 *"같은 이름을 가진 패키지가 있어서 설치가 안 된다"* 가 뜹니다.
@@ -82,9 +85,9 @@ RM500 앱 설정에 **전부** 넣으세요:
 
 ```bash
 ./tools/link_check.sh                  # T0 링크 위생
-python3 tools/decode_check.py 14550    # T1 다운링크 + 배터리 전압
-python3 tools/video_probe.py --secs 30 --save ~/drone_ws/capture/out.h264   # T4 영상
-./tools/video_view.sh                  # 영상을 창으로 직접 본다
+ros2 launch rd_bridge bridge.launch.py nav:=false    # 브리지 (다른 터미널)
+ros2 topic echo /rd/battery            # T1 다운링크 + 배터리 전압
+ros2 topic hz /image_raw               # T4 영상 (~30Hz). 안 나오면 video_node.py docstring 의 gst-launch 로 창부터
 ```
 
 **정상이면 이렇게 나옵니다** (2026-09-10 실측):
@@ -138,20 +141,15 @@ RM500 의 USB 옵션을 **`Transfer files`(MTP)** 로 두고 케이블을 꽂으
 | `진행상황.md` | **누적 기록.** 날짜별 블록 + 현재 상태 표. 여기부터 읽으세요 |
 | `할일.md` | **앞으로 할 것.** AR 태그 추종·정밀 착륙 패키지의 구조와 순서, 지고 갈 제약 |
 | `patches/` | **앱 소스 패치 4개.** `02` 가 영상을 살리는 핵심 (Manifest 의 `VideoService` 주석 복구) |
-| `진행기록.md` | 명령·에러 원문 |
 | `구조.html` | **전체 구조 한 장 요약** — 층·데이터 흐름·토픽·언제 어떤 도구를 쓰나 (브라우저로 연다) |
 | `tools/link_check.sh` | **기체 켜기 전 링크 위생.** IP·포트점유·방화벽을 한 번에 보고, **앱에 넣을 GCS IP 를 찍어 준다** |
-| `tools/decode_check.py` | **다운링크.** MAVLink 를 풀어 실제 값을 보고 **0,0 의 원인을 판정**한다 |
-| `tools/rd_cmd.py` | **업링크 명령 도구.** `ping`(업링크 열렸나) · `gimbal`(짐벌 틸트) · `drive`(방향키 조종) · `vel`(속도 명령 + 이동 방향 측정). ⚠ 조종권은 저절로 RC 로 안 돌아온다 — S 모드 전환(9/11 실기) |
-| `tools/topic_check.py` | **ROS 토픽 수신 점검.** 브리지 토픽의 Hz·최대 간격·값을 표로 판정 · `list` · `echo <토픽>` |
+| `tools/rd_cmd.py` | **업링크 명령 도구.** `ping`(업링크 열렸나) · `gimbal`(짐벌 틸트) · `drive`(방향키 조종) · `vel`(속도 명령 + 이동 방향 측정) · `follow`(태그 추종 시작·튜닝) · `mission`(경유점 비행). ⚠ 조종권은 저절로 RC 로 안 돌아온다 — S 모드 전환(9/11 실기) |
+| `tools/tag_check.py` | **태그가 왜 안 잡히나** — 사진·영상에서 태그를 찾아 이유를 말해 준다 |
+| `토픽.md` | **토픽 한 장** — 형식·주기·단위·좌표계. 주기 확인은 `ros2 topic hz` |
+| `missions/` | 경유점 파일 (`rd_cmd.py mission`) |
 | `tools/gps_capture.py` | **좌표 측정** — 현재 좌표를 재고 저장(`nav_node` 에 줄 목표) |
-| `tools/video_view.sh` | **영상을 눈으로 본다.** 인자 없이 = 실시간 창, 파일을 주면 = 저장분 재생. **안 오면 IP 어긋남을 진단해 준다** |
-| `tools/video_probe.py` | **영상 판정.** RTP/H.264 를 풀어 **어디서 끊겼는지** 찍는다. `--save` 로 진짜 스트림을 받아 두면 **드론 없이** 개발할 수 있다 |
 | `ros2/` | **ROS 2 브리지 + 항법 (`rd_bridge`).** 영상 → `/image_raw` · 다운링크 → `/rd/*` · `/cmd_vel` → #84 · **`nav_node` = 유도 루프(우리 것, `flyTo()` 대체)**. ⚠ 실기 검증 전 — `ros2/README.md` |
-| `tools/fake_app.py` | **앱 대역 — 크래시 점검용.** #84·#76 을 디코드해 보여주고 ACK 를 돌려준다. ⚠ 검증 수단이 아니다(배관만 말해 준다) |
 | `tools/mav.py` | MAVLink v2 최소 구현(공유). CRC 는 앱의 `CRC.java` 에서 직접 뽑았다 |
-| `tools/file_bridge.py` | RM500 ↔ PC 파일 다리 (브라우저로 양방향) |
-| `logs/` | 9/10 크래시 logcat 발췌 (patches 의 근거) |
 | `secrets/keys.xml` | **DJI App Key. 아래 경고 참조** |
 | `setup_new_pc.sh` | 새 PC 복구 스크립트 |
 
@@ -171,7 +169,7 @@ git push                      # 끝낼 때: 올린다
 ## 🔒 이 저장소를 public 으로 바꾸지 마세요
 
 **DJI App Key 가 평문으로 들어 있고, 커밋 히스토리에도 남아 있습니다.**
-`secrets/keys.xml` 뿐 아니라 `진행상황.md` · `진행기록.md` 본문에도 같은 키가 적혀 있고,
+`secrets/keys.xml` 뿐 아니라 `진행상황.md` 본문과 (지운) `진행기록.md` 의 히스토리에도 같은 키가 있고,
 첫 커밋 `f529ffd` 안에도 들어 있습니다.
 
 **편의를 위해 일부러 그대로 두기로 했습니다**(2026-09-07 결정) — 비공개 저장소이므로

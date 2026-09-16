@@ -17,7 +17,6 @@
     python3 tools/rd_cmd.py follow                  # 태그 추종 켜고 끄기 + 실기 튜닝
     python3 tools/rd_cmd.py mission missions/square10.txt   # 경유점 비행 (nav_node)
 
-기체 없이 시험하려면 다른 터미널에 `python3 tools/fake_app.py` 를 띄우고 브리지를 붙인다.
 속도는 link_node 캡(수평 2.5 · 수직 1.5 m/s · 75°/s)에서 한 번 더 깎인다.
 앞으로 takeoff/land/rtl 도 여기에 붙인다 (할일.md A).
 

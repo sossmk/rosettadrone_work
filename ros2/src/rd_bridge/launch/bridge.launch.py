@@ -15,7 +15,7 @@
 
 ⚠ link_node 는 /cmd_vel 이 오기 전에는 한 발도 쏘지 않고, nav_node 는 /nav/goal 이
   오기 전에는 /cmd_vel 을 내지 않는다. 그래서 띄워 두는 것 자체는 기체를 건드리지 않는다.
-⚠⚠ UDP 14550 은 link_node 가 독점한다 — QGC·decode_check.py 와 동시에 못 쓴다.
+⚠⚠ UDP 14550 은 link_node 가 독점한다 — QGC·gps_capture.py 와 동시에 못 쓴다.
 """
 import os
 

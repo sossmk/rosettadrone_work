@@ -250,7 +250,7 @@ class Link:
                     self.tel["fix"], self.tel["sats"] = p[28], p[29]
                     self.tel["t_gps"] = time.time()
                 elif mid == 1:                             # SYS_STATUS
-                    # 오프셋은 decode_check.py 와 같다. 앱은 patches/03 적용 후
+                    # 앱은 patches/03 적용 후
                     # 일반 배터리 콜백을 쓴다 — 16.98V·13.05A (9/10 실측)
                     self.tel["volt"] = struct.unpack_from("<H", p, 14)[0] / 1000.0
                     self.tel["amp"] = struct.unpack_from("<h", p, 16)[0] / 100.0

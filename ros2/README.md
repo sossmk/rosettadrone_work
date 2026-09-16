@@ -60,13 +60,13 @@ ros2 launch rd_bridge bridge.launch.py camera_info_file:=<경로>/camera.yaml re
 띄운 뒤 토픽이 제대로 차는지는 다른 터미널에서:
 
 ```bash
-python3 tools/topic_check.py            # 10초 듣고 토픽별 Hz·최대 간격·값 판정 (0=통과)
-python3 tools/topic_check.py list       # 보이는 토픽
-python3 tools/topic_check.py echo /rd/fix
+ros2 topic list
+ros2 topic hz /rd/attitude              # 10Hz 근처여야 — 토픽별 기대 주기는 토픽.md
+ros2 topic echo /rd/fix
 ```
 
 ⚠⚠ **UDP 14550 은 `link_node` 가 독점한다.** 두 번째 bind 는 커널에 따라 성공해
-버리는데 그러면 패킷이 둘로 쪼개져 **양쪽 다 망가진다.** QGC·`decode_check.py`·
+버리는데 그러면 패킷이 둘로 쪼개져 **양쪽 다 망가진다.** QGC·
 `gps_capture.py` 와 **동시에 못 쓴다.** `rd_cmd.py` 는 이제 브리지를 거치므로 같이 쓴다.
 
 ## 토픽
@@ -135,12 +135,14 @@ ros2 launch rd_bridge bridge.launch.py tag:=true \
 ⚠ **`/detections` 에는 자세가 없다** — family·id·중심·코너·homography 뿐이다.
 거리와 자세는 **`/tf` 로만** 나온다.
 
-**태그.** `tags/tag36h11_id0.png` 는 12칸이고 가운데 검은 사각형이 8칸이다 —
-즉 **인쇄한 그림 폭 × 2/3 = 검은 사각형 한 변**이고, 그 값이 `config/tags.yaml` 의 `size`(m)다.
+**태그.** 인쇄면은 `tags/tag36h11-id0-120mm-A4.pdf`. **검은 사각형 바깥 한 변**이
+`config/tags.yaml` 의 `size`(m)다 (흰 여백은 뺀다). 다른 크기로 뽑으려면 생성 도구와 원본 PNG 를 태그에서 되살린다:
 
 ```bash
-python3 tools/make_print.py          # tags/tag36h11-id0-120mm-A4.pdf (그림 180mm → 태그 120mm)
+git show v1-2026-09-16:tools/make_print.py    > tools/make_print.py
+git show v1-2026-09-16:tags/tag36h11_id0.png  > tags/tag36h11_id0.png
 ```
+
 인쇄는 **100%(페이지에 맞춤 끄기)**. 종이에 찍힌 100mm 눈금을 자로 재서 확인하고,
 검은 사각형도 재서 다르면 그 값을 `size` 에 넣고 `colcon build` 를 다시 한다.
 
@@ -298,9 +300,8 @@ REP-103(FLU) 이 아니다. 앱이 받는 뜻 그대로 쓴다 (9/9 SIM 실측, 
 ## 개발 편의 (검증이 아니다)
 
 - `video_node -p source:=<파일.h264>` — 저장분 재생. 기체 없이 `/image_raw` 가 나온다
-- `tools/fake_app.py` — 앱 대역. #84·#76 을 디코드해 보여주고 ACK 를 돌려준다
 
-둘 다 **크래시 점검과 개발 편의용**이다. 기체 없이 얻은 결과는 배관이 이어졌다는
+**개발 편의용**이다. 기체 없이 얻은 결과는 배관이 이어졌다는
 것까지만 말해 준다 — 기체가 실제로 어떻게 움직이는지는 아무것도 말해 주지 않는다.
 
 ## 아직 없는 것

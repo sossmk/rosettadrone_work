@@ -3,7 +3,7 @@
     ros2 run rd_bridge link_node
     ros2 run rd_bridge link_node --ros-args -p dry_run:=true     # 전송 없이 변환만
 
-**다운링크** 앱 → 토픽 (decode_check.py 가 화면에 찍던 것을 그대로 토픽으로)
+**다운링크** 앱 → 토픽
 
     /rd/fix          sensor_msgs/NavSatFix        위경도 · 상대고도(altitude 에 넣는다)
     /rd/rel_alt      std_msgs/Float32             상대고도 m (이륙 지점 기준)
@@ -23,7 +23,7 @@
 ⚠⚠ **UDP 14550 은 한 프로세스만 제대로 잡을 수 있다.** 두 번째 bind 는 (커널에 따라)
   성공해 버리는데 그러면 패킷이 둘로 쪼개져 **양쪽 다 망가진다.** 그래서 다운링크와
   업링크를 한 노드에 둔다 — 항법(nav_node) 은 이 토픽들을 구독해서 계산만 한다.
-  QGC·decode_check.py 등 14550 을 쓰는 다른 것과도 **동시에 못 쓴다.**
+  QGC·gps_capture.py 등 14550 을 쓰는 다른 것과도 **동시에 못 쓴다.**
 
 ────────────────────────────────────────────────────────────────
 ① 축·부호 — /cmd_vel 은 **앱 규약 그대로** 받는다 (2026-09-15 결정)
@@ -133,7 +133,7 @@ class CmdVelNode(Node):
                     "아직 아무것도 안 온다 — 앱이 켜지면 자동으로 붙는다. "
                     "안 붙으면 ./tools/link_check.sh 로 T0 부터")
 
-        # 다운링크 토픽 (decode_check.py 가 화면에 찍던 것과 같은 값)
+        # 다운링크 토픽
         self.pub_fix = self.create_publisher(NavSatFix, "rd/fix", 10)
         self.pub_alt = self.create_publisher(Float32, "rd/rel_alt", 10)
         self.pub_att = self.create_publisher(Vector3Stamped, "rd/attitude", 10)

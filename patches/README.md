@@ -96,7 +96,7 @@ Manifest 에 <service> 없음
 **9/9 logcat 의 `fault addr 0x148` 이 저 `#328` 오프셋이고, 이제 `cbz` 뒤에 있습니다.**
 
 ⚠ 다만 이것은 **크래시가 막혔다는 증명일 뿐, 영상이 흐른다는 증명은 아닙니다.**
-그건 `tools/video_probe.py` 로 실기에서 따로 봐야 합니다.
+그건 실기에서 `ros2 topic hz /image_raw` 로 따로 봐야 합니다.
 
 ### 01 — `noparse()` 의 널 역참조
 
