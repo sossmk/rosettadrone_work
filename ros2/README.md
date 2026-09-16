@@ -135,8 +135,14 @@ ros2 launch rd_bridge bridge.launch.py tag:=true \
 ⚠ **`/detections` 에는 자세가 없다** — family·id·중심·코너·homography 뿐이다.
 거리와 자세는 **`/tf` 로만** 나온다.
 
-**태그.** 인쇄면은 `tags/tag36h11-id0-120mm-A4.pdf`. **검은 사각형 바깥 한 변**이
-`config/tags.yaml` 의 `size`(m)다 (흰 여백은 뺀다). 다른 크기로 뽑으려면 생성 도구와 원본 PNG 를 태그에서 되살린다:
+**태그.** **지금 쓰는 인쇄물은 검은 사각형 한 변 192mm** (작은 한 칸 24mm · 36h11 은 검은
+사각형이 8칸이라 24×8=192). `config/tags.yaml` 의 `size: 0.192` 가 이 값이다.
+
+⚠ 저장소의 `tags/tag36h11-id0-120mm-A4.pdf` 는 **이것과 다른 것**이다 (A4 100% → 120mm).
+그림 전체가 12칸이라 192mm 태그의 인쇄면은 24×12 = **288mm 로 A4 에 안 들어간다.**
+새로 뽑을 때는 크기를 **재서** `size` 를 고칠 것 — 파일 이름을 믿지 말 것.
+
+다른 크기로 뽑으려면 생성 도구와 원본 PNG 를 태그에서 되살린다:
 
 ```bash
 git show v1-2026-09-16:tools/make_print.py    > tools/make_print.py
@@ -150,6 +156,7 @@ git show v1-2026-09-16:tags/tag36h11_id0.png  > tags/tag36h11_id0.png
 
 | 태그 | 3m | 5m | 8m |
 |---|---|---|---|
+| **192mm (지금 쓰는 것)** | **80px** | **48px** | **30px** |
 | 120mm (A4 한 장) | 50px | 30px | 19px |
 
 그래서 `detector.decimate` 를 **1.0** 으로 내렸다 — 2.0 은 검출용 해상도를 반으로 깎아
