@@ -4,8 +4,9 @@
   ros__parameters:
     image_transport: raw
     family: 36h11
-    # tags/tag36h11-id0-120mm-A4.pdf 를 100% 로 뽑았을 때의 값.
-    # 다르게 뽑았으면 자로 재서 고친다
+    # 자로 잰 값을 넣는 곳은 **여기 한 곳뿐이다.**
+    # 9/16 에 인쇄물을 재서 192mm 였다. 다르게 뽑았으면 재서 고친다.
+    # ⚠ tag.sizes(id별)를 쓰면 그쪽이 이겨서 이 값이 조용히 무시된다 — 아래 주석 참고
     size: 0.192
     max_hamming: 0
     detector:
@@ -20,7 +21,8 @@
     pose_estimation_method: "pnp"
     # 프레임 이름을 못 박는다 — 기본 이름(36h11:0 / tag36h11:0)이 판마다 달라서
     # tf2_echo·tag_follow_node 가 헛다리를 짚는다
+    # ⚠ sizes(id별 크기)는 일부러 안 쓴다 — 있으면 위의 size 를 이겨서, size 만 고치고
+    #   sizes 를 안 고치면 거리가 그 비율만큼 틀린 채로 조용히 돈다 (9/16 에 실제로 겪었다)
     tag:
       ids: [0]
       frames: [tag0]
-      sizes: [0.120]
