@@ -6,15 +6,17 @@
     ros2 launch rd_bridge bridge.launch.py link:=false      # 기체를 안 건드린다
     ros2 launch rd_bridge bridge.launch.py tag:=true follow:=true nav:=false \
         camera_info_file:=$HOME/rosettadrone_work/ros2/src/rd_bridge/config/camera.yaml   # 태그 추종
+    ros2 launch rd_bridge bridge.launch.py usv:=true nav:=false   # USV GPS 추종
 
     video_node       영상 → /image_raw · /camera_info
     link_node        UDP 14550 — 다운링크 → /rd/* · /cmd_vel → #84
     nav_node         경유점 → /cmd_vel                     (nav, 기본 켬)
     apriltag_node    영상 → /detections · /tf (camera→tag0)  (tag)
     tag_follow_node  /tf → /cmd_vel                        (follow)
+    usv_follow_node  /usv/* → /cmd_vel · 짐벌 틸트           (usv)
 
-띄우기만 해서는 기체가 안 움직인다 — 항법·추종은 목표나 /tag/follow 를 받아야 명령을 낸다.
-⚠ nav 와 follow 를 같이 켜지 않는다 (둘 다 /cmd_vel).
+띄우기만 해서는 기체가 안 움직인다 — 항법·추종은 목표나 /tag/follow · /usv/follow 를 받아야 명령을 낸다.
+⚠ nav · follow · usv 중 하나만 켠다 (셋 다 /cmd_vel).
 ⚠ 14550 은 link_node 가 독점한다 — QGC·gps_capture.py 와 같이 못 쓴다.
 """
 import os
@@ -36,6 +38,7 @@ def generate_launch_description():
     nav = LaunchConfiguration("nav")
     tag = LaunchConfiguration("tag")
     follow = LaunchConfiguration("follow")
+    usv = LaunchConfiguration("usv")
     cam_info = LaunchConfiguration("camera_info_file")
     rectify = LaunchConfiguration("rectify")
 
@@ -50,6 +53,8 @@ def generate_launch_description():
                               description="apriltag_ros 를 같이 띄운다 (apt 설치 필요)"),
         DeclareLaunchArgument("follow", default_value="false",
                               description="태그 추종 노드. nav 와 같이 쓰지 말 것 (둘 다 /cmd_vel)"),
+        DeclareLaunchArgument("usv", default_value="false",
+                              description="USV GPS 추종 노드. nav · follow 와 같이 쓰지 말 것"),
         DeclareLaunchArgument("camera_info_file", default_value="",
                               description="보정 결과 YAML. 비우면 대략값(fx=fy=1250)을 쓴다"),
         DeclareLaunchArgument("rectify", default_value="false",
@@ -82,4 +87,8 @@ def generate_launch_description():
         # 태그 추종 — 뜨자마자 움직이지 않는다. /tag/follow true 를 받아야 명령을 낸다
         Node(package="rd_bridge", executable="tag_follow_node", name="rd_tag_follow",
              output="screen", condition=IfCondition(follow)),
+
+        # USV 추종 — /usv/follow true 를 받아야 /cmd_vel · 짐벌 명령을 낸다
+        Node(package="rd_bridge", executable="usv_follow_node", name="rd_usv_follow",
+             output="screen", condition=IfCondition(usv)),
     ])

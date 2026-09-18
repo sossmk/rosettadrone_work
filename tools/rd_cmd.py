@@ -10,6 +10,7 @@
     python3 tools/rd_cmd.py takeoff 5                # 5m 로 이륙
     python3 tools/rd_cmd.py drive                    # 방향키 조종 (--dry-run: 전송 없이)
     python3 tools/rd_cmd.py follow                   # 태그 추종 시작·정지·튜닝
+    python3 tools/rd_cmd.py usv                      # USV GPS 추종 시작·정지·튜닝
     python3 tools/rd_cmd.py mission missions/square10.txt   # 경유점 비행
 
 ⚠ 기체가 움직이기 전에
@@ -336,12 +337,15 @@ class Tuner:
         pick = {ParameterType.PARAMETER_BOOL: "bool_value",
                 ParameterType.PARAMETER_INTEGER: "integer_value",
                 ParameterType.PARAMETER_DOUBLE: "double_value",
-                ParameterType.PARAMETER_STRING: "string_value"}
+                ParameterType.PARAMETER_STRING: "string_value",
+                ParameterType.PARAMETER_DOUBLE_ARRAY: "double_array_value"}
         return {n: getattr(v, pick[v.type]) for n, v in zip(names, r.values)}
 
     def write(self, name, value):
         if isinstance(value, bool):
             pv = ParameterValue(type=ParameterType.PARAMETER_BOOL, bool_value=value)
+        elif isinstance(value, int):
+            pv = ParameterValue(type=ParameterType.PARAMETER_INTEGER, integer_value=value)
         else:
             pv = ParameterValue(type=ParameterType.PARAMETER_DOUBLE, double_value=float(value))
         wait_future(self.cli_set.call_async(
@@ -445,6 +449,82 @@ def cmd_follow(args):
     finally:
         send_twice(pub, Bool(data=False))
         print(f"\n■ /tag/follow false 송출 — 노드가 0 을 내고 link_node 가 1초 브레이크\n{RC_BACK}")
+    return 0
+
+
+# ------------------------------------------------------------------- usv
+USV_NODE = "/rd_usv_follow"
+USV_TUNE = {
+    "[": ("kp",        -0.05, 0.05,  3.0), "]": ("kp",        +0.05, 0.05,  3.0),
+    ",": ("max_speed", -0.10, 0.10,  2.5), ".": ("max_speed", +0.10, 0.10,  2.5),
+}
+USV_KEYS = ("space 시작/정지 · q 종료 · g 짐벌 겨눔 켜고끄기\n"
+            "  1~9 대형 (USV 기준 앞·오른쪽·고도) · [ ] kp · , . max_speed")
+
+
+def cmd_usv(args):
+    """USV 추종 — /usv/follow 를 토글하고 파라미터를 고친다. 급할 때는 space (follow 와 같다)."""
+    link = connect()
+    if link is None:
+        return 1
+    tuner = Tuner(link, USV_NODE)
+    par = tuner.read(("kp", "max_speed", "formation", "formations", "aim"))
+    if not par:
+        print(f"  ✗ {USV_NODE} 가 안 떠 있다 — bridge.launch.py 에 usv:=true nav:=false")
+        return 1
+
+    usv = {"t": 0.0, "lat": None, "lon": None}
+    cmd = {"t": 0.0, "v": (0.0, 0.0, 0.0, 0.0)}
+    st = {"armed": False, "t_arm": 0.0}
+    pub = link.create_publisher(Bool, "usv/follow", 10)
+    link.create_subscription(NavSatFix, "usv/fix", lambda m: usv.update(
+        t=time.time(), lat=m.latitude, lon=m.longitude), 10)
+    link.create_subscription(Twist, "cmd_vel", lambda m: cmd.update(
+        t=time.time(), v=(m.linear.x, m.linear.y, m.linear.z, math.degrees(m.angular.z))), 10)
+    time.sleep(0.6)      # 퍼블리셔가 짝지어질 시간 — 첫 토글을 잃지 않게
+    forms = [tuple(par["formations"][i:i + 3]) for i in range(0, len(par["formations"]) - 2, 3)]
+    banner("space 를 누르면 기체가 USV 를 따라 **움직인다**", USV_KEYS + "\n  " + "  ".join(
+        f"{n}: 앞{f:+.0f} 오{r:+.0f} 고{a:.0f}m" for n, (f, r, a) in enumerate(forms, 1)))
+
+    def on_key(k):
+        if k == " ":
+            st["armed"], st["t_arm"] = not st["armed"], time.time()
+            pub.publish(Bool(data=st["armed"]))
+        elif k == "g":
+            par["aim"] = not par["aim"]
+            tuner.write("aim", par["aim"])
+        elif k.isdigit() and 1 <= int(k) <= len(forms):
+            par["formation"] = int(k)
+            tuner.write("formation", par["formation"])
+        else:
+            tune(k, USV_TUNE, par, tuner)
+
+    def tick():
+        now, tel = time.time(), link.tel
+        if usv["t"] == 0.0:
+            see = "USV 좌표 없음"
+        elif "lat" not in tel:
+            see = "우리 좌표 없음"
+        else:
+            d = mav.meters_between(tel["lat"], tel["lon"], usv["lat"], usv["lon"])
+            see = f"USV {d:5.1f}m" + (f" ({now - usv['t']:.0f}초 전)" if now - usv["t"] > 2 else "")
+        if not st["armed"]:
+            state = "대기"
+        elif now - cmd["t"] < 1.5:
+            state = "추종중"
+        else:
+            state = "시작 중…" if now - st["t_arm"] < 1.5 else "명령끊김"
+        vx, vy, vz, wz = cmd["v"]
+        return (f"[{state}] {see} · cmd {vx:+.2f} {vy:+.2f} {vz:+.2f} {wz:+3.0f}°/s"
+                f" · 대형{par['formation']} kp{par['kp']:.2f} spd{par['max_speed']:.1f}"
+                f" 짐벌{'켬' if par['aim'] else '끔'}"
+                f" · 고도{fmt(tel.get('alt'), 'm')}")
+
+    try:
+        key_loop(on_key, tick, hz=5)
+    finally:
+        send_twice(pub, Bool(data=False))
+        print(f"\n■ /usv/follow false 송출 — 노드가 0 을 내고 link_node 가 1초 브레이크\n{RC_BACK}")
     return 0
 
 
@@ -605,13 +685,15 @@ def main():
     p = sub.add_parser("follow", help="태그 추종 시작·정지·튜닝")
     p.add_argument("--tag-frame", default="tag0", dest="tag_frame", help="tags.yaml 의 frames 와 같게")
 
+    sub.add_parser("usv", help="USV GPS 추종 시작·정지·튜닝")
+
     p = sub.add_parser("mission", help="경유점 비행 — 파일을 nav_node 에 넘긴다")
     p.add_argument("file", help="missions/*.txt — 줄마다 gps|offset <a> <b> [고도]")
 
     args = ap.parse_args()
     try:
         return {"ping": cmd_ping, "gimbal": cmd_gimbal, "takeoff": cmd_takeoff, "drive": cmd_drive,
-                "follow": cmd_follow, "mission": cmd_mission}[args.mode](args)
+                "follow": cmd_follow, "usv": cmd_usv, "mission": cmd_mission}[args.mode](args)
     finally:
         if SPIN["thread"] is not None:
             SPIN["stop"] = True
