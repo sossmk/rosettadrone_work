@@ -321,6 +321,39 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
   </div>
 </section>
 
+<!-- 3-1. 파일 -->
+<section>
+  <div class="sec-head">
+    <h2>파일은 어디에 있나</h2>
+    <p>처음이면 이 순서로 읽는다: <code>README.md</code> → 이 페이지 → <code>bridge.launch.py</code> → <code>tools/mav.py</code> →
+    노드들 → <code>tools/</code>. <code>nav_node</code> 의 유도 로직은 <a href="공부-nav_node.html"><code>공부-nav_node.html</code></a> 에 풀어 두었다.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>파일</th><th>하는 일</th></tr></thead>
+      <tbody>
+        <tr class="group"><td colspan="2">ROS 2 노드 — ros2/src/rd_bridge/</td></tr>
+        <tr><td>launch/bridge.launch.py</td><td>노드를 인자(link · nav · tag · follow · rectify)로 골라 한 번에 띄운다</td></tr>
+        <tr><td>rd_bridge/link_node.py</td><td>UDP 14550 독점 — 다운링크 → /rd/*, /cmd_vel · /rd/command → MAVLink</td></tr>
+        <tr><td>rd_bridge/video_node.py</td><td>UDP 5600 H.264 → /image_raw · /camera_info (rectify 면 왜곡 보정)</td></tr>
+        <tr><td>rd_bridge/tag_follow_node.py</td><td>/tf 의 camera → tag0 로 P 제어, /tag/follow 를 받아야만 /cmd_vel</td></tr>
+        <tr><td>rd_bridge/nav_node.py</td><td>경유점 · 미션 P 제어 (앱 flyTo() 대체), 미션별 CSV</td></tr>
+        <tr class="group"><td colspan="2">설정 · 빌드</td></tr>
+        <tr><td>config/tags.yaml · camera.yaml</td><td>태그 크기 0.192 한 곳 · 1632×1088 보정값 (원본은 calibrationdata/ost.yaml)</td></tr>
+        <tr><td>setup.py · package.xml</td><td>ament_python — config/*.yaml 을 share 에 설치, 노드 진입점 등록</td></tr>
+        <tr class="group"><td colspan="2">PC 도구 — tools/</td></tr>
+        <tr><td>mav.py</td><td>표준 라이브러리만 쓰는 MAVLink v2 + 거리 · 방위 계산. rd_bridge/mav.py 는 심링크</td></tr>
+        <tr><td>rd_cmd.py</td><td>ping · gimbal · takeoff · drive · follow · mission — 사람이 잡는 손잡이</td></tr>
+        <tr><td>gps_capture.py · tag_check.py · link_check.sh</td><td>경로 기록 · 태그 진단 · 링크 점검</td></tr>
+        <tr class="group"><td colspan="2">앱 · 환경</td></tr>
+        <tr><td>patches/01~04 · README.md</td><td>RosettaDrone 패치 — 핵심은 02 (VideoService 선언), 03 은 배터리 전압</td></tr>
+        <tr><td>setup_new_pc.sh</td><td>새 PC 에서 JDK · SDK · 패치 적용 · 앱 빌드까지 재현</td></tr>
+        <tr><td>missions/</td><td>경유점 파일 (gps · offset 줄), 형식은 README.txt</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
 <!-- 4. 도구 -->
 <section>
   <div class="sec-head">
