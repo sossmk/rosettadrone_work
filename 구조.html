@@ -144,7 +144,7 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
 <div class="page">
 
 <header>
-  <div class="eyebrow">RosettaDrone · 2026-09-16 기준 (태그 v1-2026-09-16 · 간소화 브랜치)</div>
+  <div class="eyebrow">RosettaDrone · 2026-09-17 기준 (master · 태그 v1-2026-09-16)</div>
   <h1>AR 태그를 따라가 착륙하는 드론 — 지금 구조</h1>
   <p class="lede">RM500 조종기 안의 앱이 드론과 PC 사이를 잇고, PC 의 ROS 2 노드가 그 위에서 길을 찾는다.
   아래로 갈수록 자세하다. 한 번에 다 읽을 필요는 없다.</p>
@@ -333,7 +333,8 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
     <li><span class="cmd">python3 tools/rd_cmd.py gimbal --angle -90</span><span class="why">짐벌 — 눈으로 판정. 태그 시험은 전부 -90°(탑뷰)</span></li>
     <li><span class="cmd">ros2 topic hz /rd/attitude · ros2 topic hz /camera_info</span><span class="why">다운링크 10Hz · 영상 ~30Hz 가 차는지</span></li>
     <li><span class="cmd">python3 tools/gps_capture.py missions/site_a.txt → rd_cmd.py mission missions/site_a.txt</span><span class="why">경로 비행 — 브리지를 끄고 RC 로 날며 Enter 로 좌표를 쌓고, 브리지를 다시 켜서 날린다. 첫 시험은 좌표 없이 <code>missions/square10.txt</code></span></li>
-    <li><span class="cmd">bridge.launch.py tag:=true follow:=true nav:=false → rd_cmd.py follow</span><span class="why">태그 추종 — space 로 시작, 날면서 kp·deadband 를 키로 고친다</span></li>
+    <li><span class="cmd">bridge.launch.py tag:=true follow:=true nav:=false camera_info_file:=…/config/camera.yaml → python3 tools/tag_check.py live</span><span class="why">태그가 잡히는지 먼저 — 안 잡히면 family·크기(px)·decimate 중 무엇 때문인지 짚어 준다</span></li>
+    <li><span class="cmd">python3 tools/rd_cmd.py follow</span><span class="why">태그 추종 — space 로 시작/정지, 날면서 <code>[ ]</code> kp · <code>- =</code> hold_alt · <code>o p</code> deadband 를 키로 고친다</span></li>
   </ol>
   <div class="nodrone">
     <b>기체 없이 할 수 있는 것 — 배관 확인까지만</b>
@@ -346,7 +347,7 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
 <section>
   <div class="sec-head">
     <h2>어디까지 왔나</h2>
-    <p>9/16 에 1차 최종본을 태그(<code>v1-2026-09-16</code>)로 남기고, <code>간소화</code> 브랜치에서 정리를 시작했다.</p>
+    <p>9/16 에 1차 최종본을 태그(<code>v1-2026-09-16</code>)로 남기고, <code>간소화</code> 브랜치에서 정리한 뒤 그날 밤 master 에 합쳤다.</p>
   </div>
   <div class="two">
     <div class="panel">
@@ -356,16 +357,18 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
         <li>태그 추종 첫 비행 — 느렸다. 원인은 <code>max_speed</code> 가 아니라 <code>kp</code></li>
         <li><code>rd_cmd follow</code> — 한 터미널에서 시작·정지·튜닝</li>
         <li>경유점 미션 — <code>rd_cmd mission</code> · <code>missions/*.txt</code> · <code>gps_capture</code> 경로 기록</li>
+        <li>실기 확인 — 연결 · 짐벌 −90° · <b>S 모드로 조종권 복귀</b> · 추종 성공</li>
         <li><code>토픽.md</code> — 토픽 형식·주기 한 장</li>
-        <li>간소화 — 안 쓰는 파일 12개 삭제, <code>rd_cmd</code> 800→625줄, <code>vel</code> 은 <code>takeoff</code> 만 남김</li>
+        <li>간소화 — 안 쓰는 파일 12개 삭제, <code>rd_cmd</code> 800→625줄, <code>vel</code> 은 <code>takeoff</code> 만 남김 → master 에 합침</li>
+        <li><b>태그 크기 버그</b> — <code>tag.sizes</code> 가 <code>size</code> 를 이기고 있었다(거리 62.5%) → <code>sizes</code> 삭제</li>
       </ul>
     </div>
     <div class="panel">
       <h3>다음</h3>
       <ol>
-        <li><b>추종</b> — kp 를 키로 훑기 · taglog CSV 에 줄이 찍히는지 (9/16 은 헤더뿐)</li>
+        <li><b>추종</b> — 거리가 1.6배로 바뀌었으니 kp 를 낮은 값부터 다시 · hold_alt 는 올려서 시작(9/16 의 3.0 은 실제 4.8m 였다) · taglog CSV 에 줄이 찍히는지 (9/16 은 헤더뿐) · <code>sign_*</code> 부호 재확인</li>
         <li><b>경유점</b> — <code>square10.txt</code> 실기 · 도착 반경 맴돌기</li>
-        <li><b>이륙</b> — <code>rd_cmd takeoff</code> 실기 (SIM 에서만 확인)</li>
+        <li><b>이륙 · 경로 기록</b> — <code>rd_cmd takeoff</code> 실기 (SIM 에서만 확인) · <code>gps_capture</code> 로 경로 한 번</li>
         <li><b>임무 시퀀스</b> — 경로 비행 → 태그 발견 → 추종 → 정밀 착륙, 그 전에 land · rtl</li>
       </ol>
       <span class="src">자세한 확인 목록은 진행상황.md 맨 위 블록.</span>
@@ -379,9 +382,12 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
   <div class="rules">
     <div class="rule"><b>조종권은 저절로 RC 로 안 돌아온다</b>
       <span>속도 명령을 한 발이라도 보내면 물리 스틱이 무시된다. 스틱을 잡아도, 도구를 꺼도 안 풀린다.
-      실기에서 통한 것은 <b>S 모드 전환</b>. 소스상 경로는 도구 종료 → 스틱 놓고 5초 → 앱 Safety 버튼.</span></div>
+      <b>①도구·노드 종료 ②RC 모드 스위치 S</b>. 안 되면 앱 Safety.</span></div>
     <div class="rule"><b>/cmd_vel 을 쓰는 것은 한 번에 하나만</b>
       <span>nav_node · tag_follow_node · rd_cmd drive 가 전부 /cmd_vel 에 쓴다. follow 와 mission 은 스스로 쏘지 않으니 급할 때는 Ctrl+C 가 아니라 space.</span></div>
+    <div class="rule"><b>태그 크기는 <code>tags.yaml</code> 의 <code>size</code> 한 곳에만</b>
+      <span>id별 <code>tag.sizes</code> 를 넣으면 그쪽이 조용히 이긴다. 크기가 틀리면 앞·오른쪽·고도가 전부 같은 비율로 틀린다.
+      인쇄물은 한 칸(24mm)과 검은 사각형 한 변(192mm = 24×8)을 둘 다 잰다. 저장소의 120mm PDF 는 지금 인쇄물이 아니다.</span></div>
     <div class="rule"><b>UDP 14550 은 한 번에 한 프로그램만</b>
       <span>link_node · QGC · gps_capture 를 동시에 켜면 조용히 반씩 망가진다. 켜기 전에 <code>link_check.sh</code> 로 점유 확인.</span></div>
     <div class="rule"><b>ACCEPTED 는 성공이 아니고, 기체 없는 결과는 배관 확인일 뿐</b>
