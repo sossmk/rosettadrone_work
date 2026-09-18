@@ -224,7 +224,7 @@ ros2 topic pub --once /tag/cancel std_msgs/msg/Empty '{}'             # 끄기
 | `sign_fwd` · `sign_right` · `sign_yaw` | -1 · +1 · +1 | **실기 지상 확인으로 확정한다** |
 | `yaw_offset` | 90.0 | 똑바로 맞춰진 상태를 0° 로 (위 「읽는 법」 참고) |
 | `yaw_enable` · `kp_yaw` · `max_yaw_rate` · `yaw_deadband` | true · 0.5 · 20°/s · 5° | 기수 맞추기 |
-| `lost_secs` · `giveup_secs` | 0.5 · 3.0 | 안 보이면 제자리 → 완전 해제 |
+| `lost_secs` · `giveup_secs` | 0.5 · 10.0 | 안 보이면 제자리 → 완전 해제 |
 | `publish` | true | `false` 면 계산·로그만 (지상 dry-run) |
 
 `follow_cmd()` 한 함수에 제어를 몰아 뒀다 — **나중에 `nav_node` 의 한 모드로 그대로 옮기려고**

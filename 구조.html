@@ -333,7 +333,7 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
     <li><span class="cmd">python3 tools/rd_cmd.py gimbal --angle -90</span><span class="why">짐벌 — 눈으로 판정. 태그 시험은 전부 -90°(탑뷰)</span></li>
     <li><span class="cmd">ros2 topic hz /rd/attitude · ros2 topic hz /camera_info</span><span class="why">다운링크 10Hz · 영상 ~30Hz 가 차는지</span></li>
     <li><span class="cmd">python3 tools/gps_capture.py missions/site_a.txt → rd_cmd.py mission missions/site_a.txt</span><span class="why">경로 비행 — 브리지를 끄고 RC 로 날며 Enter 로 좌표를 쌓고, 브리지를 다시 켜서 날린다. 첫 시험은 좌표 없이 <code>missions/square10.txt</code></span></li>
-    <li><span class="cmd">bridge.launch.py tag:=true follow:=true nav:=false camera_info_file:=…/config/camera.yaml → python3 tools/tag_check.py live</span><span class="why">태그가 잡히는지 먼저 — 안 잡히면 family·크기(px)·decimate 중 무엇 때문인지 짚어 준다</span></li>
+    <li><span class="cmd">bridge.launch.py tag:=true follow:=true nav:=false camera_info_file:=…/config/camera.yaml rectify:=true → python3 tools/tag_check.py live</span><span class="why">태그가 잡히는지 먼저 — 안 잡히면 family·크기(px)·decimate 중 무엇 때문인지 짚어 준다</span></li>
     <li><span class="cmd">python3 tools/rd_cmd.py follow</span><span class="why">태그 추종 — space 로 시작/정지, 날면서 <code>[ ]</code> kp · <code>- =</code> hold_alt · <code>o p</code> deadband 를 키로 고친다</span></li>
   </ol>
   <div class="nodrone">
