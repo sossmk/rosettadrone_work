@@ -1,0 +1,225 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "USV 추종 실기 — 실험 실행 흐름 (2026-09-21)",
+    "output": "workflow-usv-experiment.html",
+    "quality_profile": "showcase",
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "security": {
+          "label": "띄우기 전 확인"
+        },
+        "cloud": {
+          "label": "앱 명령 — 오늘 확인됨"
+        },
+        "backend": {
+          "label": "능력 평가 — 오늘 미실행"
+        },
+        "messagebus": {
+          "label": "중단 조건"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "ops",
+      "label": "내가 쏘는 명령 — 지상·이착륙"
+    },
+    {
+      "id": "aim",
+      "label": "짐벌 겨눔 — 틸트·기수"
+    },
+    {
+      "id": "formation",
+      "label": "대형 추종 — 기체가 따라온다"
+    },
+    {
+      "id": "abort",
+      "label": "중단 — RC / S 모드",
+      "variant": "exception"
+    }
+  ],
+  "mainPath": [
+    "stage0",
+    "coord",
+    "takeoff",
+    "exp1a",
+    "exp1b",
+    "exp2",
+    "exp3",
+    "land"
+  ],
+  "nodes": [
+    {
+      "id": "stage0",
+      "lane": "ops",
+      "col": 0,
+      "type": "security",
+      "label": "0단계 — 짐벌만",
+      "sublabel": "publish false",
+      "tag": "눈으로 판정",
+      "width": 136
+    },
+    {
+      "id": "coord",
+      "lane": "ops",
+      "col": 1,
+      "type": "security",
+      "label": "좌표 확인",
+      "sublabel": "T4 의 USV 거리 = 실제",
+      "tag": "DD 십진도",
+      "width": 136
+    },
+    {
+      "id": "takeoff",
+      "lane": "ops",
+      "col": 2,
+      "type": "cloud",
+      "label": "실험 0 — 이륙",
+      "sublabel": "NAV_TAKEOFF(22) · 5m",
+      "tag": "정상 작동",
+      "width": 136
+    },
+    {
+      "id": "exp1a",
+      "lane": "aim",
+      "col": 3,
+      "type": "backend",
+      "label": "실험 1-A — 제자리",
+      "sublabel": "move 끔 · aim 켬",
+      "tag": "미실행",
+      "width": 136
+    },
+    {
+      "id": "exp1b",
+      "lane": "aim",
+      "col": 4,
+      "type": "backend",
+      "label": "실험 1-B — 사다리",
+      "sublabel": "대형 4~7 · 3·5·7·10m",
+      "tag": "미실행",
+      "width": 136
+    },
+    {
+      "id": "exp2",
+      "lane": "formation",
+      "col": 4,
+      "type": "backend",
+      "label": "실험 2 — 북진 추종",
+      "sublabel": "aim 끔 · 대형 1 / 3",
+      "tag": "미실행",
+      "width": 136
+    },
+    {
+      "id": "exp3",
+      "lane": "formation",
+      "col": 5,
+      "type": "backend",
+      "label": "실험 3 — 대형 전환",
+      "sublabel": "전부 켬 · 1 → 3 → 2",
+      "tag": "미실행",
+      "width": 136
+    },
+    {
+      "id": "land",
+      "lane": "ops",
+      "col": 5,
+      "type": "cloud",
+      "label": "실험 4 — 착륙",
+      "sublabel": "NAV_LAND(21) 한 줄",
+      "tag": "정상 작동",
+      "width": 136
+    },
+    {
+      "id": "abort_alt",
+      "lane": "abort",
+      "col": 4,
+      "type": "messagebus",
+      "label": "고도를 지나친다",
+      "sublabel": "즉시 RC / S 모드",
+      "width": 136,
+      "tag": "이륙·사다리 공통"
+    }
+  ],
+  "edges": [
+    {
+      "from": "stage0",
+      "to": "coord",
+      "label": "짐벌이 숙었다"
+    },
+    {
+      "from": "coord",
+      "to": "takeoff",
+      "label": "거리가 맞다",
+      "variant": "emphasis"
+    },
+    {
+      "from": "takeoff",
+      "to": "exp1a",
+      "label": "5m 호버",
+      "variant": "emphasis"
+    },
+    {
+      "from": "exp1a",
+      "to": "exp1b",
+      "label": "틸트를 기수와 떼어 본다"
+    },
+    {
+      "from": "exp1b",
+      "to": "exp2",
+      "label": "이제 기체를 움직인다",
+      "variant": "emphasis"
+    },
+    {
+      "from": "exp2",
+      "to": "exp3",
+      "label": "짐벌 다시 켬"
+    },
+    {
+      "from": "exp3",
+      "to": "land",
+      "label": "추종 정지 후",
+      "variant": "emphasis",
+      "role": "return"
+    },
+    {
+      "from": "takeoff",
+      "to": "abort_alt",
+      "label": "계속 오른다",
+      "variant": "security",
+      "role": "error"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "오늘 확인된 것",
+      "items": [
+        "실험 0 이륙 NAV_TAKEOFF(22) — 실기 첫 확인, 정상",
+        "실험 4 착륙 NAV_LAND(21) — /rd/command 한 줄로 동작",
+        "rd_cmd.py 에 land 서브커맨드를 넣을 근거가 생겼다"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "오늘 못 한 것",
+      "items": [
+        "실험 1-A · 1-B · 2 · 3 전부 미실행",
+        "능력 셋(겨눔·추종·전환) 판정 보류",
+        "짐벌 PWM 상수 5.5 는 여전히 유일한 미검증 가정"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "다음 판이 가르는 것",
+      "items": [
+        "1-B 는 고도만 바꿔 틸트 오차의 원인을 가른다",
+        "올라갈수록 커지면 PWM 5.5, 작아지면 이륙점 높이차",
+        "어느 칸에서나 같으면 내 좌표가 틀린 것이다"
+      ]
+    }
+  ]
+}
