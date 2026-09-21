@@ -182,7 +182,7 @@ class UsvFollowNode(Node):
 
         self.pub = self.create_publisher(Twist, "cmd_vel", 10)
         self.pub_cmd = self.create_publisher(Float64MultiArray, "rd/command", 10)
-        # 센서는 센서 QoS 로 받는다 — BEST_EFFORT 로 내는 퍼블리셔와도 붙는다 (RELIABLE 은 안 붙는다)
+        # 센서는 센서 QoS(BEST_EFFORT)로 받는다 — 제공 ≥ 요구면 붙으므로 RELIABLE 퍼블리셔와도 붙는다
         sensor = qos_profile_sensor_data
         self.create_subscription(NavSatFix, "rd/fix", self.on_fix, sensor)
         self.create_subscription(Float64, "rd/heading", self.on_hdg, sensor)
