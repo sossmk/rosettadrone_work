@@ -22,3 +22,6 @@ ros2/log/
 
 # 캘리브레이션 원본 이미지 (결과 파일만 저장소에 둔다)
 calibrationdata/*.png
+
+# understand-anything 산출물 (지식그래프 — 다시 만들면 된다)
+.ua/

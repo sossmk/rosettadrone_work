@@ -1,0 +1,422 @@
+<meta charset="utf-8">
+<title>RosettaDrone 발표 노트</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root {
+  --ground: #f3f5f4;
+  --surface: #ffffff;
+  --ink: #17201d;
+  --muted: #5b6763;
+  --line: #d3dbd8;
+  --accent: #0e6e62;
+  --accent-soft: #e0efec;
+  --second: #9a6410;
+  --second-soft: #f6ecd9;
+  --warn: #b42318;
+  --warn-soft: #fbe9e7;
+  --code-bg: #eef2f0;
+  --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #111615; --surface: #19201f; --ink: #e3eae7; --muted: #9aa6a2; --line: #2d3735;
+    --accent: #4fc1ae; --accent-soft: #173330; --second: #e0a94f; --second-soft: #36290f;
+    --warn: #f08a7e; --warn-soft: #3a1c19; --code-bg: #141a19;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #111615; --surface: #19201f; --ink: #e3eae7; --muted: #9aa6a2; --line: #2d3735;
+  --accent: #4fc1ae; --accent-soft: #173330; --second: #e0a94f; --second-soft: #36290f;
+  --warn: #f08a7e; --warn-soft: #3a1c19; --code-bg: #141a19;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--ground); color: var(--ink);
+  font-family: var(--sans); font-size: 16px; line-height: 1.7;
+  padding-inline: 20px; padding-block: 40px 80px;
+}
+.wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
+header { display: flex; flex-direction: column; gap: 12px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; color: var(--accent); text-transform: uppercase; }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: 24px; line-height: 1.3; margin: 0; text-wrap: balance; }
+h3 { font-size: 17px; margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.lead { color: var(--muted); font-size: 17px; }
+section { display: flex; flex-direction: column; gap: 18px; }
+code, .m { font-family: var(--mono); font-size: .88em; }
+p code, li code, td code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+ul, ol { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 6px; max-width: 68ch; }
+a { color: var(--accent); }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.toc a { font-size: 14px; text-decoration: none; border: 1px solid var(--line); padding: 4px 12px; border-radius: 999px; color: var(--ink); background: var(--surface); }
+nav.toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.flow .node { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; display: flex; flex-direction: column; line-height: 1.35; }
+.flow .node b { font-family: var(--mono); font-size: 13px; }
+.flow .node span { font-size: 12px; color: var(--muted); }
+.flow .node.us { border-color: var(--accent); background: var(--accent-soft); }
+.flow .node.ext { border-style: dashed; }
+.flow .arrow { color: var(--muted); font-family: var(--mono); }
+
+.formula { font-family: var(--mono); font-size: 14px; background: var(--code-bg); border-radius: 6px; padding: 12px 14px; overflow-x: auto; white-space: pre; line-height: 1.6; }
+
+.callout { background: var(--second-soft); border-left: 3px solid var(--second); padding: 14px 18px; border-radius: 0 6px 6px 0; display: flex; flex-direction: column; gap: 8px; }
+.callout h3 { color: var(--second); }
+.callout.warn { background: var(--warn-soft); border-left-color: var(--warn); }
+.callout.warn h3 { color: var(--warn); }
+.callout.ok { background: var(--accent-soft); border-left-color: var(--accent); }
+.callout.ok h3 { color: var(--accent); }
+
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+figure .scroll { overflow-x: auto; }
+figure svg { display: block; width: 100%; height: auto; min-width: 280px; }
+figcaption { font-size: 13px; color: var(--muted); }
+.duo { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+svg text { font-family: var(--sans); fill: var(--ink); }
+svg .mono { font-family: var(--mono); }
+svg .mut { fill: var(--muted); }
+svg .acc { fill: var(--accent); }
+svg .sec { fill: var(--second); }
+
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; letter-spacing: .05em; color: var(--muted); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+td.yes { color: var(--second); font-weight: 500; }
+td.no { color: var(--muted); }
+td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.step { display: grid; grid-template-columns: 7.5rem 1fr; gap: 6px 20px; padding-block: 18px; border-top: 1px solid var(--line); }
+.step:last-child { border-bottom: 1px solid var(--line); }
+.step .k { font-weight: 700; color: var(--accent); }
+.step .body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+@media (max-width: 560px) { .step { grid-template-columns: 1fr; } }
+
+.q { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; display: flex; flex-direction: column; gap: 8px; }
+.q > p { font-weight: 500; }
+.q p.a { color: var(--muted); }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">발표 노트 · RosettaDrone + rd_bridge</div>
+  <h1>RosettaDrone 은 무엇이고, 제어는 어디서 도는가</h1>
+  <p class="lead">두 가지만 확실히 하면 된다. <b>RosettaDrone 은 DJI SDK 와 MAVLink 사이의 번역기</b>라는 것, 그리고 <b>자율 제어는 앱이 아니라 우리 PC 의 ROS2 노드에서 돈다</b>는 것. 나머지는 이 둘의 각주다.</p>
+  <nav class="toc" aria-label="목차">
+    <a href="#map">전체 지도</a><a href="#role">역할</a><a href="#joystick">가상 조이스틱?</a><a href="#mavpy">mav.py</a><a href="#loops">3단 루프</a><a href="#siblings">세 노드</a><a href="#p">공통 P 제어</a><a href="#nav">nav_node</a><a href="#tag">태그 추종</a><a href="#usv">USV 추종</a><a href="#tilt">짐벌 틸트</a><a href="#params">파라미터</a><a href="#qa">예상 질문</a>
+  </nav>
+</header>
+
+<section id="map">
+  <h2>전체 지도</h2>
+  <div class="flow">
+    <div class="node"><b>DJI 드론</b><span>비행제어기 · 짐벌 · 카메라</span></div>
+    <div class="arrow">↔</div>
+    <div class="node ext"><b>RM500 + RosettaDrone</b><span>DJI 독점 무선 ↔ MAVLink 번역</span></div>
+    <div class="arrow">↔</div>
+    <div class="node us"><b>PC · ROS2 rd_bridge</b><span>여기서 자율 제어가 돈다</span></div>
+  </div>
+  <p>왼쪽 구간은 DJI 독점 규격(OcuSync)이라 우리가 손댈 수 없다. RosettaDrone 은 조종기 <b>안에서</b> 도는 안드로이드 앱이고, 그 끝단에서 MAVLink 를 Wi-Fi UDP 로 내보낸다. 오른쪽이 우리가 만든 전부다.</p>
+  <div class="callout ok">
+    <h3>한 문장</h3>
+    <p>RosettaDrone 은 <b>닫혀 있던 DJI 를 MAVLink 생태계에 연결하는 어댑터</b>다. 자율 비행 로직은 들어 있지 않다 — 그건 우리가 ROS2 쪽에 만들었다.</p>
+  </div>
+</section>
+
+<section id="role">
+  <h2>역할 — 이름 그대로 로제타석</h2>
+  <p>DJI 는 자사 SDK 로만 열려 있어서 QGroundControl·PX4 계열 도구가 말을 걸 수 없다. RosettaDrone 이 그 사이에서 양방향 통역을 한다.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>방향</th><th>내용</th><th>예</th></tr></thead>
+    <tbody>
+      <tr><td><b>다운링크</b><br><span class="mut">드론 → 우리</span></td><td>DJI 상태를 MAVLink 메시지로</td><td class="mono">#33 위치 · #30 자세 · #74 속도 · #1 배터리</td></tr>
+      <tr><td><b>업링크</b><br><span class="mut">우리 → 드론</span></td><td>MAVLink 명령을 DJI SDK 호출로</td><td class="mono">#84 속도 · #76 이륙·착륙·짐벌</td></tr>
+    </tbody>
+  </table></div>
+  <p>실행 위치가 중요하다. 앱은 <b>RM500 조종기 안</b>에서 돈다. 드론에 올라가는 컴패니언 컴퓨터가 아니다. 그래서 드론과의 구간은 그대로 DJI 무선이고, 우리와의 구간만 표준 MAVLink 가 된다.</p>
+</section>
+
+<section id="joystick">
+  <h2>"RC 의 가상 조이스틱 아닌가?" — 절반만 맞다</h2>
+  <p>MAVLink 명령마다 앱이 호출하는 DJI API 가 다르다. Virtual Stick 은 그중 <b>하나</b>일 뿐이다.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>들어온 MAVLink</th><th>앱이 호출하는 DJI API</th><th>Virtual Stick?</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">#84 속도</td><td class="mono">sendVirtualStickFlightControlData()</td><td class="yes">그렇다</td></tr>
+      <tr><td class="mono">NAV_TAKEOFF</td><td class="mono">startTakeoff()</td><td class="no">아니다</td></tr>
+      <tr><td class="mono">NAV_LAND</td><td class="mono">startLanding()</td><td class="no">아니다</td></tr>
+      <tr><td class="mono">RETURN_TO_LAUNCH</td><td class="mono">startGoHome()</td><td class="no">아니다</td></tr>
+      <tr><td class="mono">웨이포인트 미션</td><td class="mono">WaypointMissionOperator</td><td class="no">아니다</td></tr>
+      <tr><td class="mono">DO_SET_SERVO</td><td class="mono">Gimbal.rotate()</td><td class="no">아니다</td></tr>
+    </tbody>
+  </table></div>
+  <p>정확한 표현은 <b>"MAVLink 명령을 DJI SDK 의 알맞은 API 로 라우팅하는 번역기이고, 그중 속도 명령 경로만 Virtual Stick 을 쓴다"</b>이다. 우리 USV·태그 추종이 하필 그 속도 경로라서 "조이스틱 같다"는 인상이 강할 뿐이다.</p>
+  <div class="callout">
+    <h3>RC 가 여전히 상위 권한이다</h3>
+    <p>Virtual Stick 은 실물 스틱을 <b>대체</b>하지 않는다. RC 가 양보한 동안만 동작한다.</p>
+    <ul>
+      <li>P 모드에서만 허용 — 다른 모드로 돌리면 앱이 명령을 버린다</li>
+      <li>앱의 Safety 버튼을 누르면 Virtual Stick 을 끄고 RC 로 즉시 복귀</li>
+      <li>우리 <code>link_node</code> 는 <code>/cmd_vel</code> 이 오기 전까지 <b>#84 를 한 발도 쏘지 않는다</b> — 앱은 #84 를 받는 순간 Virtual Stick 을 켜기 때문이다</li>
+    </ul>
+  </div>
+</section>
+
+<section id="mavpy">
+  <h2>mav.py 는 오픈소스 라이브러리가 아니다</h2>
+  <div class="callout warn">
+    <h3>발표 전에 꼭 정정할 것</h3>
+    <p>두 가지가 섞여 있다.</p>
+    <ul>
+      <li><b>앱 안의 오픈소스</b> — <code>com.MAVLink</code> (MAVLink 공식 Java 생성 코드)가 RosettaDrone 앱에 포함돼 있다. "오픈 라이브러리"라고 부를 만한 건 이쪽이다.</li>
+      <li><b>PC 쪽 <code>mav.py</code></b> — 우리가 직접 쓴 <b>200줄짜리 자체 구현</b>이다. <code>pymavlink</code> 를 일부러 쓰지 않았다. 이유는 파일 첫 줄에 적혀 있다: <i>"새 PC 에서 pip 없이도 바로 돌아야 한다"</i> — 표준 라이브러리만 쓴다.</li>
+    </ul>
+    <p>"mav_py 라는 오픈소스를 썼다"고 말하면 질문이 들어왔을 때 곤란해진다. <b>"MAVLink v2 인코딩을 의존성 없이 직접 구현했다"</b>가 사실이고, 오히려 더 좋은 발표 재료다.</p>
+  </div>
+</section>
+
+<section id="loops">
+  <h2>제어는 3단으로 겹쳐 있다</h2>
+  <div class="step">
+    <div class="k">① 바깥</div>
+    <div class="body">
+      <p><b>우리 P 제어</b> — PC 의 ROS2 노드, 20Hz. 위치 오차를 속도 명령으로 바꾼다. 발표에서 "우리가 만든 제어"는 전부 이것이다.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="k">② 중간</div>
+    <div class="body">
+      <p><b><code>link_node</code></b> — 제어가 아니다. 안전 포화(속도 상한)와 데드맨만 건다. <code>/cmd_vel</code> 이 0.3초 끊기면 0 을 1초 쏘고 입을 닫는다.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="k">③ 안쪽</div>
+    <div class="body">
+      <p><b>DJI 비행제어기</b> — 속도 명령을 받아 자세와 모터를 맞춘다. <b>비공개다. 우리가 볼 수 없고 손댈 수도 없다.</b> 앱은 모드만 잡아 준다: roll/pitch = VELOCITY, vertical = VELOCITY, yaw = ANGULAR_VELOCITY.</p>
+    </div>
+  </div>
+  <p>"안쪽이 P 제어"라는 인식은 반만 맞다. <b>P 제어는 ① 우리 쪽이고, ③ 안쪽은 DJI 의 비공개 제어기다.</b> 우리가 P 만 쓰고 I·D 를 안 쓰는 이유도 여기 있다 — 속도 추종은 ③ 이 이미 해 주므로, 우리는 위치 오차를 속도로 바꾸는 사상만 담당한다.</p>
+  <p>앱 안에도 yaw PID 가 하나 있지만 <b>우리 경로에서는 비활성</b>이다. #84 마스크에 <code>YAW_IGNORE</code> 비트를 켜서 우회하고, 우리 각속도 명령이 그대로 통과한다.</p>
+</section>
+
+<section id="siblings">
+  <h2>세 노드는 형제다 — <code>/nav/goal</code> 을 거치지 않는다</h2>
+  <div class="callout warn">
+    <h3>흔한 오해</h3>
+    <p>태그 추종과 USV 추종이 목표점을 <code>/nav/goal</code> 로 넘겨 <code>nav_node</code> 가 날린다고 보기 쉬운데, <b>그렇지 않다.</b> <code>/nav/goal</code> 을 발행하는 코드는 저장소에 없다 — 사람이 주는 입력 전용 토픽이다.</p>
+  </div>
+  <div class="flow">
+    <div class="node ext"><b>/nav/goal</b><span>사람이 준다</span></div>
+    <div class="arrow">→</div>
+    <div class="node us"><b>nav_node</b><span>경유점 P 유도</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>/cmd_vel</b><span>vx vy vz wz</span></div>
+  </div>
+  <div class="flow">
+    <div class="node ext"><b>/tf (apriltag_ros)</b><span>카메라 → 태그</span></div>
+    <div class="arrow">→</div>
+    <div class="node us"><b>tag_follow_node</b><span>태그 위로 정렬</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>/cmd_vel</b><span>같은 토픽</span></div>
+  </div>
+  <div class="flow">
+    <div class="node ext"><b>/usv/fix · heading</b><span>USV 팀</span></div>
+    <div class="arrow">→</div>
+    <div class="node us"><b>usv_follow_node</b><span>대형 유지 + 겨눔</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>/cmd_vel</b><span>같은 토픽</span></div>
+  </div>
+  <p>셋 다 각자 오차를 계산해 <b>직접</b> <code>/cmd_vel</code> 에 쓴다. 같은 토픽을 공유하므로 <b>동시에 켜면 안 된다.</b> USV 추종이 <code>nav_node</code> 를 재사용하지 않은 이유는 뒤에 나올 feedforward 항과 기수 제어 때문이다 — <code>nav_node</code> 에는 둘 다 없다.</p>
+</section>
+
+<section id="p">
+  <h2>공통 P 제어</h2>
+  <p>세 노드의 뼈대는 같다. 20Hz 로 돌면서 오차를 구하고, 비례 상수를 곱하고, 상한으로 자른다.</p>
+  <div class="formula">v = min(v_max,  Kp · e)        수평 — 크기에서 자르고 방향은 보존
+vz = clamp(Kp_alt · e_alt,  ±vz_max)
+wz = clamp(Kp_yaw · e_yaw,  ±yaw_max)</div>
+  <p>적분·미분 항이 없다. 위치 오차를 <b>속도</b>로 사상하는 단계라서 닫힌 루프가 1차계가 되고, 오버슈트 없이 지수적으로 수렴한다.</p>
+  <div class="formula">포화 구간 (d > v_max/Kp = 2.5/0.35 ≈ 7.1 m)   →  등속 2.5 m/s
+선형 구간 (d < 7.1 m)   ḋ = −Kp·d   →   d(t) = d₀·e^(−Kp·t)
+                        시정수 τ = 1/Kp ≈ 2.9 초</div>
+  <div class="callout">
+    <h3>실제 대역은 GPS 가 정한다</h3>
+    <p>제어는 20Hz 로 돌지만 위치 피드백(<code>#33</code>)은 <b>5Hz</b> 로 온다. 같은 좌표로 4 tick 을 도는 셈이라 실효 제어 대역의 상한은 5Hz 다. <code>Kp = 0.35</code> 가 보수적인 것이 이것과 맞물린다 — 더 올리면 샘플링·링크 지연 때문에 진동한다.</p>
+  </div>
+</section>
+
+<section id="nav">
+  <h2>nav_node — GPS 경유점</h2>
+  <p>목표 좌표까지의 거리와 방위를 구면 기하로 구하고, 기수 기준 상대각으로 돌려 속도 성분으로 나눈다.</p>
+  <div class="formula">d = 거리(우리, 목표)              haversine
+θ = 방위(우리 → 목표)             0 = 북, 시계
+ψ = wrap(θ − 기수)                기수 기준 상대각
+
+s  = min(v_max, Kp · d)
+vx = s · cos ψ                     앞
+vy = s · sin ψ                     오른쪽
+vz = clamp(Kp_alt · (목표고도 − 현재고도), ±vz_max)</div>
+  <p>도착 판정은 <code>d &lt; 1.0 m</code> 이고 고도 오차도 1m 안이어야 한다. 경유점이 여러 개면 <b>중간점에서는 속도 0 을 내지 않는다</b> — 내면 <code>link_node</code> 의 데드맨이 걸려 매 점마다 멈칫하기 때문이다. 그 tick 만 건너뛰면 직전 속도가 유지된 채 다음 점으로 넘어간다.</p>
+</section>
+
+<section id="tag">
+  <h2>tag_follow_node — AprilTag</h2>
+  <p>검출은 우리 코드가 아니라 <code>apriltag_ros</code> 패키지가 한다. 36h11 계열, 인쇄물 실측 192mm, PnP 로 6-DoF 자세를 풀어 <code>/tf</code> 로 낸다.</p>
+  <p>여기서는 <b>좌표 변환이 필요 없다.</b> 카메라가 이미 기체 기준 오차를 직접 주기 때문이다 (짐벌 −90° 탑뷰 전제).</p>
+  <div class="formula">앞    = −y        화면 위가 기수 앞
+오른쪽 = +x
+고도오차 = z − 유지고도
+yaw 오차 = (태그 x축이 기수에서 돈 각) − 90°
+
+d = √(앞² + 오른쪽²)
+d < 0.3 m        →  정지 (불감대)
+그 외             →  s = min(v_max, max(v_min, Kp·d)), 방향은 (앞, 오른쪽)</div>
+  <p><code>min_speed</code> 하한이 <code>nav_node</code> 에 없는 항이다. 가까워지면 <code>Kp·d</code> 가 기체가 반응하지 못할 만큼 작아지므로 하한을 두고, 대신 불감대로 진동을 끊는다.</p>
+</section>
+
+<section id="usv">
+  <h2>usv_follow_node — 목표 결정과 추종</h2>
+  <p>USV 좌표를 그대로 쫓지 않는다. <b>네 단계</b>를 거친다.</p>
+  <div class="step">
+    <div class="k">1. 속도 추정</div>
+    <div class="body"><p>최근 2초 창의 <b>양 끝 두 점</b>만으로 유한차분. 중간 점을 버리는 것이 가장 싼 저역통과다. 두 점 간격이 0.5초 미만이면 0 으로 본다 (GPS 잡음 증폭 차단).</p>
+    <div class="formula">(v_N, v_E) = (거리·cos방위,  거리·sin방위) / Δt</div></div>
+  </div>
+  <div class="step">
+    <div class="k">2. 외삽</div>
+    <div class="body"><p>받은 좌표는 이미 과거다. <b>등속</b>으로 앞당긴다.</p>
+    <div class="formula">T  = age + lead_secs       age = 좌표가 온 지 지난 시간, lead = 0.5초
+p̂ = USV 좌표 + (v_N·T 북,  v_E·T 동)</div>
+    <p><code>age</code> 는 <b>이미 흐른</b> 지연을, <code>lead_secs</code> 는 <b>앞으로 흐를</b> 지연(제어 주기 + 링크 + 기체 응답)을 보상한다. 등속 가정이라 USV 급선회 중에는 바깥쪽으로 벗어난다 — 한계로 코드에 명시해 뒀다.</p></div>
+  </div>
+  <div class="step">
+    <div class="k">3. 목표점</div>
+    <div class="body"><p>추정 위치에서 <b>대형</b>만큼 떨어뜨린다. 기준이 지도 방위가 아니라 <b>USV 기수</b>라서, USV 가 돌면 목표점도 따라 돈다.</p>
+    <div class="formula">목표 = p̂ 에서  (앞 f₁,  오른쪽 f₂) 만큼   ← USV 기수 기준으로 회전
+기본 대형 1번 = 왼쪽 10m   2번 = 오른쪽 10m   3번 = 뒤 10m   (셋 다 고도 5m)</div></div>
+  </div>
+  <div class="step">
+    <div class="k">4. 제어</div>
+    <div class="body"><p><code>nav_node</code> 와 같은 P 에 <b>USV 속도 feedforward</b> 를 더한다.</p>
+    <div class="formula">vx = s·cos ψ  +  v_N·cos h + v_E·sin h
+vy = s·sin ψ  −  v_N·sin h + v_E·cos h
+     └─ P 항 ─┘  └─── feedforward ───┘      h = 우리 기수
+
+합친 뒤 크기로 포화 (방향 보존)
+기수: wz = clamp(Kp_yaw · (p̂ 방위 − h))   ← 목표점이 아니라 USV 본체를 본다</div></div>
+  </div>
+  <div class="callout ok">
+    <h3>feedforward 가 발표의 핵심 수식이다</h3>
+    <p>P 제어만으로 등속 목표를 쫓으면 정상상태 오차가 남는다.</p>
+    <div class="formula">FF 없음:  Kp · e_ss = v   →   e_ss = v / Kp
+
+   USV 2.0 m/s,  Kp = 0.35   →   5.7 m 뒤처짐
+   USV 2.5 m/s               →   7.1 m — 속도 상한에 걸려 사실상 추종 실패
+
+FF 있음:  v_cmd = Kp·e + v  →  e_ss = 0</div>
+    <p>적분항 대신 feedforward 를 쓴 이유: I 항은 위상 지연과 와인드업을 가져오지만, FF 는 지연 없이 즉시 상쇄한다. <b>목표의 속도를 이미 측정하고 있는 상황이라 FF 가 정답이다.</b></p>
+  </div>
+</section>
+
+<section id="tilt">
+  <h2>짐벌 틸트 — arctan 맞다</h2>
+  <p>질문하신 대로 <b>순수 기하</b>다. 피드백이 없는 완전 개루프다 — 짐벌의 실제 각도를 되읽지 않는다.</p>
+  <div class="formula">틸트 = −atan2( 우리 상대고도,  우리 ↔ 추정 USV 수평거리 )
+       클램프 [−90°, 0°]         0 = 수평,  −90 = 바로 아래</div>
+  <div class="duo">
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 300 170" role="img" aria-label="옆에서 본 틸트 삼각형">
+          <line x1="20" y1="140" x2="285" y2="140" stroke="currentColor" stroke-opacity=".25"/>
+          <line x1="70" y1="45" x2="70" y2="140" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="4 3"/>
+          <line x1="70" y1="140" x2="250" y2="140" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="4 3"/>
+          <line x1="70" y1="45" x2="250" y2="140" stroke="#0e6e62" stroke-width="2"/>
+          <path d="M 110 45 A 40 40 0 0 1 104 61" fill="none" stroke="#9a6410" stroke-width="1.5"/>
+          <circle cx="70" cy="45" r="6" fill="#0e6e62"/>
+          <circle cx="250" cy="140" r="6" fill="#9a6410"/>
+          <text class="mono acc" x="70" y="30" text-anchor="middle" font-size="12">드론</text>
+          <text class="mono sec" x="250" y="160" text-anchor="middle" font-size="12">USV</text>
+          <text class="mono mut" x="62" y="97" text-anchor="end" font-size="12">고도</text>
+          <text class="mono mut" x="160" y="156" text-anchor="middle" font-size="12">수평거리</text>
+          <text class="mono sec" x="122" y="62" font-size="12">틸트</text>
+        </svg>
+      </div>
+      <figcaption>옆에서 본 그림. 두 변만 알면 각이 나온다.</figcaption>
+    </figure>
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 300 170" role="img" aria-label="위에서 본 대형 오프셋">
+          <line x1="150" y1="130" x2="150" y2="40" stroke="#9a6410" stroke-width="1.5" marker-end="url(#ah)"/>
+          <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#9a6410"/></marker></defs>
+          <line x1="150" y1="90" x2="150" y2="130" stroke="currentColor" stroke-opacity=".4" stroke-dasharray="4 3"/>
+          <circle cx="150" cy="90" r="7" fill="#9a6410"/>
+          <circle cx="150" cy="130" r="7" fill="#0e6e62"/>
+          <text class="mono sec" x="163" y="86" font-size="12">USV</text>
+          <text class="mono sec" x="163" y="48" font-size="12">기수</text>
+          <text class="mono acc" x="163" y="134" font-size="12">목표 = 드론 자리</text>
+          <text class="mono mut" x="142" y="114" text-anchor="end" font-size="12">뒤 10m</text>
+          <text class="mut" x="150" y="160" text-anchor="middle" font-size="12">USV 가 돌면 목표도 같이 돈다</text>
+        </svg>
+      </div>
+      <figcaption>위에서 본 그림. 대형은 USV 기수 기준이다.</figcaption>
+    </figure>
+  </div>
+  <p>수평거리는 <b>목표점이 아니라 추정 USV 위치</b>까지다. 기수 제어도 마찬가지다 — 목적이 이동이 아니라 카메라 겨눔이라서, 뒤 10m 대형이면 기수와 카메라는 앞쪽 USV 를 향해야 한다.</p>
+  <p>전송은 <code>DO_SET_SERVO</code> 채널 9 로 하고, 값은 <code>1500 + 틸트 × 5.5</code> 다. <b>5.5 는 임의의 상수가 아니라 앱의 역변환을 그대로 맞춘 것</b>이다 — 앱이 <code>(값 − 1500) / 5.5</code> 로 되돌려 짐벌 <b>절대각</b>으로 넣는다. 짐벌 yaw(채널 8)는 앱 구현이 상대·누적각이라 절대 지령이 불가능해서 쓰지 않고, 대신 몸체를 돌린다.</p>
+  <p>2° 이상 바뀔 때만, 최대 2Hz 로 보낸다. 짐벌 회전 명령이 2초에 걸쳐 도는 형태라 고빈도로 쏘면 이전 회전을 계속 끊어먹는다.</p>
+</section>
+
+<section id="params">
+  <h2>파라미터 한눈에</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th></th><th class="r">nav_node</th><th class="r">tag_follow</th><th class="r">usv_follow</th></tr></thead>
+    <tbody>
+      <tr><td>수평 <code>Kp</code></td><td class="r">0.35</td><td class="r">0.35</td><td class="r">0.35</td></tr>
+      <tr><td>최대 속도</td><td class="r">2.5 m/s</td><td class="r">0.8 m/s</td><td class="r">2.5 m/s</td></tr>
+      <tr><td>고도 <code>Kp_alt</code></td><td class="r">0.35</td><td class="r">0.35</td><td class="r">0.35</td></tr>
+      <tr><td>최대 상승·하강</td><td class="r">1.5 m/s</td><td class="r">0.5 m/s</td><td class="r">1.0 m/s</td></tr>
+      <tr><td>기수 <code>Kp_yaw</code></td><td class="r">—</td><td class="r">0.5</td><td class="r">0.8</td></tr>
+      <tr><td>최대 각속도</td><td class="r">—</td><td class="r">20 °/s</td><td class="r">30 °/s</td></tr>
+      <tr><td>입력 끊김 → 제자리</td><td class="r">1.0 s</td><td class="r">0.5 s</td><td class="r">2.0 s</td></tr>
+      <tr><td>입력 끊김 → 정지</td><td class="r">1.0 s</td><td class="r">10 s</td><td class="r">10 s</td></tr>
+    </tbody>
+  </table></div>
+  <p>그 뒤에 <code>link_node</code> 가 공통 안전 상한을 한 번 더 건다 (vx·vy 2.5 · vz 1.5 m/s · yaw 75 °/s). 노드 파라미터를 잘못 올려도 여기서 걸린다.</p>
+</section>
+
+<section id="qa">
+  <h2>예상 질문</h2>
+  <div class="q">
+    <p>제어를 드론 위가 아니라 PC 에서 돌리면 지연이 문제 아닌가?</p>
+    <p class="a">그래서 세 겹으로 막는다. ① 20Hz 로 계속 갱신한다 — #84 한 발의 효력은 200ms 라 끊기면 자동으로 무효가 된다. ② <code>link_node</code> 데드맨: <code>/cmd_vel</code> 이 0.3초 끊기면 0 을 1초 쏜다. ③ 각 노드가 입력 신선도를 보고 스스로 멈춘다. 그리고 실제 병목은 링크가 아니라 <b>GPS 5Hz</b> 다.</p>
+  </div>
+  <div class="q">
+    <p>왜 PID 가 아니라 P 인가?</p>
+    <p class="a">속도 추종은 DJI 비행제어기가 이미 한다. 우리 단계는 위치 오차를 속도로 바꾸는 사상이라 P 만으로 1차 수렴이 나온다. 움직이는 목표의 정상상태 오차는 I 항 대신 <b>feedforward</b> 로 없앴다 — 지연도 와인드업도 없다.</p>
+  </div>
+  <div class="q">
+    <p>RC 조종사는 무엇을 할 수 있나?</p>
+    <p class="a">언제든 가져갈 수 있다. Virtual Stick 은 P 모드에서만 허용되고, 모드를 돌리거나 앱의 Safety 버튼을 누르면 즉시 RC 로 돌아온다. 자율 명령은 RC 가 양보한 동안만 유효하다.</p>
+  </div>
+  <div class="q">
+    <p>태그 추종과 USV 추종을 같이 쓸 수 있나?</p>
+    <p class="a">지금은 안 된다. 둘 다 <code>/cmd_vel</code> 에 쓰기 때문에 동시에 켜면 서로 덮어쓴다. 두 방식을 섞으려면 조정 노드가 하나 더 필요하다.</p>
+  </div>
+  <div class="q">
+    <p>USV 가 급선회하면?</p>
+    <p class="a">등속 외삽이라 선회 바깥쪽으로 벗어난다. 코드에 한계로 명시해 뒀고, 필요해지면 칼만 필터로 바꾸는 것이 다음 단계다.</p>
+  </div>
+</section>
+
+<footer>기준: rd_bridge (usv-gps-follow · 989c42c) · RosettaDrone 앱 소스 · 2026-09-21. 자세한 내부는 <a href="구조.html">구조.html</a> · <a href="공부-nav_node.html">공부-nav_node.html</a> · <a href="공부-usv_follow.html">공부-usv_follow.html</a>.</footer>
+</div>

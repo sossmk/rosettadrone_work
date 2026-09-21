@@ -1,0 +1,446 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "rd_bridge — ROS 2 브리지 구조",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1390,
+      620
+    ],
+    "repository": {
+      "url": "https://github.com/sossmk/rosettadrone_work",
+      "provider": "github",
+      "revision": "989c42ca9bb63ee6cc48e0167a53e458308dfab8"
+    },
+    "views": [
+      {
+        "id": "control-loop",
+        "label": "제어 루프",
+        "focus": [
+          "app",
+          "link",
+          "cmdvel",
+          "nav"
+        ],
+        "note": "다운링크로 위치를 받고 /cmd_vel 로 되돌려 보내는 한 바퀴."
+      },
+      {
+        "id": "vision-chain",
+        "label": "영상 · 태그",
+        "focus": [
+          "app",
+          "video",
+          "apriltag",
+          "tagfollow"
+        ],
+        "note": "영상과 camera_info 는 쌍으로 간다 — 한쪽이 없으면 검출이 0."
+      },
+      {
+        "id": "usv-follow",
+        "label": "USV 추종",
+        "focus": [
+          "usv",
+          "usvfollow",
+          "link",
+          "cmdvel"
+        ],
+        "note": "USV GPS 외삽 · 대형 유지 · 짐벌 틸트까지 한 노드."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "app",
+      "type": "external",
+      "label": "RosettaDrone 앱",
+      "sublabel": "Android · DJI Mavic 2 Pro",
+      "tag": "UDP 14550 · 5600",
+      "pos": [
+        300,
+        120
+      ],
+      "size": [
+        200,
+        95
+      ]
+    },
+    {
+      "id": "video",
+      "type": "backend",
+      "label": "video_node",
+      "sublabel": "H.264 → /image_raw · /camera_info",
+      "tag": "rectify · camera.yaml",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        190,
+        72
+      ],
+      "sources": [
+        {
+          "path": "ros2/src/rd_bridge/rd_bridge/video_node.py"
+        }
+      ]
+    },
+    {
+      "id": "apriltag",
+      "type": "external",
+      "label": "apriltag_node",
+      "sublabel": "apriltag_ros (apt) · tags.yaml",
+      "tag": "tag:=true",
+      "pos": [
+        570,
+        40
+      ],
+      "size": [
+        215,
+        72
+      ],
+      "sources": [
+        {
+          "path": "ros2/src/rd_bridge/config/tags.yaml",
+          "label": "size 0.192 · frames [tag0]"
+        }
+      ]
+    },
+    {
+      "id": "tagfollow",
+      "type": "backend",
+      "label": "tag_follow_node",
+      "sublabel": "태그 위 정지 · 기수 정렬",
+      "tag": "/tag/follow 대기",
+      "pos": [
+        1000,
+        40
+      ],
+      "size": [
+        215,
+        80
+      ],
+      "sources": [
+        {
+          "path": "ros2/src/rd_bridge/rd_bridge/tag_follow_node.py"
+        }
+      ]
+    },
+    {
+      "id": "link",
+      "type": "backend",
+      "label": "link_node",
+      "sublabel": "MAVLink 양방향 · 14550 독점",
+      "tag": "IDLE → ACTIVE 20Hz → BRAKE",
+      "pos": [
+        300,
+        290
+      ],
+      "size": [
+        200,
+        105
+      ],
+      "sources": [
+        {
+          "path": "ros2/src/rd_bridge/rd_bridge/link_node.py"
+        }
+      ]
+    },
+    {
+      "id": "mav",
+      "type": "backend",
+      "label": "mav.py",
+      "sublabel": "tools/mav.py 심링크 · 측지 · 프레임",
+      "tag": "사본 금지",
+      "pos": [
+        570,
+        295
+      ],
+      "size": [
+        215,
+        70
+      ],
+      "sources": [
+        {
+          "path": "tools/mav.py"
+        }
+      ]
+    },
+    {
+      "id": "nav",
+      "type": "backend",
+      "label": "nav_node",
+      "sublabel": "경유점 P 유도 · flyTo() 대체",
+      "tag": "/nav/goal 대기",
+      "pos": [
+        570,
+        150
+      ],
+      "size": [
+        215,
+        80
+      ],
+      "sources": [
+        {
+          "path": "ros2/src/rd_bridge/rd_bridge/nav_node.py"
+        }
+      ]
+    },
+    {
+      "id": "usvfollow",
+      "type": "backend",
+      "label": "usv_follow_node",
+      "sublabel": "외삽 · 대형 · 짐벌 틸트",
+      "tag": "/usv/follow 대기",
+      "pos": [
+        570,
+        430
+      ],
+      "size": [
+        215,
+        90
+      ],
+      "sources": [
+        {
+          "path": "ros2/src/rd_bridge/rd_bridge/usv_follow_node.py"
+        }
+      ]
+    },
+    {
+      "id": "usv",
+      "type": "external",
+      "label": "USV (무인수상정)",
+      "sublabel": "/usv/fix · heading · depth",
+      "pos": [
+        855,
+        435
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "cmdvel",
+      "type": "messagebus",
+      "label": "/cmd_vel · /rd/command",
+      "sublabel": "업링크 토픽 · 앱 규약",
+      "tag": "20Hz · 쓰는 노드는 한 번에 하나",
+      "pos": [
+        1080,
+        285
+      ],
+      "size": [
+        245,
+        100
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "video-feed",
+      "from": "app",
+      "to": "video",
+      "label": "H.264 RTP · UDP 5600",
+      "fromSide": "left",
+      "toSide": "bottom"
+    },
+    {
+      "id": "downlink",
+      "from": "app",
+      "to": "link",
+      "label": "다운링크 #33 #30 #74 #1",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        310,
+        248
+      ]
+    },
+    {
+      "id": "uplink",
+      "from": "link",
+      "to": "app",
+      "label": "#84 SET_POSITION_TARGET 20Hz",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        310,
+        272
+      ]
+    },
+    {
+      "id": "image-pair",
+      "from": "video",
+      "to": "apriltag",
+      "label": "/image_raw + /camera_info",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "tag-tf",
+      "from": "apriltag",
+      "to": "tagfollow",
+      "label": "/tf  camera→tag0",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelDx": 85
+    },
+    {
+      "id": "tel-nav",
+      "from": "link",
+      "to": "nav",
+      "label": "/rd/fix · /rd/heading",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "tel-usv",
+      "from": "link",
+      "to": "usvfollow",
+      "label": "/rd/fix · /rd/heading",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          400,
+          475
+        ]
+      ]
+    },
+    {
+      "id": "usv-gps",
+      "from": "usv",
+      "to": "usvfollow",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "nav-cmd",
+      "from": "nav",
+      "to": "cmdvel",
+      "label": "/cmd_vel",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          1030,
+          190
+        ],
+        [
+          1030,
+          335
+        ]
+      ]
+    },
+    {
+      "id": "tag-cmd",
+      "from": "tagfollow",
+      "to": "cmdvel",
+      "label": "/cmd_vel",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "usv-cmd",
+      "from": "usvfollow",
+      "to": "cmdvel",
+      "label": "/cmd_vel · /rd/command (짐벌 틸트)",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          677.5,
+          545
+        ],
+        [
+          1202.5,
+          545
+        ]
+      ]
+    },
+    {
+      "id": "cmd-to-link",
+      "from": "cmdvel",
+      "to": "link",
+      "label": "캡 2.5·1.5 m/s · 데드맨 0.3초",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          1360,
+          335
+        ],
+        [
+          1360,
+          575
+        ],
+        [
+          250,
+          575
+        ],
+        [
+          250,
+          342.5
+        ]
+      ],
+      "labelSegment": 2
+    },
+    {
+      "id": "mav-link",
+      "from": "mav",
+      "to": "link",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "mav-nav",
+      "from": "mav",
+      "to": "nav",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "mav-usv",
+      "from": "mav",
+      "to": "usvfollow",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "링크 — link_node",
+      "items": [
+        "UDP 14550 을 혼자 잡는다 — QGC · gps_capture.py 와 동시에 못 쓴다",
+        "/cmd_vel 이 오기 전에는 #84 를 한 발도 안 쏜다 (Virtual Stick 이 안 켜진다)",
+        "0.3초 끊기면 BRAKE 로 0 을 1초 쏘고 입을 닫는다"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "유도 — 세 노드",
+      "items": [
+        "셋 다 단순 P (kp 0.35) — 앱의 flyTo() 를 우리 루프로 대체한 것",
+        "nav · tag_follow · usv_follow 는 셋 다 /cmd_vel 에 쓴다 — 한 번에 하나만 켠다",
+        "mav.py 는 tools/mav.py 심링크 — link · nav · usv_follow 가 같이 쓴다 (사본 금지)",
+        "목표 토픽 전에는 아무것도 안 낸다 · 시작·정지는 tools/rd_cmd.py"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "영상 · 태그 · 남은 것",
+      "items": [
+        "apriltag_ros 는 /image_raw 와 /camera_info 를 쌍으로 구독 — 하나 없으면 검출 0",
+        "/cmd_vel 은 REP-103 이 아니라 앱 규약 (y>0 오른쪽 · angular.z>0 시계)",
+        "실기 검증 전 — sign_* · 대형 기본값 · 카메라 보정값은 추정이다"
+      ]
+    }
+  ]
+}

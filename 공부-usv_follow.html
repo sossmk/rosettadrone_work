@@ -1,0 +1,557 @@
+<title>USV 겨눔 해부</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root {
+  --ground: #f3f5f4;
+  --surface: #ffffff;
+  --ink: #17201d;
+  --muted: #5b6763;
+  --line: #d3dbd8;
+  --accent: #0e6e62;
+  --accent-soft: #e0efec;
+  --second: #9a6410;
+  --second-soft: #f6ecd9;
+  --warn: #b42318;
+  --warn-soft: #fbe9e7;
+  --code-bg: #eef2f0;
+  --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #111615; --surface: #19201f; --ink: #e3eae7; --muted: #9aa6a2; --line: #2d3735;
+    --accent: #4fc1ae; --accent-soft: #173330; --second: #e0a94f; --second-soft: #36290f;
+    --warn: #f08a7e; --warn-soft: #3a1c19; --code-bg: #141a19;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #111615; --surface: #19201f; --ink: #e3eae7; --muted: #9aa6a2; --line: #2d3735;
+  --accent: #4fc1ae; --accent-soft: #173330; --second: #e0a94f; --second-soft: #36290f;
+  --warn: #f08a7e; --warn-soft: #3a1c19; --code-bg: #141a19;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--ground); color: var(--ink);
+  font-family: var(--sans); font-size: 16px; line-height: 1.7;
+  padding-inline: 20px; padding-block: 40px 80px;
+}
+.wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
+header { display: flex; flex-direction: column; gap: 12px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; color: var(--accent); text-transform: uppercase; }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: 24px; line-height: 1.3; margin: 0; text-wrap: balance; }
+h3 { font-size: 17px; margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.lead { color: var(--muted); font-size: 17px; }
+section { display: flex; flex-direction: column; gap: 18px; }
+section > .sub { color: var(--muted); }
+code, .m { font-family: var(--mono); font-size: .88em; }
+p code, li code, td code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+ul, ol { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 6px; max-width: 68ch; }
+a { color: var(--accent); }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.toc a { font-size: 14px; text-decoration: none; border: 1px solid var(--line); padding: 4px 12px; border-radius: 999px; color: var(--ink); background: var(--surface); }
+nav.toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.flow .node { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; display: flex; flex-direction: column; line-height: 1.35; }
+.flow .node b { font-family: var(--mono); font-size: 13px; }
+.flow .node span { font-size: 12px; color: var(--muted); }
+.flow .node.us { border-color: var(--accent); background: var(--accent-soft); }
+.flow .arrow { color: var(--muted); font-family: var(--mono); }
+
+.step { display: grid; grid-template-columns: 7.5rem 1fr; gap: 6px 20px; padding-block: 18px; border-top: 1px solid var(--line); }
+.step:last-child { border-bottom: 1px solid var(--line); }
+.step .k { font-weight: 700; color: var(--accent); }
+.step .body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+@media (max-width: 560px) { .step { grid-template-columns: 1fr; } }
+
+.formula { font-family: var(--mono); font-size: 14px; background: var(--code-bg); border-radius: 6px; padding: 12px 14px; overflow-x: auto; white-space: pre; line-height: 1.6; }
+.ex { font-size: 14px; color: var(--muted); }
+.ex b { color: var(--ink); font-weight: 500; }
+
+.callout { background: var(--second-soft); border-left: 3px solid var(--second); padding: 14px 18px; border-radius: 0 6px 6px 0; display: flex; flex-direction: column; gap: 8px; }
+.callout h3 { color: var(--second); }
+
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+figure .scroll { overflow-x: auto; }
+figure svg { display: block; width: 100%; height: auto; min-width: 320px; }
+figcaption { font-size: 13px; color: var(--muted); }
+.duo { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+svg text { font-family: var(--sans); fill: var(--ink); }
+svg .mono { font-family: var(--mono); }
+svg .mut { fill: var(--muted); }
+svg .acc { fill: var(--accent); }
+svg .sec { fill: var(--second); }
+
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; letter-spacing: .05em; color: var(--muted); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+td.same { color: var(--accent); }
+td.diff { color: var(--second); }
+
+details.code { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+details.code > summary { cursor: pointer; padding: 12px 16px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+details.code > summary b { font-family: var(--mono); font-size: 14px; }
+details.code > summary span { font-size: 13px; color: var(--muted); }
+pre.src { margin: 0; border-top: 1px solid var(--line); background: var(--code-bg); overflow-x: auto; padding-block: 12px; font-family: var(--mono); font-size: 13px; line-height: 1.55; counter-reset: ln; }
+pre.src span.l { display: block; padding-right: 16px; white-space: pre; }
+pre.src span.l::before { counter-increment: ln; content: counter(ln); display: inline-block; width: 3.2em; padding-right: 1em; text-align: right; color: var(--muted); opacity: .6; user-select: none; }
+pre.src span.c { color: var(--muted); }
+pre.src span.hl { background: var(--accent-soft); }
+.notes { display: flex; flex-direction: column; gap: 10px; }
+.notes div { display: grid; grid-template-columns: 11rem 1fr; gap: 16px; font-size: 15px; }
+.notes div > code { color: var(--accent); background: none; padding: 0; font-size: 13px; padding-top: 2px; }
+@media (max-width: 560px) { .notes div { grid-template-columns: 1fr; gap: 2px; } }
+
+.q { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; display: flex; flex-direction: column; gap: 8px; }
+.q summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+.q details > div { padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.num { font-variant-numeric: tabular-nums; }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+
+/* 공부-usv_follow 에만 */
+.callout.warn { background: var(--warn-soft); border-left-color: var(--warn); }
+.callout.warn h3 { color: var(--warn); }
+.flow + .flow { margin-top: -6px; }
+.flow .node.ext { border-style: dashed; }
+td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+svg .wat { stroke: var(--muted); }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">rd_bridge · usv_follow_node.py · 공부 노트</div>
+  <h1>USV 좌표 하나가 기수·틸트·속도가 되기까지</h1>
+  <p class="lead">USV 가 보낸 위경도·헤딩과 우리 위치·기수·고도만으로, <b>영상 없이</b> 카메라를 USV 에 겨누고 대형 자리를 지킨다. 핵심은 나와 USV 를 잇는 <b>시선 벡터</b> 하나를 좌우 각(방위)과 위아래 각(틸트)으로 나누는 것이다. 자리 지키기는 nav_node 와 같은 P 제어에 USV 속도를 더한 것이다.</p>
+  <nav class="toc" aria-label="목차">
+    <a href="#flow">흐름</a><a href="#los">시선 벡터</a><a href="#frames">좌표계</a><a href="#steps">여섯 단계</a><a href="#ff">feedforward</a><a href="#yaw">기수</a><a href="#tilt">틸트</a><a href="#image">화면에서</a><a href="#limits">가정과 오차</a><a href="#code">코드</a><a href="#quiz">연습 문제</a>
+  </nav>
+</header>
+
+<section id="flow">
+  <h2>흐름</h2>
+  <div class="flow">
+    <div class="node ext"><b>/usv/fix · /usv/heading</b><span>NavSatFix · Float64 · USV 팀</span></div>
+    <div class="arrow">→</div>
+    <div class="node us"><b>usv_follow_node</b><span>20Hz tick · plan()</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>/cmd_vel</b><span>vx vy vz wz · 앱 규약</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>link_node</b><span>캡 · 데드맨 · 브레이크</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>MAVLink #84</b><span>기체 기준 속도</span></div>
+  </div>
+  <div class="flow">
+    <div class="node us"><b>usv_follow_node</b><span>aim() · 최대 2Hz</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>/rd/command</b><span>DO_SET_SERVO · 채널 9</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>link_node</b><span>COMMAND_LONG</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>앱 짐벌</b><span>2초에 걸쳐 회전</span></div>
+  </div>
+  <p>되돌아오는 길은 <code>link_node</code> 가 내는 <code>/rd/fix</code>(위경도 + 상대고도, 약 5Hz)와 <code>/rd/heading</code>(기수, 약 10Hz)이다. 이 노드는 <b>카메라가 무엇을 보는지 모른다.</b> 태그 추종과 달리 영상을 쓰지 않고, 두 좌표만으로 "카메라가 어디를 봐야 하는가"를 계산해 그쪽으로 돌려 놓는다. 되먹임 없는 <b>개루프 겨눔</b>이다.</p>
+  <p>뜨자마자 움직이지 않는다. <code>/usv/follow true</code>(<code>rd_cmd.py usv</code> 의 space)를 받아야 시작한다. <code>publish:=false</code> 로 띄우면 <code>/cmd_vel</code> 은 내지 않고 짐벌만 겨눈다. 지상에서 겨눔만 볼 때 쓴다. <code>move:=false</code> 는 수평·수직만 막고 기수는 살려 둔다(제자리 회전+틸트), <code>aim:=false</code> 는 짐벌만 막는다. <b>셋 다 출력 스위치일 뿐 계산은 갈라지지 않는다</b> — 능력을 하나씩 떼어 평가하려고 둔 것이다.</p>
+</section>
+
+<section id="los">
+  <h2>핵심 한 장: 시선 벡터를 두 각으로 나눈다</h2>
+  <p>카메라가 USV 를 보려면 두 각을 맞춰야 한다. 좌우(방위)와 위아래(틸트)다. 둘 다 <b>나에서 USV 로 가는 벡터</b> 하나에서 나온다. USV 는 수면 위에 있고, 우리는 수면에서 h 만큼 떠 있다고 본다.</p>
+  <p>식의 이름은 코드와 맞췄다. <code>me</code> = 우리 위치, <code>est</code> = p̂(추정한 USV 위치), <code>goal</code> = 대형 목표점.</p>
+  <div class="formula">L = (ΔN, ΔE, −h)       시선 벡터 me → est. h = 우리 상대고도
+s = √(ΔN² + ΔE²)       수평거리 — mav.meters_between(me, est)
+β = atan2(ΔE, ΔN)      방위 — mav.bearing_between(me, est)
+e = wrap(β − ψ)        좌우 오차 → 몸체를 돌려 0 으로 (ψ = 우리 기수)
+θ = −atan2(h, s)       틸트 → 짐벌 채널 9 로 (0 = 수평, −90 = 바로 아래)</div>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 560 290" role="img" aria-label="옆에서 본 그림. 높이 h 에 떠 있는 드론에서 수평거리 s 떨어진 수면 위 USV 로 시선이 내려간다. 시선과 수평선 사이의 각이 틸트 θ 이고, θ 는 −atan2(h, s) 이다.">
+      <defs>
+        <marker id="s-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>
+      </defs>
+      <!-- 수면 -->
+      <line x1="20" y1="230" x2="540" y2="230" class="wat" stroke-width="1.5"/>
+      <text x="24" y="248" class="mut" font-size="12">수면</text>
+      <!-- 우리 -->
+      <circle cx="90" cy="70" r="10" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="106" y="52" font-size="13" font-weight="700">우리</text>
+      <line x1="100" y1="70" x2="480" y2="70" stroke="var(--muted)" stroke-width="1" stroke-dasharray="5 4"/>
+      <text x="480" y="62" class="mut" font-size="12" text-anchor="end">수평선</text>
+      <line x1="90" y1="82" x2="90" y2="228" stroke="var(--muted)" stroke-width="1" stroke-dasharray="5 4"/>
+      <text x="78" y="160" class="acc" font-size="15" font-weight="700" text-anchor="end">h</text>
+      <!-- 시선 -->
+      <line x1="90" y1="70" x2="444" y2="220" stroke="var(--accent)" stroke-width="2.5" marker-end="url(#s-ah)"/>
+      <text x="282" y="134" class="acc" font-size="13">시선 = 카메라 광축</text>
+      <path d="M160,70 A70,70 0 0,1 154.5,97.2" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="168" y="92" class="acc" font-size="15" font-weight="700">θ</text>
+      <text x="300" y="36" class="acc mono" font-size="14" font-weight="600">θ = −atan2(h, s)</text>
+      <!-- USV -->
+      <polygon points="420,222 480,222 472,236 428,236" fill="var(--second-soft)" stroke="var(--second)" stroke-width="1.5"/>
+      <text x="488" y="214" class="sec" font-size="13" font-weight="700">USV (p̂)</text>
+      <!-- s -->
+      <g stroke="var(--muted)" stroke-width="1">
+        <line x1="90" y1="258" x2="450" y2="258"/><line x1="90" y1="252" x2="90" y2="264"/><line x1="450" y1="252" x2="450" y2="264"/>
+      </g>
+      <text x="270" y="280" class="mut" font-size="12" text-anchor="middle">s = 수평거리 (나 → p̂)</text>
+    </svg>
+    </div>
+    <figcaption>옆에서 본 그림. 짐벌 pitch 는 수평선 기준 절대각이라(기체가 기울어도 짐벌이 잡아 준다) 이 각을 그대로 보낸다. h 는 <b>이륙 지점 기준</b> 고도라서, 이륙 지점이 수면 높이일 때만 이 그림이 맞는다.</figcaption>
+  </figure>
+  <p><b>좌우는 짐벌이 아니라 몸체로 맞춘다.</b> 짐벌 yaw(채널 8)는 앱이 기억한 직전 값과의 차이만큼 도는 상대·누적각이다. 명령 한 발을 잃으면 기준이 어긋나고, 부호도 실기로 확인하지 않았다. 위아래는 짐벌 pitch(채널 9)가 절대각이라 계산한 θ 를 그대로 보내면 된다.</p>
+  <p>USV 가 보낸 좌표 p 를 그대로 쓰지 않고, 지연을 메우려고 앞으로 민 <b>p̂</b> 를 쓴다. 다음 절의 ② 가 그 계산이다.</p>
+</section>
+
+<section id="frames">
+  <h2>좌표계와 부호</h2>
+  <p class="sub">이 노드에서 틀리기 쉬운 것은 계산보다 부호와 기준이다. 한 표로 모았다.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>양</th><th>기준</th><th>부호 · 범위</th><th>어디서</th></tr></thead>
+      <tbody>
+        <tr><td>북 · 동 (N, E)</td><td>지구, m</td><td>북 +, 동 +</td><td><code>mav.offset_to_gps</code> 안</td></tr>
+        <tr><td>방위 β · 기수 ψ · USV 헤딩 ψu</td><td>북 = 0°</td><td>시계 +, 0~360°</td><td><code>/rd/heading</code> · <code>/usv/heading</code></td></tr>
+        <tr><td>상대각 rel · 좌우 오차 e</td><td>우리 기수 = 0°</td><td>오른쪽 +, −180~180°</td><td><code>mav.relative_bearing</code></td></tr>
+        <tr><td>vx · vy</td><td>우리 기체축</td><td>앞 +, 오른쪽 +</td><td><code>/cmd_vel</code> — 앱 규약, REP-103 이 아니다</td></tr>
+        <tr><td>vz</td><td>—</td><td>위 +</td><td><code>/cmd_vel</code></td></tr>
+        <tr><td>wz</td><td>—</td><td>시계 +, 토픽은 rad/s</td><td>link_node 가 °/s 로 바꿔 75°/s 로 자른다</td></tr>
+        <tr><td>h</td><td>이륙 지점</td><td>위 +</td><td><code>/rd/fix</code> 의 altitude</td></tr>
+        <tr><td>틸트 θ</td><td>수평선</td><td>아래 −, 0 ~ −90°</td><td>DO_SET_SERVO 채널 9, PWM = 1500 + 5.5θ</td></tr>
+        <tr><td>대형 (f, r, a)</td><td>USV 헤딩</td><td>앞 +, 오른쪽 +, a = 상대고도</td><td>파라미터 <code>formations</code> · <code>formation</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="steps">
+  <h2>tick() 한 번에 일어나는 여섯 단계</h2>
+  <p class="sub">예시 숫자는 <code>plan()</code> 을 실제로 돌린 값이다. 우리는 원점, 고도 8 m, 기수 0°(북). USV 는 북 3 m · 동 12 m 에서 헤딩 90°(동)이고, 2초 동안 동쪽으로 2 m 움직였다. 마지막 좌표는 0.3 초 전에 받았다. 대형은 (−10, 0, 10), 곧 USV 뒤 10 m · 고도 10 m (기본값이 아니라 예시 값이다).</p>
+
+  <div>
+    <div class="step">
+      <div class="k">① 속도 추정</div>
+      <div class="body">
+        <p><code>usv_velocity()</code>. 최근 <code>vel_window</code>(2 s) 안에 받은 좌표 가운데 <b>맨 앞과 맨 뒤 두 점만</b> 쓴다. 두 점 사이가 0.5 s 보다 짧으면 0 이다.</p>
+        <div class="formula">d  = meters_between(p0, p1)       b  = bearing_between(p0, p1)
+vn = d · cos(b) / (t1 − t0)       ve = d · sin(b) / (t1 − t0)</div>
+        <p class="ex">2 s 동안 동쪽 2 m → d = 2, b = 90° → <b class="num">(vn, ve) = (0.00, 1.00) m/s</b></p>
+        <p>창이 길면 GPS 흔들림이 덜 들어가고, 짧으면 USV 가 방향을 바꾼 것을 빨리 안다. 좌표의 짧은 시간 흔들림을 σ 라 하면 속도 잡음은 대략 √2·σ / T 다. σ = 0.3 m, T = 2 s 면 <span class="num">0.21 m/s</span>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="k">② 외삽</div>
+      <div class="body">
+        <p><code>plan()</code> 58행. 마지막 좌표는 이미 <code>age</code> 초 묵었다. 여기에 <code>lead_secs</code> 를 더한 τ 만큼 등속으로 민다. <code>offset_to_gps</code> 에 기수 0 을 주면 "앞 = 북, 오른쪽 = 동" 이 되므로, 속도 × τ 를 그대로 북·동 이동으로 넣을 수 있다.</p>
+        <div class="formula">τ   = age + lead_secs              lead_secs = 0.5 s
+est = p + (vn·τ, ve·τ)             = offset_to_gps(p, 0°, vn·τ, ve·τ)</div>
+        <p class="ex">τ = 0.3 + 0.5 = 0.8 s → <b class="num">p̂ = (북 3.0, 동 12.8)</b></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="k">③ 대형 → 목표점</div>
+      <div class="body">
+        <p><code>plan()</code> 59행. 대형 (f, r) 은 <b>USV 헤딩 기준</b>이다. nav_node 의 goal_offset 과 같은 회전인데, 우리 기수 대신 USV 헤딩 ψu 로 돌린다. 그래서 USV 가 돌면 목표점도 같이 돈다.</p>
+        <div class="formula">N    = f · cos ψu − r · sin ψu
+E    = f · sin ψu + r · cos ψu
+goal = est + (N, E)</div>
+        <p class="ex">(f, r) = (−10, 0), ψu = 90° → N = 0, E = −10 → <b class="num">목표점 = (북 3.0, 동 2.8)</b>. 동쪽을 보는 USV 의 "뒤" 는 서쪽이다.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="k">④ 병진</div>
+      <div class="body">
+        <p><code>plan()</code> 61–70행. nav_node 와 같은 P 제어로 목표점까지 가는 속도를 만든다. 여기에 USV 속도를 <b>우리 기체축으로 돌려</b> 더하고(feedforward), 합친 크기를 <code>max_speed</code> 로 자른다.</p>
+        <div class="formula">d     = meters_between(me, goal)      rel = wrap(bearing(me, goal) − ψ)
+speed = min(max_speed, kp · d)        kp = 0.35 /s
+vx    = speed·cos(rel) + ( vn·cos ψ + ve·sin ψ)     # 앞
+vy    = speed·sin(rel) + (−vn·sin ψ + ve·cos ψ)     # 오른쪽
+vz    = clamp(kp_alt · (a − h), ±max_vz)            # a = 대형 고도
+|(vx, vy)| &gt; max_speed (2.5 m/s) 이면 같은 비율로 줄인다</div>
+        <p class="ex">d = 4.10 m, 방위 43.0° → speed = 0.35 × 4.10 = 1.44 → P = (1.05, 0.98), ff = (0.00, 1.00) → <b class="num">(vx, vy) = (1.05, 1.98)</b>, 크기 2.24 &lt; 2.5 라 안 자른다. vz = 0.35 × (10 − 8) = <b class="num">0.70</b></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="k">⑤ 기수</div>
+      <div class="body">
+        <p><code>plan()</code> 72–73행. 몸체를 <b>목표점이 아니라 p̂(USV)</b> 쪽으로 돌린다. 가는 방향과 보는 방향은 다를 수 있다.</p>
+        <div class="formula">e  = wrap(bearing(me, est) − ψ)
+wz = clamp(kp_yaw · e, ±max_yaw_rate)     # kp_yaw 0.8 /s, max 30°/s
+     → rad/s 로 바꿔 /cmd_vel 의 angular.z 로</div>
+        <p class="ex">bearing(me, est) = 76.8° → e = 76.8° → 0.8 × 76.8 = 61.4 → <b class="num">30°/s 로 자름 (0.524 rad/s)</b></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="k">⑥ 틸트</div>
+      <div class="body">
+        <p><code>plan()</code> 75–76행에서 계산하고 <code>aim()</code> 이 보낸다.</p>
+        <div class="formula">s   = meters_between(me, est)
+θ   = clamp(−atan2(max(h, 0), s), −90, 0)
+PWM = 1500 + 5.5 · θ         → DO_SET_SERVO(183), 채널 9
+보내는 조건: aim 켜짐 · 직전 전송에서 0.5 s 지남 · |θ − 직전 θ| ≥ 2°</div>
+        <p class="ex">s = 13.15 m, h = 8 → <b class="num">θ = −31.3°</b> → PWM <b class="num">1327.7</b></p>
+      </div>
+    </div>
+  </div>
+
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 180 560 150" role="img" aria-label="위에서 본 예시. 원점의 우리가 북쪽을 보고 있다. 북 3 m 동 12 m 에 동쪽을 향한 USV 가 있고, 0.8 초 앞으로 민 추정 위치 p̂ 가 그 바로 동쪽이다. p̂ 에서 서쪽 10 m 가 대형 목표점이다. 우리는 목표점으로 움직이고, 기수와 카메라는 p̂ 쪽으로 돌린다. 기수와 p̂ 방향 사이의 각이 좌우 오차 76.8도다.">
+      <defs>
+        <marker id="t-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>
+        <marker id="t-am" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>
+      </defs>
+      <!-- 북 -->
+      <line x1="36" y1="304" x2="36" y2="262" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#t-am)"/>
+      <text x="30" y="252" class="mut" font-size="13">북</text>
+      <!-- 대형 오프셋 -->
+      <line x1="403" y1="218" x2="172" y2="218" stroke="var(--second)" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <text x="290" y="200" class="sec" font-size="12" text-anchor="middle">대형 (−10, 0) 을 헤딩 90° 로 돌리면 서쪽 10 m</text>
+      <circle cx="167.2" cy="218" r="5" fill="var(--second)"/>
+      <text x="152" y="206" class="sec" font-size="12" text-anchor="end" font-weight="700">목표점</text>
+      <!-- USV -->
+      <polygon points="372,212 390,212 398,218 390,224 372,224" fill="var(--second-soft)" stroke="var(--second)" stroke-width="1.5"/>
+      <text x="385" y="244" class="sec" font-size="12" text-anchor="middle">USV p · 헤딩 90°</text>
+      <circle cx="407.2" cy="218" r="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="410" y="206" class="acc" font-size="13" font-weight="700">p̂</text>
+      <!-- 우리 -->
+      <line x1="100" y1="290" x2="162" y2="223.4" stroke="var(--accent)" stroke-width="2.5" marker-end="url(#t-ah)"/>
+      <line x1="100" y1="290" x2="403" y2="219" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="2 4"/>
+      <text x="300" y="274" class="acc" font-size="12" text-anchor="middle">겨눔 (기수 · 틸트)</text>
+      <line x1="100" y1="281" x2="100" y2="238" stroke="var(--ink)" stroke-width="2" marker-end="url(#t-am)"/>
+      <text x="100" y="231" font-size="12" text-anchor="middle">기수 ψ = 0°</text>
+      <path d="M100,254 A36,36 0 0,1 135.05,281.78" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="142" y="302" class="acc" font-size="12">e = 76.8°</text>
+      <circle cx="100" cy="290" r="9" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="100" y="318" font-size="12" text-anchor="middle">우리 (0, 0)</text>
+      <!-- 범례 -->
+      <g font-size="12">
+        <line x1="440" y1="270" x2="470" y2="270" stroke="var(--accent)" stroke-width="2.5"/><text x="478" y="274">병진 d 4.1 m</text>
+        <line x1="440" y1="292" x2="470" y2="292" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="2 4"/><text x="478" y="296">겨눔 s 13.1 m</text>
+        <line x1="440" y1="314" x2="470" y2="314" stroke="var(--second)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="478" y="318">대형 오프셋</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption>위에서 본 예시, 1 m = 24 px. p̂ 는 p 에서 v·τ = 0.8 m 동쪽이다. 굵은 선(가는 방향)과 점선(보는 방향)이 다르다. 몸체는 30°/s 로 오른쪽으로 돌면서 목표점으로 간다.</figcaption>
+  </figure>
+
+  <div class="callout">
+    <h3>같은 화살표, 다른 기체축 숫자</h3>
+    <p>같은 순간 우리 기수가 60° 였다면 P = (1.37, −0.42), ff = (0.87, 0.50), 합 (2.24, 0.08) 이다. 숫자는 달라도 지구 기준으로는 크기 2.24 의 같은 화살표다. 매 tick 지금 기수로 다시 나누므로, 몸체가 USV 쪽으로 도는 동안에도 가는 방향은 흔들리지 않는다. 이때 e = 16.8° → wz = 13.4°/s.</p>
+  </div>
+</section>
+
+<section id="ff">
+  <h2>feedforward 는 왜 있나</h2>
+  <p>P 만 있으면 속도 명령이 거리에 비례한다. USV 가 v 로 계속 가면, 우리가 v 로 따라가려면 목표점에서 v/kp 만큼 떨어져 있어야 한다. 그 거리만큼 늘 뒤처진다. USV 속도를 미리 더해 두면(feedforward) P 는 남은 오차만 맡는다.</p>
+  <div class="formula">kp · e = v   →   e = v / kp      P 만 쓸 때 늘 이만큼 뒤처진다
+e → 0                            feedforward 를 더하면 (속도 추정이 맞고 max_speed 에 안 걸릴 때)</div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>USV 속도</th><th class="r">P 만 (kp 0.35)</th><th>P + feedforward</th></tr></thead>
+      <tbody>
+        <tr><td class="num">0.5 m/s</td><td class="r">1.43 m 뒤</td><td>0</td></tr>
+        <tr><td class="num">1.0 m/s</td><td class="r">2.86 m 뒤</td><td>0</td></tr>
+        <tr><td class="num">2.0 m/s</td><td class="r">5.71 m 뒤</td><td>0 — 다만 feedforward 가 2.0 을 쓰고 교정에는 0.5 만 남는다</td></tr>
+        <tr><td class="num">3.0 m/s</td><td class="r">못 따라간다</td><td>못 따라간다 — max_speed 와 link_node 캡이 둘 다 2.5</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>feedforward 의 정확도는 ① 속도 추정에 달렸다. 속도를 20% 작게 잡으면 남는 오차는 0.2·v/kp, 1 m/s 에서 <span class="num">0.57 m</span> 다.</p>
+</section>
+
+<section id="yaw">
+  <h2>기수: 몸체로 겨눈다</h2>
+  <ul>
+    <li><b>시상수.</b> 잘리지 않는 범위에서 e 는 e·exp(−kp_yaw·t) 로 줄고, 시상수는 1/kp_yaw = <span class="num">1.25 s</span> 다. 오차가 37.5° 를 넘으면 30°/s 로 잘린다. 예시의 76.8° 가 화면 가장자리(32°) 안으로 들어오기까지 약 <span class="num">1.5 s</span> 걸린다.</li>
+    <li><b>캡이 두 겹이다.</b> 노드의 <code>max_yaw_rate</code> 30°/s 가 먼저 걸리고, link_node 의 75°/s 는 안전망이다.</li>
+    <li><b>옆으로 날 수 있다.</b> 대형 1(왼쪽 10 m)면 USV 와 나란히 가면서 몸체는 오른쪽(USV)을 본다. #84 가 기체 기준 속도라서 가능하다.</li>
+    <li><b>좌우 오차는 영상으로 확인하지 않는다.</b> 계산상 e 가 0 이어도, 우리 기수 센서나 USV 좌표가 틀린 만큼 화면에서 옆으로 밀린다(<a href="#image">화면에서</a>).</li>
+  </ul>
+</section>
+
+<section id="tilt">
+  <h2>틸트 더 보기</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th class="r">h (m)</th><th class="r">s (m)</th><th class="r">θ</th><th class="r">PWM</th><th>언제</th></tr></thead>
+      <tbody>
+        <tr><td class="r">5</td><td class="r">10</td><td class="r">−26.6°</td><td class="r">1353.9</td><td>대형 1·2·3 기본값 (좌·우·후 10 m, 고도 5 m)</td></tr>
+        <tr><td class="r">10</td><td class="r">20</td><td class="r">−26.6°</td><td class="r">1353.9</td><td><code>--selftest</code> 의 확인값</td></tr>
+        <tr><td class="r">4</td><td class="r">21.3</td><td class="r">−10.6°</td><td class="r">1441.5</td><td>9/18 지상 dry-run (usv_sim 동쪽 1 m/s)</td></tr>
+        <tr><td class="r">10</td><td class="r">5</td><td class="r">−63.4°</td><td class="r">1151.1</td><td>가까이 붙었을 때</td></tr>
+        <tr><td class="r">10</td><td class="r">0</td><td class="r">−90.0°</td><td class="r">1005.0</td><td>바로 위</td></tr>
+        <tr><td class="r">≤ 0</td><td class="r">—</td><td class="r">0°</td><td class="r">1500.0</td><td>수면 아래로는 안 숙인다 (max(h, 0))</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>9/18 dry-run 에서 USV 가 머리 위로 지나갈 때 보낸 PWM 1119 → 1025 → 1298 을 식으로 되돌리면 <span class="num">−69.3° → −86.4° → −36.7°</span> 다. 진행상황.md 의 −69° → −86° → −37° 와 맞는다.</p>
+  <p><b>얼마나 예민한가.</b> θ 를 s 와 h 로 미분하면 아래와 같다. 가까울수록 예민하고, 바로 위(s = 0)에서 가장 예민하다(1/h rad/m).</p>
+  <div class="formula">∂θ/∂s =  h / (h² + s²)   rad/m
+∂θ/∂h = −s / (h² + s²)   rad/m
+
+h = 10 m:  s = 5 → 4.58 °/m     s = 10 → 2.86 °/m     s = 20 → 1.15 °/m</div>
+
+  <div class="callout warn">
+    <h3>실기에서 확인할 것 — 짐벌은 2초에 걸쳐 돈다</h3>
+    <p>앱은 DO_SET_SERVO 를 받을 때마다 <code>Rotation.Builder().time(2)</code> 로 <b>2초에 걸쳐</b> 짐벌을 돌린다. 그런데 <code>aim()</code> 은 최대 0.5 초마다 새 각을 보낸다. 9/16 <code>gimbal_test</code> 는 1초 만에 다음 명령을 보내 회전을 덮어썼고, 짐벌이 움찔하기만 해서 "안 움직였다"로 보였다. USV 가 움직여 틸트가 2° 넘게 계속 바뀌면 같은 일이 생길 수 있다.</p>
+    <p>dry-run 은 PWM 을 <b>보냈는지</b>까지만 확인했다. 실기에서는 틸트가 천천히 바뀔 때 영상 속 USV 의 세로 위치가 유지되는지 본다. 안 따라가면 조절할 곳은 <code>aim()</code> 의 0.5 s 와 2° 다(지금은 코드 상수).</p>
+  </div>
+</section>
+
+<section id="image">
+  <h2>화면에서는 어디에 보이나</h2>
+  <p>겨눔이 완벽하면 USV 의 GPS 안테나가 화면 한가운데 (cx, cy) 에 온다. 각 오차가 있으면 핀홀 모델로 픽셀이 밀린다. 값은 <code>config/camera.yaml</code>(1632×1088, 9/16 보정)이다.</p>
+  <div class="formula">Δu = fx · tan(e)       fx = 1305.6 px     e  = 좌우 오차
+Δv = fy · tan(δθ)      fy = 1310.4 px     δθ = 위아래 오차
+
+HFOV = 2 · atan(816 / 1305.6) = 64.0°     가로 화각
+VFOV = 2 · atan(544 / 1310.4) = 45.1°     세로 화각
+1° ≈ 23 px. 좌우 32°, 위아래 22.5° 를 넘으면 화면 밖이다</div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>원인</th><th class="r">각 오차</th><th>화면에서</th></tr></thead>
+      <tbody>
+        <tr><td>틸트 데드밴드</td><td class="r">≤ 2°</td><td>세로 ≤ 46 px</td></tr>
+        <tr><td>수평거리 s 가 2 m 틀림 (GPS, h = s = 10)</td><td class="r">5.2 ~ 6.3°</td><td>세로 119 ~ 145 px</td></tr>
+        <tr><td>이륙 지점이 수면보다 1.5 m 높음 (h = s = 10)</td><td class="r">4.0°</td><td>세로 92 px — USV 가 화면 <b>아래쪽</b>으로</td></tr>
+        <tr><td>좌우 오차 10°</td><td class="r">10°</td><td>가로 230 px</td></tr>
+        <tr><td>예시의 좌우 오차 76.8° (돌기 전)</td><td class="r">76.8°</td><td>화면 밖 — 30°/s 로 약 1.5 s 뒤에 들어온다</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>렌즈 왜곡(k1 = −0.059)은 가장자리에서 몇 픽셀 수준이라 여기서는 무시했다.</p>
+</section>
+
+<section id="limits">
+  <h2>가정과 오차</h2>
+  <ul>
+    <li><b>수면 높이 이륙.</b> h 는 이륙 지점 기준이다. 수면보다 Δh 높은 곳(부두 등)에서 뜨면 실제 수면 위 높이는 h + Δh 다. 참 틸트는 −atan2(h + Δh, s) 인데 덜 숙이게 되어, USV 가 화면 아래로 간다.</li>
+    <li><b>겨누는 점은 USV 의 GPS 안테나다.</b> 원하는 곳(갑판 가운데 등)과는 선체 크기만큼 다를 수 있다. 카메라와 우리 GPS 사이 거리(수 cm)는 무시한다.</li>
+    <li><b>평면 근사.</b> <code>offset_to_gps</code> 는 작은 거리용 평면 근사이고, 거리·방위는 구면식이다. 수 km 안에서는 차이를 무시할 만하다.</li>
+    <li><b>등속 외삽.</b> USV 가 돌면 원호를 직선으로 민 만큼 틀린다. 옆 오차 ≈ ½·v·ω·τ² 이고, 2 m/s · 10°/s · τ = 1 s 에서 <span class="num">0.17 m</span> 다. 코드의 <code>ponytail:</code> 주석대로, 급선회나 수 초 지연이 문제가 되면 칼만 필터로 바꾼다.</li>
+    <li><b>헤딩과 진행 방향은 다르다.</b> 대형은 USV 헤딩(선수 방향) 기준이고, 외삽은 좌표로 잰 진행 방향을 쓴다. 조류·바람으로 옆으로 밀리면 둘이 다르다. 대형이 선체 기준인 것은 의도한 것이다.</li>
+    <li><b>시각은 받은 시각이다.</b> NavSatFix 의 stamp 는 쓰지 않는다. USV 쪽에서 생긴 지연은 <code>lead_secs</code> 가 대신 메운다(②).</li>
+    <li><b>영상 되먹임이 없다.</b> 위 표의 남는 오차를 줄이려면 영상에서 USV 를 찾아 틸트·기수를 보정하는 단계가 필요하다. 지금은 없다.</li>
+    <li><b>좌표가 끊기면.</b> USV 좌표가 <code>lost_secs</code>(2 s) 넘게 없으면 0 을 내며 제자리에 서고, 다시 오면 이어 간다. <code>giveup_secs</code>(10 s)를 넘기면 추종을 끝낸다. 우리 좌표가 1 s 끊기면 바로 끝낸다.</li>
+  </ul>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 560 160" role="img" aria-label="시간축. 마지막 USV 좌표를 받은 시각에서 지금까지가 age, 지금에서 lead_secs 만큼 더 간 시각까지가 lead 다. 둘을 더한 τ 만큼 USV 를 등속으로 민다.">
+      <defs>
+        <marker id="l-am" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>
+      </defs>
+      <line x1="30" y1="70" x2="535" y2="70" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#l-am)"/>
+      <text x="535" y="92" class="mut" font-size="12" text-anchor="end">시간</text>
+      <g stroke="var(--ink)" stroke-width="1.5">
+        <line x1="110" y1="62" x2="110" y2="78"/><line x1="290" y1="62" x2="290" y2="78"/><line x1="470" y1="62" x2="470" y2="78"/>
+      </g>
+      <text x="110" y="34" font-size="12" text-anchor="middle">USV 좌표를 받은 시각</text>
+      <text x="110" y="52" class="mut mono" font-size="11" text-anchor="middle">p</text>
+      <text x="290" y="34" font-size="12" text-anchor="middle">지금 (tick)</text>
+      <text x="470" y="34" font-size="12" text-anchor="middle">지금 + lead_secs</text>
+      <text x="470" y="52" class="acc mono" font-size="11" text-anchor="middle">p̂</text>
+      <g stroke="var(--muted)" stroke-width="1">
+        <line x1="112" y1="96" x2="288" y2="96"/><line x1="292" y1="96" x2="468" y2="96"/>
+      </g>
+      <text x="200" y="114" class="mut" font-size="12" text-anchor="middle">age (예 0.3 s)</text>
+      <text x="380" y="114" class="mut" font-size="12" text-anchor="middle">lead_secs 0.5 s</text>
+      <line x1="110" y1="128" x2="470" y2="128" stroke="var(--accent)" stroke-width="2"/>
+      <text x="290" y="150" class="acc mono" font-size="12" text-anchor="middle">τ = age + lead_secs → p̂ = p + v·τ</text>
+    </svg>
+    </div>
+    <figcaption>age 는 우리가 좌표를 받은 순간부터 잰다. USV 가 실제로 그 자리에 있던 시각은 모른다. 그 차이와 우리 쪽 제어 지연을 lead_secs 가 함께 메운다.</figcaption>
+  </figure>
+</section>
+
+<section id="code">
+  <h2>코드 발췌</h2>
+  <p class="sub">저장소의 <code>ros2/src/rd_bridge/rd_bridge/usv_follow_node.py</code> 에서 그대로 옮겼다. 줄 번호는 파일의 줄 번호이고, 칠한 줄이 위 식에 해당한다.</p>
+
+  <details class="code" open>
+    <summary><b>plan()</b><span>한 tick 의 계산 전부 — ROS 없이 돈다</span></summary>
+<pre class="src" style="counter-reset: ln 46"><span class="l">def plan(me, hdg, usv, usv_hdg, usv_vel, lead, form, p):</span><span class="l">    """한 tick 의 계산. ROS 없이 돈다.</span><span class="l"></span><span class="l">    me = (lat, lon, 상대고도) · usv = (lat, lon) · usv_vel = (북, 동) m/s · lead = 외삽 초</span><span class="l">    form = 대형 (앞, 오른쪽, 고도) — USV 기수 기준.</span><span class="l">    돌려주는 것: 추정 USV 좌표, 목표 좌표, 목표까지 m, USV 까지 수평 m, 틸트 °,</span><span class="l">                 /cmd_vel (x=앞 · y=오른쪽 · z=위 m/s, wz=시계 rad/s).</span><span class="l">    """</span><span class="l">    lat, lon, alt = me</span><span class="l">    vn, ve = usv_vel</span><span class="l c">    # ponytail: 등속 외삽 — 급선회나 수 초 지연이면 틀린다. 그때 칼만으로</span><span class="l hl">    est = mav.offset_to_gps(usv[0], usv[1], 0.0, vn * lead, ve * lead)</span><span class="l hl">    goal = mav.offset_to_gps(est[0], est[1], usv_hdg, form[0], form[1])</span><span class="l"></span><span class="l">    dist = mav.meters_between(lat, lon, goal[0], goal[1])</span><span class="l">    rel = math.radians(mav.relative_bearing(mav.bearing_between(lat, lon, goal[0], goal[1]), hdg))</span><span class="l hl">    speed = min(p("max_speed"), p("kp") * dist)</span><span class="l">    h = math.radians(hdg)</span><span class="l hl">    vx = speed * math.cos(rel) + vn * math.cos(h) + ve * math.sin(h)</span><span class="l hl">    vy = speed * math.sin(rel) - vn * math.sin(h) + ve * math.cos(h)</span><span class="l">    norm = math.hypot(vx, vy)</span><span class="l">    if norm &gt; p("max_speed"):</span><span class="l hl">        vx, vy = vx * p("max_speed") / norm, vy * p("max_speed") / norm</span><span class="l hl">    vz = clamp(p("kp_alt") * (form[2] - alt), p("max_vz"))</span><span class="l"></span><span class="l hl">    yaw_err = mav.relative_bearing(mav.bearing_between(lat, lon, est[0], est[1]), hdg)</span><span class="l hl">    wz = math.radians(clamp(p("kp_yaw") * yaw_err, p("max_yaw_rate")))</span><span class="l"></span><span class="l hl">    horiz = mav.meters_between(lat, lon, est[0], est[1])</span><span class="l hl">    tilt = max(-90.0, min(0.0, -math.degrees(math.atan2(max(alt, 0.0), horiz))))</span><span class="l">    return est, goal, dist, horiz, tilt, (vx, vy, vz, wz)</span></pre>
+  </details>
+  <details class="code">
+    <summary><b>usv_velocity() · formation()</b><span>① 속도 추정 · 대형 고르기</span></summary>
+<pre class="src" style="counter-reset: ln 79"><span class="l">def usv_velocity(hist):</span><span class="l">    """[(t, lat, lon), ...] 맨 앞과 맨 뒤로 (북, 동) m/s. 두 점 사이가 짧으면 0."""</span><span class="l">    if len(hist) &lt; 2 or hist[-1][0] - hist[0][0] &lt; 0.5:</span><span class="l">        return 0.0, 0.0</span><span class="l">    (t0, a0, o0), (t1, a1, o1) = hist[0], hist[-1]</span><span class="l">    d = mav.meters_between(a0, o0, a1, o1)</span><span class="l">    b = math.radians(mav.bearing_between(a0, o0, a1, o1))</span><span class="l hl">    return d * math.cos(b) / (t1 - t0), d * math.sin(b) / (t1 - t0)</span><span class="l"></span><span class="l"></span><span class="l">def formation(p):</span><span class="l">    """formations 에서 formation 번 대형 (앞, 오른쪽, 고도). 번호가 없으면 None."""</span><span class="l">    f, i = list(p("formations")), p("formation")</span><span class="l hl">    return tuple(f[3 * i - 3:3 * i]) if len(f) % 3 == 0 and 1 &lt;= i &lt;= len(f) // 3 else None</span></pre>
+  </details>
+  <details class="code">
+    <summary><b>aim()</b><span>⑥ 틸트 보내기 — 0.5 s · 2° 조건</span></summary>
+<pre class="src" style="counter-reset: ln 221"><span class="l">    def aim(self, tilt):</span><span class="l">        now = time.time()</span><span class="l hl">        if not self.p("aim") or now - self.t_tilt &lt; 0.5:</span><span class="l">            return</span><span class="l hl">        if self.tilt_sent is not None and abs(tilt - self.tilt_sent) &lt; 2.0:</span><span class="l">            return</span><span class="l">        self.pub_cmd.publish(Float64MultiArray(</span><span class="l hl">            data=[float(mav.CMD_DO_SET_SERVO), float(CH_PITCH), 1500.0 + tilt * 5.5]))</span><span class="l">        self.tilt_sent, self.t_tilt = tilt, now</span></pre>
+  </details>
+  <details class="code">
+    <summary><b>tick()</b><span>20Hz — 게이트 · 대형 · plan · 발행</span></summary>
+<pre class="src" style="counter-reset: ln 232"><span class="l">    def tick(self):</span><span class="l">        if not self.armed:</span><span class="l">            return</span><span class="l">        now = time.time()</span><span class="l hl">        if now - self.t_me &gt; 1.0:</span><span class="l">            return self.stop("우리 좌표가 1초 넘게 안 온다")</span><span class="l">        age = now - self.usv_hist[-1][0] if self.usv_hist else float("inf")</span><span class="l hl">        if age &gt; self.p("giveup_secs") or self.usv_hdg is None:</span><span class="l">            return self.stop(f"USV 좌표·기수가 {self.p('giveup_secs'):.0f}초 넘게 없다")</span><span class="l hl">        if age &gt; self.p("lost_secs"):</span><span class="l">            if self.p("publish"):</span><span class="l">                self.pub.publish(Twist())          # 제자리 — 다시 오면 이어서 간다</span><span class="l">            if now - self.t_log &gt; 1.0:</span><span class="l">                self.t_log = now</span><span class="l">                self.get_logger().warning(f"USV 좌표 끊김 {age:.1f}초 — 제자리")</span><span class="l">            return</span><span class="l"></span><span class="l">        form = formation(self.p)</span><span class="l">        if form is None:</span><span class="l">            return self.stop(f"대형 {self.p('formation')} 번이 formations 에 없다")</span><span class="l">        if self.form_no != self.p("formation"):</span><span class="l">            self.form_no = self.p("formation")</span><span class="l">            self.get_logger().info(f"대형 {self.form_no} — USV 기준 앞 {form[0]:+.0f}m · "</span><span class="l">                                   f"오른쪽 {form[1]:+.0f}m · 고도 {form[2]:.0f}m")</span><span class="l"></span><span class="l">        _, ulat, ulon = self.usv_hist[-1]</span><span class="l hl">        vn, ve = usv_velocity(self.usv_hist)</span><span class="l hl">        est, goal, dist, horiz, tilt, (vx, vy, vz, wz) = plan(</span><span class="l hl">            self.me, self.hdg, (ulat, ulon), self.usv_hdg, (vn, ve),</span><span class="l hl">            age + self.p("lead_secs"), form, self.p)</span><span class="l"></span><span class="l">        if self.p("publish"):</span><span class="l">            cmd = Twist()</span><span class="l">            cmd.linear.x, cmd.linear.y, cmd.linear.z, cmd.angular.z = vx, vy, vz, wz</span><span class="l">            self.pub.publish(cmd)</span><span class="l hl">        self.aim(tilt)</span></pre>
+  </details>
+
+  <div class="notes">
+    <div><code>plan() 58–59</code><p>② 외삽과 ③ 대형을 <code>offset_to_gps</code> 한 함수로 한다. 기수 0 을 주면 북·동 이동, ψu 를 주면 USV 기준 회전이다.</p></div>
+    <div><code>plan() 65–69</code><p>④ P + feedforward. 자르는 것은 합친 <b>벡터의 크기</b>다. 축마다 따로 자르면 대각선에서 방향이 틀어진다.</p></div>
+    <div><code>plan() 72</code><p>⑤ 기수는 <code>est</code>(p̂)로 겨눈다. <code>goal</code> 이 아니다.</p></div>
+    <div><code>plan() 76</code><p>⑥ <code>max(alt, 0)</code> 으로 음수 고도를 막고, 결과를 −90~0 으로 자른다.</p></div>
+    <div><code>aim()</code><p>0.5 s 와 2° 는 파라미터가 아니라 코드 상수다. 짐벌이 2초 회전을 덮어쓰는지 실기로 본 뒤 정한다.</p></div>
+    <div><code>tick() 242–248</code><p>USV 좌표가 lost_secs 넘게 없으면 0 을 <b>계속</b> 낸다. link_node 가 ACTIVE 로 남아 제자리에 선다. 다시 오면 이어 간다.</p></div>
+    <div><code>tick() 262</code><p>τ = age + lead_secs 가 여기서 만들어진다.</p></div>
+  </div>
+</section>
+
+<section id="quiz">
+  <h2>연습 문제</h2>
+  <p class="sub">손으로 풀고 펼쳐서 확인한다. 마지막 둘은 노트북에서 직접 돌린다.</p>
+
+  <div class="q">
+    <p><b>1.</b> 우리 고도 6 m, USV 까지 수평 8 m 다. 틸트와 PWM 은?</p>
+    <details><summary>풀이</summary><div>
+      <p>θ = −atan2(6, 8) = <b>−36.9°</b>, PWM = 1500 + 5.5 × (−36.9) = <b>1297.2</b>.</p>
+    </div></details>
+  </div>
+  <div class="q">
+    <p><b>2.</b> USV 헤딩 180°(남향), 대형 (−10, 0) 이다. 목표점은 USV 에서 어느 쪽인가?</p>
+    <details><summary>풀이</summary><div>
+      <p>N = −10·cos180° − 0 = <b>+10</b>, E = −10·sin180° = 0 → <b>북쪽 10 m</b>. 남쪽을 보는 USV 의 뒤는 북이다.</p>
+    </div></details>
+  </div>
+  <div class="q">
+    <p><b>3.</b> 우리 기수 90°(동), USV 는 북쪽으로 1 m/s 간다. feedforward 의 (앞, 오른쪽)은?</p>
+    <details><summary>풀이</summary><div>
+      <p>앞 = 1·cos90° + 0 = <b>0</b>, 오른쪽 = −1·sin90° + 0 = <b>−1</b> → 왼쪽 1 m/s. 동쪽을 보는 기체에서 북은 왼쪽이다.</p>
+    </div></details>
+  </div>
+  <div class="q">
+    <p><b>4.</b> feedforward 없이 P 만으로 1.5 m/s 인 USV 를 따라가면 몇 m 뒤처지나?</p>
+    <details><summary>풀이</summary><div>
+      <p>e = v / kp = 1.5 / 0.35 = <b>4.3 m</b>.</p>
+    </div></details>
+  </div>
+  <div class="q">
+    <p><b>5.</b> 고도 10 m 에서 USV 바로 위에 있다가 수평으로 1 m 벗어났다. 틸트는 몇 도 바뀌나?</p>
+    <details><summary>풀이</summary><div>
+      <p>−atan2(10, 1) = −84.3° → <b>5.7°</b>. 바로 위에서의 감도 1/h = 0.1 rad/m = 5.73°/m 와 같다. 머리 위를 지날 때 짐벌이 가장 바쁘다.</p>
+    </div></details>
+  </div>
+  <div class="q">
+    <p><b>6.</b> selftest 를 돌리고, 어떤 assert 가 어느 단계를 확인하는지 짝지어라.</p>
+    <details><summary>명령</summary><div>
+      <div class="formula">python3 ros2/src/rd_bridge/rd_bridge/usv_follow_node.py --selftest     # → selftest ok</div>
+      <p>틸트 −26.6° → ⑥ · vx 3.5 → 4.5 → ④ feedforward · 크기 2.5 → ④ 자르기 · 동향에서 vy&lt;0, wz&lt;0 → ④⑤ 부호 · 외삽 3 m → ② · 2번 대형의 방위 270°/0° → ③ · (vn, ve) = (0, 2) → ①.</p>
+    </div></details>
+  </div>
+  <div class="q">
+    <p><b>7.</b> usvlog CSV 에서 기록된 틸트가 −atan2(alt, horiz) 와 같은지 확인하라.</p>
+    <details><summary>명령</summary><div>
+      <div class="formula">f=$(ls -t ~/drone_ws/usvlog/*.csv | head -1)
+awk -F, 'NR==2{t0=$1} NR>1 && NR%20==2 {a=($5>0?$5:0); printf "%6.1fs  alt=%5.2f  horiz=%6.2f  tilt=%6.1f  식=%6.1f\n", $1-t0, $5, $19, $20, -atan2(a,$19)*57.29578}' "$f"</div>
+      <p>1초에 한 줄. 두 칸이 같으면 된다. 칸 번호는 <code>form</code> 칸이 있는 로그(9/18 14:07 이후) 기준이다. 그 전 로그는 칸이 하나씩 앞당겨져 있다.</p>
+    </div></details>
+  </div>
+</section>
+
+<footer>기준: usv_follow_node.py (usv-gps-follow · 989c42c) · config/camera.yaml (9/16 보정) · 2026-09-18. 구조 전체는 <a href="구조.html">구조.html</a>, P 제어의 기본은 <a href="공부-nav_node.html">공부-nav_node.html</a>.</footer>
+</div>
