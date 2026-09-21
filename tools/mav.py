@@ -94,6 +94,24 @@ def name_direction(rel):
     return names[int(((rel + 360.0) % 360.0 + 22.5) % 360.0 // 45.0)]
 
 
+FAKE_LAT, FAKE_LON = -32.8540743, -71.2153629  # 앱 TEST 모드의 가짜 좌표
+
+
+def bad_fix(lat, lon):
+    """믿으면 안 되는 좌표면 그 이유, 멀쩡하면 None. 가짜 좌표를 목표로 쓰면 수천 km 를 날아간다."""
+    if lat is None or lon is None:
+        return "아직 좌표를 못 받았다"
+    if math.isnan(lat) or math.isnan(lon) or math.isinf(lat) or math.isinf(lon):
+        return "숫자가 아니다 (NaN·inf)"
+    if abs(lat) > 90.0 or abs(lon) > 180.0:
+        return f"범위를 벗어났다 ({lat}, {lon})"
+    if abs(lat - FAKE_LAT) < 1e-3 and abs(lon - FAKE_LON) < 1e-3:
+        return "앱 TEST 모드의 가짜 좌표다"
+    if lat == 0.0 and lon == 0.0:
+        return "0,0 이다 (위성 미수신)"
+    return None
+
+
 class Link:
     """UDP 14550 을 잡고, 앱이 마지막으로 보낸 주소로 답장한다.
 

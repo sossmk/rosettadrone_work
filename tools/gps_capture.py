@@ -17,20 +17,6 @@ import argparse, os, select, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mav
 
-FAKE_LAT, FAKE_LON = -32.8540743, -71.2153629  # 앱 TEST 모드의 가짜 좌표
-
-
-def bad_fix(lat, lon):
-    """저장하면 안 되는 좌표면 그 이유. 가짜 좌표를 경로에 넣으면 수천 km 를 날아간다."""
-    if lat is None or lon is None:
-        return "아직 좌표를 못 받았다"
-    if abs(lat - FAKE_LAT) < 1e-3 and abs(lon - FAKE_LON) < 1e-3:
-        return "앱 TEST 모드의 가짜 좌표다"
-    if lat == 0.0 and lon == 0.0:
-        return "0,0 이다 (위성 미수신)"
-    return None
-
-
 def main():
     ap = argparse.ArgumentParser(description="Enter 마다 지금 좌표를 미션 파일에 쌓는다")
     ap.add_argument("file", help="missions/<이름>.txt — 없으면 만든다")
@@ -66,7 +52,7 @@ def main():
             lat, lon, alt = t.get("lat"), t.get("lon"), t.get("alt")
             if time.time() - t_print >= 1.0:
                 t_print = time.time()
-                why = bad_fix(lat, lon)
+                why = mav.bad_fix(lat, lon)
                 leg = f" · 직전 점에서 {mav.meters_between(*prev, lat, lon):.1f}m" if prev and not why else ""
                 sys.stdout.write(
                     f"\r위도 {lat if lat is not None else '?'}  경도 {lon if lon is not None else '?'}  "
@@ -76,7 +62,7 @@ def main():
             if not select.select([sys.stdin], [], [], 0.05)[0]:
                 continue
             sys.stdin.readline()
-            why = bad_fix(lat, lon)
+            why = mav.bad_fix(lat, lon)
             if why:
                 print(f"\n  ✗ 저장 안 함 — {why}")
                 continue

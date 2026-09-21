@@ -458,7 +458,7 @@ USV_TUNE = {
     "[": ("kp",        -0.05, 0.05,  3.0), "]": ("kp",        +0.05, 0.05,  3.0),
     ",": ("max_speed", -0.10, 0.10,  2.5), ".": ("max_speed", +0.10, 0.10,  2.5),
 }
-USV_KEYS = ("space 시작/정지 · q 종료 · g 짐벌 겨눔 켜고끄기\n"
+USV_KEYS = ("space 시작/정지 · q 종료 · m 이동 켜고끄기 · g 짐벌 겨눔 켜고끄기\n"
             "  1~9 대형 (USV 기준 앞·오른쪽·고도) · [ ] kp · , . max_speed")
 
 
@@ -468,7 +468,7 @@ def cmd_usv(args):
     if link is None:
         return 1
     tuner = Tuner(link, USV_NODE)
-    par = tuner.read(("kp", "max_speed", "formation", "formations", "aim"))
+    par = tuner.read(("kp", "max_speed", "formation", "formations", "move", "aim"))
     if not par:
         print(f"  ✗ {USV_NODE} 가 안 떠 있다 — bridge.launch.py 에 usv:=true nav:=false")
         return 1
@@ -490,9 +490,10 @@ def cmd_usv(args):
         if k == " ":
             st["armed"], st["t_arm"] = not st["armed"], time.time()
             pub.publish(Bool(data=st["armed"]))
-        elif k == "g":
-            par["aim"] = not par["aim"]
-            tuner.write("aim", par["aim"])
+        elif k in ("m", "g"):
+            name = "move" if k == "m" else "aim"
+            par[name] = not par[name]
+            tuner.write(name, par[name])
         elif k.isdigit() and 1 <= int(k) <= len(forms):
             par["formation"] = int(k)
             tuner.write("formation", par["formation"])
@@ -517,7 +518,7 @@ def cmd_usv(args):
         vx, vy, vz, wz = cmd["v"]
         return (f"[{state}] {see} · cmd {vx:+.2f} {vy:+.2f} {vz:+.2f} {wz:+3.0f}°/s"
                 f" · 대형{par['formation']} kp{par['kp']:.2f} spd{par['max_speed']:.1f}"
-                f" 짐벌{'켬' if par['aim'] else '끔'}"
+                f" 이동{'켬' if par['move'] else '끔'} 짐벌{'켬' if par['aim'] else '끔'}"
                 f" · 고도{fmt(tel.get('alt'), 'm')}")
 
     try:

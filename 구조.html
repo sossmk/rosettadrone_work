@@ -133,6 +133,16 @@ tr.group td { background: var(--ground); color: var(--muted); font-family: var(-
 
 footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
 
+/* 파일 해부 · 중복 */
+.lines { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+td.parts { font-size: 13px; }
+td.parts code { color: var(--accent); }
+td.plain { font-family: var(--sans); font-size: 14px; white-space: normal; }
+.pure { display: inline-block; font-family: var(--sans); font-size: 11px; line-height: 1.6; padding: 0 7px; border-radius: 999px; color: var(--accent); background: var(--accent-soft); white-space: nowrap; }
+.verdict { font-weight: 500; white-space: nowrap; }
+.verdict.keep { color: var(--ok); }
+.verdict.merge { color: var(--part); }
+
 @media (max-width: 560px) {
   body { padding-block: 28px 56px; }
   h1 { font-size: 25px; }
@@ -144,7 +154,7 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
 <div class="page">
 
 <header>
-  <div class="eyebrow">RosettaDrone · 2026-09-18 기준 (master · 태그 v1-2026-09-16)</div>
+  <div class="eyebrow">RosettaDrone · 2026-09-18 기준 (usv-gps-follow 브랜치)</div>
   <h1>무인수상정(USV)을 따라가는 드론 — 지금 구조</h1>
   <p class="lede">RM500 조종기 안의 앱이 드론과 PC 사이를 잇고, PC 의 ROS 2 노드가 그 위에서 길을 찾는다.
   아래로 갈수록 자세하다. 한 번에 다 읽을 필요는 없다.</p>
@@ -188,6 +198,175 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
       <span class="chip ok">실기 확인</span>
     </div>
   </div>
+</section>
+
+<!-- 1-1. 역할 -->
+<section>
+  <div class="sec-head">
+    <h2>누가 계산하고, 누가 누르나</h2>
+    <p>모드마다 한 줄이다. 왼쪽 <b>손잡이</b>(rd_cmd)는 시작·정지와 튜닝만 한다. 속도를 정하는 것은 가운데 <b>판단 노드</b>다. 모든 명령은 오른쪽 <b>link_node</b> 하나를 거쳐 앱으로 간다. 맨 아래 수동 줄만 판단 층을 건너뛴다.</p>
+  </div>
+  <figure>
+    <div class="diagram">
+      <svg viewBox="0 0 960 550" role="img" aria-label="모드별 역할 도식. 경유점: rd_cmd mission 이 /nav/mission 을 nav_node 에 보내고, nav_node 가 /cmd_vel 을 link_node 로 보낸다. USV 추종: rd_cmd usv 가 /usv/follow 를 보내고, USV 또는 usv_sim 이 /usv/fix 를 주면 usv_follow_node 가 /cmd_vel 과 /rd/command 를 link_node 로 보낸다. 태그 추종(보류): video_node 가 영상을, 외부 패키지 apriltag_node 가 /tf 를 tag_follow_node 에 주고, rd_cmd follow 가 /tag/follow 로 켠다. 수동: rd_cmd drive, gimbal, takeoff, ping 은 판단 노드 없이 /cmd_vel 과 /rd/command 를 link_node 로 바로 보낸다. link_node 만 앱과 말한다. 네 줄 모두 /cmd_vel 에 쓰므로 한 번에 한 줄만 켠다.">
+        <defs>
+          <marker id="rh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+          <marker id="rh-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" class="t-accent"/>
+          </marker>
+        </defs>
+
+        <!-- 열 제목 -->
+        <text x="20" y="22" class="t-small">손잡이 — tools/rd_cmd.py</text>
+        <text x="400" y="22" class="t-small">판단 — rd_bridge 노드 (속도를 계산한다)</text>
+        <text x="715" y="22" class="t-small" text-anchor="middle">통로</text>
+        <text x="895" y="22" class="t-small" text-anchor="middle">앱</text>
+
+        <!-- 통로 · 앱 -->
+        <rect class="box-ours" x="660" y="64" width="110" height="434" rx="8"/>
+        <text class="t-title" x="715" y="268" text-anchor="middle">link_node</text>
+        <text class="t-small" x="715" y="288" text-anchor="middle">UDP 14550 독점</text>
+        <text class="t-small" x="715" y="306" text-anchor="middle">앱과 말하는</text>
+        <text class="t-small" x="715" y="322" text-anchor="middle">유일한 노드</text>
+        <rect class="box" x="850" y="220" width="90" height="120" rx="8"/>
+        <text class="t-title" x="895" y="276" text-anchor="middle">RM500</text>
+        <text class="t-small" x="895" y="294" text-anchor="middle">RosettaDrone</text>
+        <line class="wire-ours" x1="770" y1="250" x2="846" y2="250" marker-end="url(#rh-acc)"/>
+        <text x="810" y="242" text-anchor="middle" class="t-small t-accent">#84 · 명령</text>
+        <line class="wire" x1="850" y1="312" x2="774" y2="312" marker-end="url(#rh)"/>
+        <text x="810" y="330" text-anchor="middle" class="t-small">텔레메트리</text>
+
+        <!-- 줄 1: 경유점 -->
+        <text x="20" y="54" class="t-small"><tspan font-weight="700" fill="currentColor">경유점</tspan> · nav:=true (기본값)</text>
+        <rect class="box" x="20" y="64" width="220" height="48" rx="8"/>
+        <text class="t-title" x="32" y="84">rd_cmd mission</text>
+        <text class="t-small" x="32" y="102">missions/*.txt · offset → 좌표 · 진행 표시</text>
+        <line class="wire" x1="240" y1="88" x2="396" y2="88" marker-end="url(#rh)"/>
+        <text x="318" y="80" text-anchor="middle" class="t-mono t-small">/nav/mission</text>
+        <rect class="box-ours" x="400" y="64" width="180" height="48" rx="8"/>
+        <text class="t-title" x="412" y="84">nav_node</text>
+        <text class="t-small" x="412" y="102">경유점 → 속도 · 도착 판정</text>
+        <line class="wire-ours" x1="580" y1="88" x2="656" y2="88" marker-end="url(#rh-acc)"/>
+        <text x="618" y="80" text-anchor="middle" class="t-mono t-small t-accent">/cmd_vel</text>
+
+        <!-- 줄 2: USV 추종 -->
+        <text x="20" y="184" class="t-small"><tspan font-weight="700" fill="currentColor">USV 추종</tspan> · usv:=true nav:=false</text>
+        <rect class="box" x="20" y="194" width="220" height="48" rx="8"/>
+        <text class="t-title" x="32" y="214">rd_cmd usv</text>
+        <text class="t-small" x="32" y="232">space 시작·정지 · 1~9 대형 · m 이동 · g 짐벌</text>
+        <line class="wire" x1="240" y1="218" x2="396" y2="218" marker-end="url(#rh)"/>
+        <text x="318" y="210" text-anchor="middle" class="t-mono t-small">/usv/follow</text>
+        <rect class="box-ours" x="400" y="194" width="180" height="48" rx="8"/>
+        <text class="t-title" x="412" y="214">usv_follow_node</text>
+        <text class="t-small" x="412" y="232">USV 좌표 → 속도 + 틸트</text>
+        <line class="wire-ours" x1="580" y1="218" x2="656" y2="218" marker-end="url(#rh-acc)"/>
+        <text x="618" y="210" text-anchor="middle" class="t-mono t-small t-accent">/cmd_vel</text>
+        <text x="618" y="236" text-anchor="middle" class="t-mono t-small t-accent">+ 틸트</text>
+        <rect class="box-alt" x="400" y="254" width="180" height="36" rx="8"/>
+        <text x="490" y="269" text-anchor="middle" class="t-part" style="font-size:12px">USV (ROS 2) · usv_sim.py</text>
+        <text x="490" y="284" text-anchor="middle" class="t-mono t-small">/usv/fix · /usv/heading</text>
+        <line class="wire" x1="490" y1="254" x2="490" y2="246" marker-end="url(#rh)"/>
+
+        <!-- 줄 3: 태그 추종 (보류) -->
+        <text x="20" y="314" class="t-small"><tspan font-weight="700" fill="currentColor">태그 추종 (보류)</tspan> · tag:=true follow:=true nav:=false</text>
+        <rect class="box" x="20" y="324" width="220" height="48" rx="8"/>
+        <text class="t-title" x="32" y="344">rd_cmd follow</text>
+        <text class="t-small" x="32" y="362">space 시작·정지 · 튜닝</text>
+        <line class="wire" x1="240" y1="348" x2="396" y2="348" marker-end="url(#rh)"/>
+        <text x="318" y="340" text-anchor="middle" class="t-mono t-small">/tag/follow</text>
+        <rect class="box-ours" x="400" y="324" width="180" height="48" rx="8"/>
+        <text class="t-title" x="412" y="344">tag_follow_node</text>
+        <text class="t-small" x="412" y="362">태그 위치 → 속도</text>
+        <line class="wire-ours" x1="580" y1="348" x2="656" y2="348" marker-end="url(#rh-acc)"/>
+        <text x="618" y="340" text-anchor="middle" class="t-mono t-small t-accent">/cmd_vel</text>
+        <rect class="box" x="400" y="384" width="180" height="36" rx="8"/>
+        <text x="490" y="399" text-anchor="middle" style="font-size:12px">apriltag_node (외부 패키지)</text>
+        <text x="490" y="414" text-anchor="middle" class="t-mono t-small">/tf  camera → tag0</text>
+        <line class="wire" x1="490" y1="384" x2="490" y2="376" marker-end="url(#rh)"/>
+        <rect class="box-ours" x="250" y="384" width="130" height="36" rx="8"/>
+        <text x="315" y="399" text-anchor="middle" style="font-size:12px">video_node</text>
+        <text x="315" y="414" text-anchor="middle" class="t-mono t-small">5600 → /image_raw</text>
+        <line class="wire-ours" x1="380" y1="402" x2="396" y2="402" marker-end="url(#rh-acc)"/>
+
+        <!-- 줄 4: 수동 -->
+        <text x="20" y="444" class="t-small"><tspan font-weight="700" fill="currentColor">수동</tspan> · 판단 노드 없이 (link 만 있으면 된다)</text>
+        <rect class="box" x="20" y="454" width="220" height="48" rx="8"/>
+        <text class="t-title" x="32" y="474">rd_cmd drive · gimbal</text>
+        <text class="t-small" x="32" y="492">· takeoff · ping — 사람이 직접</text>
+        <line class="wire" x1="240" y1="478" x2="656" y2="478" marker-end="url(#rh)"/>
+        <text x="450" y="470" text-anchor="middle" class="t-mono t-small">/cmd_vel · /rd/command — 판단 층을 건너뛴다</text>
+
+        <text x="20" y="536" class="t-small t-part">⚠ 네 줄 모두 /cmd_vel 에 쓴다 — 한 번에 한 줄만. 틸트(/rd/command)는 USV 추종과 수동이 같이 쓴다</text>
+      </svg>
+    </div>
+    <figcaption>청록색이 우리 노드. 판단 노드 셋은 모두 link_node 의 <code>/rd/fix</code> · <code>/rd/heading</code> 을 받는다(선 생략).
+    apriltag_node 는 우리 코드가 아니다 — launch 가 apt 의 <code>apriltag_ros</code> 를 <code>config/tags.yaml</code> 로 띄운 것이고, <code>/cmd_vel</code> 에 쓰지 않는 감지 단계다.
+    gps_capture.py 는 이 그림 밖이다 — link_node 를 끄고 14550 을 직접 잡는다.</figcaption>
+  </figure>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>rd_cmd 하위명령</th><th>보내는 것</th><th>받는 쪽</th><th>속도·각을 정하는 곳</th></tr></thead>
+      <tbody>
+        <tr class="group"><td colspan="4">리모컨 — 판단 노드를 켜고 끄고 튜닝한다</td></tr>
+        <tr><td>mission &lt;파일&gt;</td><td><code>/nav/mission</code>(offset 줄은 space 순간 좌표로 바꿔서) · <code>/nav/cancel</code> · 파라미터 kp · max_speed · arrive_radius</td><td>nav_node</td><td>nav_node</td></tr>
+        <tr><td>usv</td><td><code>/usv/follow</code> · 파라미터 formation · aim · kp · max_speed</td><td>usv_follow_node</td><td>usv_follow_node</td></tr>
+        <tr><td>follow</td><td><code>/tag/follow</code> · 파라미터 kp · min/max_speed · hold_alt · deadband · yaw_*</td><td>tag_follow_node</td><td>tag_follow_node</td></tr>
+        <tr class="group"><td colspan="4">직접 명령 — 판단 노드 없이 link_node 로</td></tr>
+        <tr><td>drive</td><td><code>/cmd_vel</code> 20Hz · 틸트는 <code>/rd/command</code></td><td>link_node</td><td>rd_cmd (키 → 속도) — 판단 노드와 같이 쓰지 않는다</td></tr>
+        <tr><td>gimbal</td><td><code>/rd/command</code> DO_SET_SERVO 채널 9 (--yaw 면 8)</td><td>link_node</td><td>rd_cmd (각 → PWM)</td></tr>
+        <tr><td>takeoff &lt;m&gt;</td><td><code>/rd/command</code> NAV_TAKEOFF</td><td>link_node</td><td>앱 (DJI 이륙)</td></tr>
+        <tr><td>ping</td><td><code>/rd/command</code> 520, 1초마다</td><td>link_node</td><td>— 기체는 안 움직인다</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 1-2. 중복 -->
+<section>
+  <div class="sec-head">
+    <h2>rd_cmd 와 노드는 기능이 겹치나</h2>
+    <p>짧은 답: <b>속도를 정하는 계산은 겹치지 않는다.</b> rd_cmd 는 리모컨이고 노드가 조종사다. 작게 겹치는 곳이 네 군데 있다.</p>
+  </div>
+  <div class="two">
+    <div class="panel">
+      <h3>rd_cmd follow · usv · mission 이 하는 일 — 셋 다 같다</h3>
+      <ol>
+        <li>시작·정지 토픽 하나를 보낸다 (<code>/tag/follow</code> · <code>/usv/follow</code> · <code>/nav/mission</code> · <code>/nav/cancel</code>)</li>
+        <li><code>Tuner</code> 로 노드의 파라미터 서비스를 읽고 쓴다 — 날면서 kp · 대형 번호를 바꾸는 것</li>
+        <li><code>/cmd_vel</code> · <code>/tf</code> · <code>/usv/fix</code> · <code>/nav/wp</code> 를 구독해 상태 한 줄을 그린다</li>
+      </ol>
+      <span class="src">그래서 노드는 rd_cmd 없이 <code>ros2 topic pub --once /usv/follow std_msgs/msg/Bool '{data: true}'</code> 한 줄로도 똑같이 돈다.
+      거꾸로 노드를 안 띄우면 rd_cmd 는 "노드가 안 떠 있다" 며 멈춘다.</span>
+    </div>
+    <div class="panel">
+      <h3>하나만 켠다 — 정확히는</h3>
+      <ul>
+        <li><code>/cmd_vel</code> 에 쓰는 것은 nav_node · tag_follow_node · usv_follow_node · <b>rd_cmd drive</b>, 넷이다</li>
+        <li>apriltag_node 는 셈에 안 들어간다 — <code>/tf</code> 만 낸다</li>
+        <li><code>/rd/command</code>(짐벌)는 usv_follow_node 의 겨눔과 rd_cmd gimbal · drive 가 같이 쓴다. USV 추종 중에 rd_cmd gimbal 을 쓰면 각이 섞인다</li>
+        <li>노드는 목표나 시작 신호를 받았을 때만 낸다. 같이 <b>떠 있기만</b> 하면 조용하고, 둘이 동시에 <b>돌면</b> 섞인다. launch 의 <code>nav</code> 기본값이 true 라서 <code>usv:=true</code> 만 주면 nav_node 도 뜬다 — 그래서 <code>nav:=false</code> 를 같이 쓴다</li>
+      </ul>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>겹치는 곳</th><th>어디</th><th>판정</th></tr></thead>
+      <tbody>
+        <tr><td class="plain">offset → 좌표 변환</td><td>rd_cmd <code>resolve()</code> · nav_node <code>start_offset()</code> — 둘 다 <code>mav.offset_to_gps</code></td>
+          <td><span class="verdict keep">둔다</span> — 미션 파일은 gps 줄과 offset 줄을 섞을 수 있는데, <code>/nav/mission_offset</code> 은 전부 offset 일 때만 받는다. 그래서 rd_cmd 가 space 순간에 좌표로 바꿔 <code>/nav/mission</code> 으로 보낸다. 구간 표(<code>print_plan</code>)도 nav_node 의 구간 로그와 겹친다</td></tr>
+        <tr><td class="plain">짐벌 PWM 식 <code>1500 + 5.5 × 각</code> · 채널 9</td><td>rd_cmd <code>cmd_gimbal</code> · <code>cmd_drive</code> · usv_follow_node <code>aim()</code></td>
+          <td><span class="verdict merge">합칠 후보</span> — <code>mav.py</code> 에 함수 하나로. 지금은 식이 바뀌면 두 파일을 같이 고쳐야 한다</td></tr>
+        <tr><td class="plain">follow 와 usv 손잡이</td><td>rd_cmd <code>cmd_follow</code> · <code>cmd_usv</code></td>
+          <td><span class="verdict merge">합칠 후보</span> — 켜고 끄기 · 상태 문자열 · 나갈 때 정지가 거의 같다. 튜닝 표는 노드 파라미터 이름을 문자열로 한 번 더 적는다. 노드에서 이름을 바꾸면 rd_cmd 는 "노드가 안 떠 있다" 로 잘못 알린다</td></tr>
+        <tr><td class="plain"><code>clamp()</code> · P 제어식</td><td>tag_follow_node · usv_follow_node / nav_node <code>tick()</code> · usv <code>plan()</code></td>
+          <td><span class="verdict keep">둔다</span> — 몇 줄이고 노드마다 조금씩 다르다 (usv 는 feedforward, tag 는 min_speed · deadband)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="lede"><code>ros2/src/rd_bridge/rd_bridge/mav.py</code> 는 중복이 아니다 — <code>tools/mav.py</code> 를 가리키는 심링크다.</p>
 </section>
 
 <!-- 2. 데이터 흐름 -->
@@ -248,7 +427,7 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
         <text class="t-small" x="770" y="221" text-anchor="middle">태그 → 속도 · 보류</text>
         <line class="wire-ours" x1="680" y1="210" x2="534" y2="210" marker-end="url(#ah-acc)"/>
         <text x="607" y="201" text-anchor="middle" class="t-mono t-accent">/cmd_vel</text>
-        <text x="607" y="164" text-anchor="middle" class="t-small t-part">⚠ 셋 중 하나만 켠다</text>
+        <text x="607" y="164" text-anchor="middle" class="t-small t-part">⚠ /cmd_vel 은 하나만</text>
 
         <!-- 사람 쪽 입력 -->
         <line class="wire" x1="950" y1="92" x2="864" y2="92" marker-end="url(#ah)"/>
@@ -293,7 +472,8 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
     <figcaption>청록색이 우리가 만든 노드와 토픽. link_node 는 받는 일과 보내는 일을 한 프로세스에서 한다 —
     UDP 14550 을 두 프로그램이 동시에 잡으면 패킷이 반씩 쪼개져 양쪽 다 망가지기 때문이다.
     video_node 는 태그 추종 경로에서 영상을 넣는 유일한 부품이다. USV 추종은 영상을 안 쓴다 —
-    USV 가 보낸 좌표만으로 위치를 추정하고(지연만큼 등속 외삽) 틸트 = -atan2(우리 고도, 수평거리) 로 짐벌을 겨눈다.</figcaption>
+    USV 가 보낸 좌표만으로 위치를 추정하고(지연만큼 등속 외삽) 틸트 = -atan2(우리 고도, 수평거리) 로 짐벌을 겨눈다.
+    식과 오차는 <a href="공부-usv_follow.html"><code>공부-usv_follow.html</code></a>.</figcaption>
   </figure>
 </section>
 
@@ -324,12 +504,17 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
         <tr><td>/tf</td><td>TFMessage</td><td class="hz">보일 때만</td><td>camera → tag0, <b>카메라 광학 좌표</b>(x 오른쪽 · y 아래 · z 거리)</td></tr>
         <tr class="group"><td colspan="4">명령 — 들어가는 것</td></tr>
         <tr><td>/cmd_vel</td><td>Twist</td><td class="hz">20 Hz</td><td><b>앱 규약 그대로</b> — x>0 앞 · y>0 오른쪽 · z>0 위 · 회전>0 시계. 변환 없음. 쓰는 것은 하나만</td></tr>
-        <tr><td>/rd/command</td><td>Float64MultiArray</td><td class="hz">한 번</td><td>[명령번호, p1..p7] → COMMAND_LONG (짐벌·이륙)</td></tr>
+        <tr><td>/rd/command</td><td>Float64MultiArray</td><td class="hz">한 번</td><td>[명령번호, p1..p7] → COMMAND_LONG (짐벌·이륙). rd_cmd 와 usv_follow_node 가 쓴다</td></tr>
         <tr><td>/nav/goal · /nav/goal_offset</td><td>NavSatFix · Vector3</td><td class="hz">한 번</td><td>한 점 — 좌표 · 앞/오른쪽 m. 고도 0 = 유지</td></tr>
         <tr><td>/nav/mission · /nav/mission_offset</td><td>Float64MultiArray</td><td class="hz">한 번</td><td>여러 점 — [lat, lon, alt]×N · [앞, 오른쪽, alt]×N</td></tr>
         <tr><td>/nav/cancel</td><td>Empty</td><td class="hz">한 번</td><td>미션 중단</td></tr>
         <tr><td>/nav/wp</td><td>Int32MultiArray</td><td class="hz">바뀔 때 + 1 Hz</td><td>[지금 번호, 전체] — nav_node 가 낸다</td></tr>
         <tr><td>/tag/follow · /tag/cancel</td><td>Bool · Empty</td><td class="hz">한 번</td><td>추종 시작·정지 (rd_cmd follow 의 space)</td></tr>
+        <tr><td>/usv/follow · /usv/cancel</td><td>Bool · Empty</td><td class="hz">한 번</td><td>USV 추종 시작·정지 (rd_cmd usv 의 space)</td></tr>
+        <tr class="group"><td colspan="4">USV — USV 팀이 낸다 (이름이 다르면 remap). 주기는 아직 미정, usv_sim 은 5 Hz</td></tr>
+        <tr><td>/usv/fix</td><td>NavSatFix</td><td class="hz">미정</td><td>위경도 — 고도는 안 쓴다 (USV = 수면)</td></tr>
+        <tr><td>/usv/heading</td><td>Float64</td><td class="hz">미정</td><td>헤딩 ° (0=북, 시계) — 대형의 기준</td></tr>
+        <tr><td>/usv/depth</td><td>Float64</td><td class="hz">미정</td><td>수심 m — 기록만</td></tr>
       </tbody>
     </table>
   </div>
@@ -338,33 +523,70 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
 <!-- 3-1. 파일 -->
 <section>
   <div class="sec-head">
-    <h2>파일은 어디에 있나</h2>
+    <h2>파일 해부 — 어디에 있고, 안에 무엇이 있나</h2>
     <p>처음이면 이 순서로 읽는다: <code>README.md</code> → 이 페이지 → <code>bridge.launch.py</code> → <code>tools/mav.py</code> →
-    노드들 → <code>tools/</code>. <code>nav_node</code> 의 유도 로직은 <a href="공부-nav_node.html"><code>공부-nav_node.html</code></a> 에 풀어 두었다.</p>
+    노드들 → <code>tools/</code>. 식은 따로 풀어 두었다 — 경유점은 <a href="공부-nav_node.html"><code>공부-nav_node.html</code></a>,
+    USV 추종의 기수·틸트는 <a href="공부-usv_follow.html"><code>공부-usv_follow.html</code></a>.
+    <span class="pure">ROS 없이</span> 표시는 rclpy 없이 불러 시험할 수 있는 순수 함수다.</p>
   </div>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>파일</th><th>하는 일</th></tr></thead>
+      <thead><tr><th>파일 · 줄</th><th>안에 든 것</th><th>하는 일</th></tr></thead>
       <tbody>
-        <tr class="group"><td colspan="2">ROS 2 노드 — ros2/src/rd_bridge/</td></tr>
-        <tr><td>launch/bridge.launch.py</td><td>노드를 인자(link · nav · tag · follow · rectify)로 골라 한 번에 띄운다</td></tr>
-        <tr><td>rd_bridge/link_node.py</td><td>UDP 14550 독점 — 다운링크 → /rd/*, /cmd_vel · /rd/command → MAVLink</td></tr>
-        <tr><td>rd_bridge/video_node.py</td><td>UDP 5600 H.264 → /image_raw · /camera_info (rectify 면 왜곡 보정)</td></tr>
-        <tr><td>rd_bridge/tag_follow_node.py</td><td>/tf 의 camera → tag0 로 P 제어, /tag/follow 를 받아야만 /cmd_vel</td></tr>
-        <tr><td>rd_bridge/usv_follow_node.py</td><td>/usv/fix · heading → 대형(USV 헤딩 기준 앞·오른쪽·고도) 자리 추종 + 기수·짐벌 틸트를 USV 로. <code>--selftest</code> 로 계산 확인</td></tr>
-        <tr><td>rd_bridge/nav_node.py</td><td>경유점 · 미션 P 제어 (앱 flyTo() 대체), 미션별 CSV</td></tr>
-        <tr class="group"><td colspan="2">설정 · 빌드</td></tr>
-        <tr><td>config/tags.yaml · camera.yaml</td><td>태그 크기 0.192 한 곳 · 1632×1088 보정값 (원본은 calibrationdata/ost.yaml)</td></tr>
-        <tr><td>setup.py · package.xml</td><td>ament_python — config/*.yaml 을 share 에 설치, 노드 진입점 등록</td></tr>
-        <tr class="group"><td colspan="2">PC 도구 — tools/</td></tr>
-        <tr><td>mav.py</td><td>표준 라이브러리만 쓰는 MAVLink v2 + 거리 · 방위 계산. rd_bridge/mav.py 는 심링크</td></tr>
-        <tr><td>rd_cmd.py</td><td>ping · gimbal · takeoff · drive · follow · usv · mission — 사람이 잡는 손잡이</td></tr>
-        <tr><td>gps_capture.py · tag_check.py · link_check.sh</td><td>경로 기록 · 태그 진단 · 링크 점검</td></tr>
-        <tr><td>usv_sim.py</td><td>가짜 USV — /usv/fix · heading 을 5Hz 로 (지상 dry-run 전용)</td></tr>
-        <tr class="group"><td colspan="2">앱 · 환경</td></tr>
-        <tr><td>patches/01~04 · README.md</td><td>RosettaDrone 패치 — 핵심은 02 (VideoService 선언), 03 은 배터리 전압</td></tr>
-        <tr><td>setup_new_pc.sh</td><td>새 PC 에서 JDK · SDK · 패치 적용 · 앱 빌드까지 재현</td></tr>
-        <tr><td>missions/</td><td>경유점 파일 (gps · offset 줄), 형식은 README.txt</td></tr>
+        <tr class="group"><td colspan="3">ROS 2 노드 — ros2/src/rd_bridge/</td></tr>
+        <tr><td>launch/bridge.launch.py <span class="lines">94</span></td>
+          <td class="parts">인자 <code>link</code> · <code>nav</code>(기본 켬) · <code>tag</code> · <code>follow</code> · <code>usv</code> · <code>camera_info_file</code> · <code>rectify</code></td>
+          <td>노드를 골라 한 번에 띄운다. apriltag_node 도 여기서 외부 패키지를 <code>tags.yaml</code> 로 띄운다</td></tr>
+        <tr><td>rd_bridge/link_node.py <span class="lines">307</span></td>
+          <td class="parts"><code>CmdVelNode</code>: <code>on_cmd</code> 캡·단위 · <code>on_command</code> · <code>tick</code> IDLE→ACTIVE→BRAKE · <code>publish_telemetry</code> · <code>report</code></td>
+          <td>UDP 14550 을 혼자 잡는다. 다운링크 → /rd/*, /cmd_vel → #84 20Hz, /rd/command → COMMAND_LONG. 앱과 말하는 유일한 노드</td></tr>
+        <tr><td>rd_bridge/video_node.py <span class="lines">272</span></td>
+          <td class="parts"><code>VideoNode</code>: <code>_reader</code> GStreamer 스레드 · <code>_camera_info</code> · <code>_info_from_file</code> · <code>_make_remap</code></td>
+          <td>UDP 5600 H.264 → /image_raw · /camera_info (rectify 면 왜곡 보정)</td></tr>
+        <tr><td>rd_bridge/nav_node.py <span class="lines">204</span></td>
+          <td class="parts"><code>triples</code> · <code>NavNode</code>: <code>on_goal</code> · <code>on_offset</code> · <code>on_mission</code> · <code>on_mission_offset</code> · <code>start_offset</code> · <code>start</code> · <code>stop</code> · <code>tick</code></td>
+          <td>경유점 P 제어. 도착하면 다음 점으로, 미션마다 navlog CSV</td></tr>
+        <tr><td>rd_bridge/usv_follow_node.py <span class="lines">365</span></td>
+          <td class="parts"><code>plan()</code> <span class="pure">ROS 없이</span> · <code>usv_velocity</code> · <code>formation</code> · <code>selftest</code> · <code>UsvFollowNode</code>: <code>on_usv_fix</code> · <code>start</code> · <code>stop</code> · <code>aim</code> · <code>tick</code></td>
+          <td>USV 좌표 → 대형 자리 추종 + 기수·틸트 겨눔. <code>--selftest</code> 로 계산 확인, usvlog CSV</td></tr>
+        <tr><td>rd_bridge/tag_follow_node.py <span class="lines">198</span></td>
+          <td class="parts"><code>tag_axes</code> · <code>follow_cmd()</code> <span class="pure">ROS 없이</span> · <code>clamp</code> · <code>wrap180</code> · <code>TagFollowNode</code>: <code>on_tf</code> · <code>start</code> · <code>stop</code> · <code>tick</code></td>
+          <td>/tf 의 camera → tag0 로 P 제어 (보류). /tag/follow 를 받아야만 /cmd_vel</td></tr>
+        <tr><td>rd_bridge/mav.py</td>
+          <td class="parts">심링크 → <code>tools/mav.py</code></td>
+          <td>사본이 아니다 — 노드와 도구가 같은 파일을 쓴다</td></tr>
+        <tr class="group"><td colspan="3">설정 · 빌드</td></tr>
+        <tr><td>config/tags.yaml · camera.yaml</td><td class="parts">family · size 0.192 · decimate / 1632×1088 보정값</td><td>태그 크기는 한 곳에만 (원본 보정은 calibrationdata/ost.yaml)</td></tr>
+        <tr><td>setup.py · package.xml</td><td class="parts">ament_python · 진입점 5개</td><td>config/*.yaml 을 share 에 설치, 노드 진입점 등록</td></tr>
+        <tr class="group"><td colspan="3">PC 도구 — tools/</td></tr>
+        <tr><td>mav.py <span class="lines">209</span></td>
+          <td class="parts"><code>crc16_mcrf4xx</code> · <code>parse</code> · <code>meters_between</code> · <code>bearing_between</code> · <code>offset_to_gps</code> · <code>relative_bearing</code> · <code>name_direction</code> <span class="pure">ROS 없이</span> · <code>Link</code>: <code>frame</code> · <code>send</code> · <code>discover</code> · <code>heartbeat</code> · <code>command_long</code> · <code>set_velocity</code> · <code>poll</code></td>
+          <td>표준 라이브러리만 쓰는 MAVLink v2 + 거리·방위 계산. ROS 를 모른다</td></tr>
+        <tr><td>rd_cmd.py <span class="lines">708</span></td>
+          <td class="parts"><code>Bridge</code> link_node 창구 · <code>connect</code> · <code>key_loop</code> · <code>Tuner</code> 파라미터 서비스 · <code>cmd_ping</code> · <code>cmd_gimbal</code> · <code>cmd_takeoff</code> · <code>cmd_drive</code> · <code>cmd_follow</code> · <code>cmd_usv</code> · <code>cmd_mission</code>(<code>load_mission</code> · <code>resolve</code> · <code>print_plan</code>)</td>
+          <td>사람이 잡는 손잡이 — 위 "누가 계산하나" 표. 스스로 계산하는 것은 drive · gimbal · 미션 offset 변환뿐</td></tr>
+        <tr><td>gps_capture.py <span class="lines">98</span></td><td class="parts"><code>bad_fix</code> · <code>main</code> — <code>mav.Link</code> 를 직접 쓴다</td><td>경로 기록. 14550 을 직접 잡아서 브리지를 끄고 쓴다</td></tr>
+        <tr><td>tag_check.py <span class="lines">159</span></td><td class="parts"><code>detect_all</code> · <code>blur_score</code> · <code>cmd_file</code> · <code>cmd_live</code></td><td>태그가 왜 안 잡히나 진단 (OpenCV)</td></tr>
+        <tr><td>usv_sim.py <span class="lines">111</span></td><td class="parts"><code>slew</code> · <code>selftest</code> · <code>main</code> — <code>rd_cmd.key_loop</code> 재사용</td><td>가짜 USV — /usv/fix · heading · depth 를 5Hz 로. w·s·a·d 로 한 칸(2.2m)씩 민다 (지상 시험 전용)</td></tr>
+        <tr><td>link_check.sh <span class="lines">76</span></td><td class="parts">—</td><td>이 PC 의 IP · 포트 점유 · 방화벽 점검</td></tr>
+        <tr class="group"><td colspan="3">앱 · 환경</td></tr>
+        <tr><td>patches/01~04 · README.md</td><td class="parts">—</td><td>RosettaDrone 패치 — 핵심은 02 (VideoService 선언), 03 은 배터리 전압</td></tr>
+        <tr><td>setup_new_pc.sh</td><td class="parts">—</td><td>새 PC 에서 JDK · SDK · 패치 적용 · 앱 빌드까지 재현</td></tr>
+        <tr><td>missions/</td><td class="parts">README.txt · square10.txt</td><td>경유점 파일 (gps · offset 줄)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>mav.py 에서</th><th>부르는 파일</th></tr></thead>
+      <tbody>
+        <tr><td>meters_between</td><td>nav_node · usv_follow_node · rd_cmd · gps_capture</td></tr>
+        <tr><td>offset_to_gps</td><td>nav_node · usv_follow_node · rd_cmd · usv_sim</td></tr>
+        <tr><td>bearing_between · relative_bearing</td><td>nav_node · usv_follow_node</td></tr>
+        <tr><td>name_direction</td><td>nav_node (로그용)</td></tr>
+        <tr><td>Link</td><td>link_node · gps_capture — 14550 을 잡는 둘. 그래서 같이 못 켠다</td></tr>
+        <tr><td>CMD_DO_SET_SERVO</td><td>rd_cmd · usv_follow_node</td></tr>
+        <tr><td>CMD_NAV_TAKEOFF · MAV_RESULT</td><td>rd_cmd</td></tr>
       </tbody>
     </table>
   </div>
@@ -384,7 +606,7 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
     <li><span class="cmd">python3 tools/gps_capture.py missions/site_a.txt → rd_cmd.py mission missions/site_a.txt</span><span class="why">경로 비행 — 브리지를 끄고 RC 로 날며 Enter 로 좌표를 쌓고, 브리지를 다시 켜서 날린다. 첫 시험은 좌표 없이 <code>missions/square10.txt</code></span></li>
     <li><span class="cmd">bridge.launch.py tag:=true follow:=true nav:=false camera_info_file:=…/config/camera.yaml rectify:=true → python3 tools/tag_check.py live</span><span class="why">태그가 잡히는지 먼저 — 안 잡히면 family·크기(px)·decimate 중 무엇 때문인지 짚어 준다</span></li>
     <li><span class="cmd">python3 tools/rd_cmd.py follow</span><span class="why">태그 추종 — space 로 시작/정지, 날면서 <code>[ ]</code> kp · <code>- =</code> hold_alt · <code>o p</code> deadband 를 키로 고친다</span></li>
-    <li><span class="cmd">bridge.launch.py usv:=true nav:=false → python3 tools/rd_cmd.py usv</span><span class="why">USV 추종 (9/18~) — 처음엔 <code>publish:=false</code> 로 짐벌만 USV 를 겨누는지 본다. space 시작/정지, <code>1</code>~<code>9</code> 대형 · <code>g</code> 짐벌</span></li>
+    <li><span class="cmd">bridge.launch.py usv:=true nav:=false → python3 tools/rd_cmd.py usv</span><span class="why">USV 추종 (9/18~) — 처음엔 <code>publish:=false</code> 로 짐벌만 USV 를 겨누는지 본다. space 시작/정지, <code>1</code>~<code>9</code> 대형 · <code>m</code> 이동 · <code>g</code> 짐벌. <code>move</code>·<code>aim</code> 은 <b>출력만</b> 막고 계산은 그대로라, 능력을 하나씩 떼어 평가할 수 있다</span></li>
   </ol>
   <div class="nodrone">
     <b>기체 없이 할 수 있는 것 — 배관 확인까지만</b>
@@ -416,7 +638,7 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
     <div class="panel">
       <h3>다음</h3>
       <ol>
-        <li><b>USV 추종</b> — USV 팀과 토픽 이름·타입·주기 확정(다르면 remap) · 지상 겨눔(publish:=false) → 정지 USV → 느린 USV 순 · 이륙 지점이 수면 높이인지</li>
+        <li><b>USV 추종</b> — USV 팀과 토픽 이름·타입·주기 확정(다르면 remap) · 지상 겨눔(publish:=false) → 실험 1 제자리 회전·틸트(move:=false) → 2 추종만(aim:=false) → 3 전부 · 이륙 지점이 수면 높이인지</li>
         <li><b>태그 추종 (보류)</b> — 거리가 1.6배로 바뀌었으니 kp 를 낮은 값부터 다시 · hold_alt 는 올려서 시작(9/16 의 3.0 은 실제 4.8m 였다) · taglog CSV 에 줄이 찍히는지 (9/16 은 헤더뿐) · <code>sign_*</code> 부호 재확인</li>
         <li><b>경유점</b> — <code>square10.txt</code> 실기 · 도착 반경 맴돌기</li>
         <li><b>이륙 · 경로 기록</b> — <code>rd_cmd takeoff</code> 실기 (SIM 에서만 확인) · <code>gps_capture</code> 로 경로 한 번</li>
@@ -435,7 +657,8 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
       <span>속도 명령을 한 발이라도 보내면 물리 스틱이 무시된다. 스틱을 잡아도, 도구를 꺼도 안 풀린다.
       <b>①도구·노드 종료 ②RC 모드 스위치 S</b>. 안 되면 앱 Safety.</span></div>
     <div class="rule"><b>/cmd_vel 을 쓰는 것은 한 번에 하나만</b>
-      <span>nav_node · tag_follow_node · usv_follow_node · rd_cmd drive 가 전부 /cmd_vel 에 쓴다. follow · usv · mission 은 스스로 쏘지 않으니 급할 때는 Ctrl+C 가 아니라 space.</span></div>
+      <span>nav_node · tag_follow_node · usv_follow_node · rd_cmd drive 가 전부 /cmd_vel 에 쓴다. follow · usv · mission 은 스스로 쏘지 않으니 급할 때는 Ctrl+C 가 아니라 space.
+      짐벌(/rd/command)도 USV 추종의 겨눔과 rd_cmd gimbal · drive 가 같이 쓴다 — USV 추종 중에는 rd_cmd gimbal 을 쓰지 않는다.</span></div>
     <div class="rule"><b>태그 크기는 <code>tags.yaml</code> 의 <code>size</code> 한 곳에만</b>
       <span>id별 <code>tag.sizes</code> 를 넣으면 그쪽이 조용히 이긴다. 크기가 틀리면 앞·오른쪽·고도가 전부 같은 비율로 틀린다.
       인쇄물은 한 칸(24mm)과 검은 사각형 한 변(192mm = 24×8)을 둘 다 잰다. 저장소의 120mm PDF 는 지금 인쇄물이 아니다.</span></div>
