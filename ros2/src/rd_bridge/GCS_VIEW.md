@@ -27,26 +27,49 @@ image_transport 규칙상 `/gcs/daiv/cam/compressed` 는 "베이스 `/gcs/daiv/c
 ⚠ `ros2 topic list` 는 daemon 캐시를 본다. 구독자를 떼고도 그대로면 `ros2 daemon stop` 후 다시 볼 것
   (실측 — 캐시 때문에 한참 둘로 남아 있었다).
 
-## 해결 — 로컬에서 한 번 풀고 본다
+## 해결 — 토픽을 명령줄에 직접 준다
 
-관제 PC 에서 이것만 실행한다 (설치할 것 없음, 표준 패키지):
+관제 PC 에서 이 한 줄이면 된다:
+
+    ros2 run rqt_image_view rqt_image_view /gcs/daiv/cam/compressed
+
+토픽을 **인자로 박는 게** 핵심이다. 드롭다운에서 고르면 rqt 가 이름을 해석하다 사고를 치지만,
+인자로 주면 그 과정이 없다. 실측 (jazzy, 2026-09-22) — 충돌 없이 정상 표시.
+
+republish 로 raw 를 만들어 볼 필요는 **없다.** 그건 예전에 raw 토픽(`/gcs/daiv/cam`)을
+같이 내던 시절의 우회로다. 지금은 video_node 가 JPEG 만 내므로 충돌할 상대가 없다.
+
+### 그래도 관제 PC 에서 죽는다면 (다른 배포판·구버전 rqt)
+
+그때만 중간에서 한 번 풀어 본다:
 
     ros2 run image_transport republish --ros-args -r __node:=gcs_view \
       -p in_transport:=compressed -p out_transport:=raw \
       -r in:=/gcs/daiv/cam -r in/compressed:=/gcs/daiv/cam/compressed \
       -r out:=/gcs/view
 
-그 다음 rqt_image_view 에서 `/gcs/view` 를 고르면 정상으로 보인다.
-`/gcs/view` 는 관제 PC 안에서만 도는 raw 라 랜선을 타지 않는다.
+그 다음 rqt_image_view 에서 `/gcs/view` 를 고른다. 이 터미널은 켜둔 채로 쓴다 —
+닫거나 Ctrl+C 하면 노드가 죽고 `/gcs/view` 도 사라진다.
 
-⚠ `-r in:=/gcs/daiv/cam` 만 주면 안 된다. `-r in/compressed:=...` 를 반드시 같이 준다
-  (베이스만 remap 하면 구독 자체가 안 만들어진다 — 실측 확인).
+⚠ `-r in:=...` 만 주면 안 된다. remap 규칙은 `in` 이라는 이름에만 걸리고 image_transport 가
+  따로 만드는 `in/compressed` 에는 안 번져서, remap 안 된 생짜 `/in/compressed` 를 구독한다
+  (실측 — 구독이 안 생기는 게 아니라 엉뚱한 이름에 생긴다).
+
+⚠ republish 는 게으르다. 출력을 누가 구독할 때까지 입력을 안 받으므로, 띄운 직후
+  `ros2 topic info` 에 구독자 0 으로 보여도 정상이다.
 
 ## 절대 하지 말 것
 
 `/rc/image_raw` 를 구독하지 말 것. 1632x1088 bgr8 30Hz = **1.2Gbps** 로, 기가비트 회선
 용량을 넘는다. 붙는 순간 RC 노트북의 영상이 1Hz 로 주저앉고 드론 링크까지 불안정해진다.
 (2026-09-22 실제 발생 — 원격 rqt 3개가 붙어 TX 3.7GB, RX drop 31만)
+
+⚠ 단, **그 "RX drop 31만" 은 혼잡의 증거가 아니다.** 같은 인터페이스의 `rx_errors` ·
+  `rx_over_errors` · `rx_fifo_errors` · `rx_missed_errors` 가 전부 0 이고, 송신 qdisc 도
+  4일간 드롭 2개 · overlimits 0 이다. `rx_dropped` 만 큰 것은 호스트가 받은 뒤 버린 것
+  (들어줄 소켓이 없는 DDS 멀티캐스트 등)에 가깝다. 1.2Gbps 가 기가비트를 넘는다는 **산수는
+  그대로 유효하니 구독하지 말 것**이되, 낮의 사고 원인이 정말 대역폭이었는지는 **미확정**이다
+  (진행상황.md 9/22 저녁 §0).
 
 ## MAIV 커스텀 메시지가 안 읽히면
 
