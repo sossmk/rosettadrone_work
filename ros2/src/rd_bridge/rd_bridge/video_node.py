@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""영상 노드 — 기체의 H.264(UDP 5600) 또는 저장한 파일을 /image_raw · /camera_info 로 낸다.
+"""영상 노드 — 기체의 H.264(UDP 5600) 또는 저장한 파일을 JPEG · /camera_info 로 낸다.
 
     ros2 run rd_bridge video_node                                   # 실시간
     ros2 run rd_bridge video_node --ros-args -p source:=~/drone_ws/capture/mavic2-real-20260910.h264
@@ -18,8 +18,13 @@
     loop · fps        파일 되감기 · 재생 속도(0=자동)
     camera_info_file  보정 YAML (cameracalibrator 의 ost.yaml 형식)
     rectify           왜곡을 펴서 낸다 (보정 파일이 있어야 뜻이 있다)
+    jpeg_quality      JPEG 품질 1~100 (기본 80). 태그 검출이 나쁘면 올린다
+    publish_fps       발행 상한 Hz (기본 3). 0 이면 오는 대로 다 낸다(~30Hz)
+    scale             축소 배율 0<s<=1 (기본 0.5). camera_info 도 같이 줄인다
     fx fy cx cy       보정 파일이 없을 때의 대략값 — 거리가 ±10% 틀린다
 
+⚠ raw(Image) 는 발행하지 않는다 — 1.2Gbps 라 누가 구독하면 회선이 죽는다. JPEG 만 낸다.
+  apriltag 도 image_transport:=compressed 로 같은 토픽을 구독해 로컬에서 푼다.
 ⚠ apriltag_ros 는 영상과 /camera_info 를 **쌍으로** 구독한다. camera_info 가 없으면 검출이 0 이다.
 ⚠ 프레임 손실(~3%)이 있다. 디코더가 못 낸 프레임은 건너뛰고 세기만 한다.
 """
@@ -30,10 +35,9 @@ import time
 import cv2
 import yaml
 import rclpy
-from cv_bridge import CvBridge
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
-from sensor_msgs.msg import CameraInfo, Image
+from sensor_msgs.msg import CameraInfo, CompressedImage
 
 FRAME_ID = "camera"      # /tf 의 부모 프레임 (camera → tag0)
 # caps 를 적어 두는 이유 — 없으면 udpsrc 가 형식을 몰라 조용히 기다리기만 한다
@@ -53,6 +57,7 @@ class VideoNode(Node):
         super().__init__("rd_video")
         for name, val in [("source", "udp"), ("port", 5600), ("loop", True), ("fps", 0.0),
                           ("warn_after", 5.0), ("camera_info_file", ""), ("rectify", False),
+                          ("jpeg_quality", 80), ("publish_fps", 3.0), ("scale", 0.5),
                           ("fx", 1250.0), ("fy", 1250.0), ("cx", 0.0), ("cy", 0.0)]:
             self.declare_parameter(name, val)
         g = self.get_parameter
@@ -61,19 +66,27 @@ class VideoNode(Node):
         self.loop = g("loop").value
         self.fps = g("fps").value
         self.warn_after = g("warn_after").value
+        self.jpeg_quality = int(g("jpeg_quality").value)
+        self.publish_fps = float(g("publish_fps").value)
+        self.next_pub = 0.0    # publish_fps 게이트의 다음 발행 시각
+        self.scale = float(g("scale").value)
+        if not 0.0 < self.scale <= 1.0:
+            self.get_logger().warning(
+                f"scale={self.scale} 은 (0, 1] 밖이다 — 1.0(원본)으로 둔다. 확대는 대역폭에 의미가 없다")
+            self.scale = 1.0
 
-        # ⚠ 영상은 RELIABLE 로 낸다. BEST_EFFORT 로 내리지 말 것 —
-        # apriltag_node 의 구독은 RELIABLE 고정인데 qos_overrides 파라미터를 하나도
-        # 선언하지 않아 launch 에서 맞출 방법이 없다. BEST_EFFORT 퍼블리셔는 RELIABLE
-        # 구독자를 만족시키지 못하므로 "incompatible QoS. No messages will be sent to it"
-        # 이 뜨고 검출이 0 이 된다 (a4462a2 에서 한 번 들어갔던 회귀).
-        # 관제 PC 용 republish 는 BEST_EFFORT 로 구독해도 붙는다 — 제공 ≥ 요구.
-        self.pub = self.create_publisher(Image, "image_raw", 10)
+        # ⚠ raw(Image) 는 **발행하지 않는다.** 1632x1088 bgr8 30Hz = 1.2Gbps 라
+        # 관제 PC 에서 누가 목록에서 집는 순간 기가비트 회선이 죽는다 (9/22 실제 발생).
+        # 토픽이 아예 없으면 그 사고가 불가능하다. 여기서 바로 JPEG 으로 내고,
+        # apriltag 는 image_transport:=compressed 로 같은 토픽을 구독해 로컬에서 푼다.
+        # ⚠ RELIABLE 로 낸다 — apriltag_node 구독이 RELIABLE 고정이고 qos_overrides 를
+        # 선언하지 않아 맞출 방법이 없다. 관제 PC 는 BEST_EFFORT 로 붙으면 되고,
+        # 그 리더에게는 재전송이 안 나간다 (리더별로 따로 처리된다).
+        self.pub = self.create_publisher(CompressedImage, "cam/compressed", 10)
         self.pub_info = self.create_publisher(CameraInfo, "camera_info", 10)
         self.info = None       # 첫 프레임 크기로 만든다
         self.remap = None      # rectify 일 때 (map1, map2)
 
-        self.bridge = CvBridge()
         self.is_live = self.source == "udp"
         self.frames = 0        # 발행한 프레임
         self.misses = 0        # 디코더가 못 낸 read
@@ -148,13 +161,42 @@ class VideoNode(Node):
             t_last_frame = time.time()
             if self.info is None:
                 self.info = self._camera_info(frame.shape[1], frame.shape[0])
-                self.get_logger().info(f"첫 프레임 {frame.shape[1]}x{frame.shape[0]} — 발행 시작")
+                # ⚠ 축소하면 camera_info 도 같이 줄여야 앞뒤가 맞는다. rectify 가 K 를
+                #   고쳐 쓴 **뒤**에 적용해야 하므로 여기다 (그 전에 하면 덮어써진다).
+                self._scale_info(self.info, self.scale)
+                self.get_logger().info(
+                    f"첫 프레임 {frame.shape[1]}x{frame.shape[0]} → "
+                    f"{self.info.width}x{self.info.height} 발행 시작 (scale={self.scale})")
+
+            # 발행 상한. H.264 는 프레임을 건너뛰고 못 푸니 디코딩은 다 하되 여기서 버린다.
+            # 이 자리인 이유 — 아래 remap · imencode · publish 가 통째로 생략돼
+            # 인코딩 CPU 와 회선 대역폭이 같이 준다. camera_info 도 같은 게이트 뒤라
+            # 영상과 짝·stamp 가 저절로 유지된다.
+            # 밀린 빚은 쌓지 않는다 (실시간은 따라잡을 대상이 없다).
+            if self.publish_fps > 0:
+                if t_last_frame < self.next_pub:
+                    continue
+                self.next_pub = t_last_frame + 1.0 / self.publish_fps
+
             if self.remap is not None:
                 frame = cv2.remap(frame, self.remap[0], self.remap[1], cv2.INTER_LINEAR)
 
-            msg = self.bridge.cv2_to_imgmsg(frame, encoding="bgr8")
+            # 축소는 remap **뒤**다 — 보정 맵이 원본 해상도 기준으로 만들어져 있다.
+            # INTER_AREA 는 축소 전용으로, 줄일 때 모아레가 안 생긴다.
+            if self.scale != 1.0:
+                frame = cv2.resize(frame, None, fx=self.scale, fy=self.scale,
+                                   interpolation=cv2.INTER_AREA)
+
+            ok_enc, buf = cv2.imencode(
+                ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality])
+            if not ok_enc:
+                self.misses += 1
+                continue
+            msg = CompressedImage()
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = FRAME_ID
+            msg.format = "jpeg"
+            msg.data = buf.tobytes()
             self.pub.publish(msg)
             self.info.header = msg.header          # 같은 stamp 여야 apriltag 가 짝을 맞춘다
             self.pub_info.publish(self.info)
@@ -179,6 +221,26 @@ class VideoNode(Node):
         cap.release()
 
     # ------------------------------------------------------------ camera_info
+    def _scale_info(self, m, s):
+        """camera_info 를 영상과 같은 배율로 줄인다.
+
+        초점거리(fx·fy)와 주점(cx·cy)은 픽셀 단위라 해상도에 비례한다 — 안 줄이면
+        거리·좌표가 배율만큼 틀린다. 반대로 D(왜곡계수)와 R(회전)은 정규화 값이라
+        해상도와 무관하므로 건드리지 않는다.
+        """
+        if s == 1.0:
+            return
+        m.width = int(round(m.width * s))
+        m.height = int(round(m.height * s))
+        k = list(m.k)
+        for i in (0, 2, 4, 5):          # fx, cx, fy, cy
+            k[i] *= s
+        m.k = k
+        p = list(m.p)
+        for i in (0, 2, 5, 6):          # fx, cx, fy, cy
+            p[i] *= s
+        m.p = p
+
     def _camera_info(self, w, h):
         path = os.path.expanduser(self.get_parameter("camera_info_file").value)
         if path:
