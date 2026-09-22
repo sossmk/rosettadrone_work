@@ -131,8 +131,13 @@ def generate_launch_description():
              #    빈 값으로 들어가 JPEG 이 안 나온다. 파라미터로 박아야 한다.
              parameters=[{"in_transport": "raw",
                           "out_transport": "compressed",
-                          # video_node 가 BEST_EFFORT 로 내므로 구독도 맞춰야 한다.
-                          # 기본(RELIABLE)이면 "incompatible QoS" 로 한 장도 안 온다.
+                          # 구독만 BEST_EFFORT 로 내린다 — video_node 는 RELIABLE 로 내므로
+                          # (제공 ≥ 요구) 붙고, 늦은 프레임을 재전송받느라 밀리지 않는다.
+                          # ⚠ 값은 소문자여야 한다. "BEST_EFFORT" 나 "sensor_data" 를 주면
+                          #   unknown QoS policy reliability value 로 노드가 죽는다.
+                          #   쓸 수 있는 값은 system_default · reliable · best_effort 뿐이다.
+                          # ⚠ 이 override 는 republish 라서 되는 것이다. apriltag_node 는
+                          #   qos_overrides 를 아예 선언하지 않아 같은 수를 못 쓴다.
                           "qos_overrides./rc/image_raw.subscription.reliability": "best_effort",
                           "out.compressed.jpeg_quality": ParameterValue(jpeg_quality,
                                                                         value_type=int)}],

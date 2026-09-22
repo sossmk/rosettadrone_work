@@ -14,6 +14,19 @@ image_transport 규칙상 `/gcs/daiv/cam/compressed` 는 "베이스 `/gcs/daiv/c
 라는 뜻이다. rqt 는 이걸 베이스 토픽으로 착각해 raw(Image) 로 구독하려다 타입이 안 맞아 죽는다.
 베이스 `/gcs/daiv/cam` 은 광고되지 않으므로 목록에서 고를 수도 없다.
 
+## 타입이 둘로 보이는 건 발행 탓이 아니다
+
+    /gcs/daiv/cam/compressed [sensor_msgs/msg/CompressedImage, sensor_msgs/msg/Image]
+
+`ros2 topic list -t` 는 그 이름에 걸린 **퍼블리셔와 구독자의 타입을 전부 합쳐서** 보여준다.
+우리 퍼블리셔는 언제나 `CompressedImage` 하나다. 뒤에 붙은 `Image` 는 위의 rqt_image_view 가
+만든 **잘못된 구독**이 올린 것이고, 그 rqt 를 닫으면 사라진다. 확인은 엔드포인트별로 본다:
+
+    ros2 topic info -v /gcs/daiv/cam/compressed     # Publisher 쪽 Topic type 만 보면 된다
+
+⚠ `ros2 topic list` 는 daemon 캐시를 본다. 구독자를 떼고도 그대로면 `ros2 daemon stop` 후 다시 볼 것
+  (실측 — 캐시 때문에 한참 둘로 남아 있었다).
+
 ## 해결 — 로컬에서 한 번 풀고 본다
 
 관제 PC 에서 이것만 실행한다 (설치할 것 없음, 표준 패키지):

@@ -33,7 +33,6 @@ import rclpy
 from cv_bridge import CvBridge
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import CameraInfo, Image
 
 FRAME_ID = "camera"      # /tf 의 부모 프레임 (camera → tag0)
@@ -63,9 +62,13 @@ class VideoNode(Node):
         self.fps = g("fps").value
         self.warn_after = g("warn_after").value
 
-        # 영상은 센서 QoS(BEST_EFFORT) 로 낸다 — 늦은 프레임을 붙잡고 있느니 버리는 게 낫고,
-        # 관제 PC 로 보내는 republish 도 이쪽에 맞춰 구독한다 (launch 주석 참고)
-        self.pub = self.create_publisher(Image, "image_raw", qos_profile_sensor_data)
+        # ⚠ 영상은 RELIABLE 로 낸다. BEST_EFFORT 로 내리지 말 것 —
+        # apriltag_node 의 구독은 RELIABLE 고정인데 qos_overrides 파라미터를 하나도
+        # 선언하지 않아 launch 에서 맞출 방법이 없다. BEST_EFFORT 퍼블리셔는 RELIABLE
+        # 구독자를 만족시키지 못하므로 "incompatible QoS. No messages will be sent to it"
+        # 이 뜨고 검출이 0 이 된다 (a4462a2 에서 한 번 들어갔던 회귀).
+        # 관제 PC 용 republish 는 BEST_EFFORT 로 구독해도 붙는다 — 제공 ≥ 요구.
+        self.pub = self.create_publisher(Image, "image_raw", 10)
         self.pub_info = self.create_publisher(CameraInfo, "camera_info", 10)
         self.info = None       # 첫 프레임 크기로 만든다
         self.remap = None      # rectify 일 때 (map1, map2)
