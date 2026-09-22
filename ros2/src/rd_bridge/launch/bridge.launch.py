@@ -9,7 +9,8 @@
     ros2 launch rd_bridge bridge.launch.py usv:=true nav:=false   # USV GPS 추종
     ros2 launch rd_bridge bridge.launch.py usv:=true usv_gnss:=true nav:=false   # 진짜 USV GNSS 로
 
-    video_node       영상 → /image_raw · /camera_info
+    video_node       영상 → /rc/image_raw · /rc/camera_info
+    republish        /rc/image_raw → /gcs/daiv/cam/compressed (JPEG, 관제 PC 용)  (gcs, 기본 켬)
     link_node        UDP 14550 — 다운링크 → /rd/* · /cmd_vel → #84
     nav_node         경유점 → /cmd_vel                     (nav, 기본 켬)
     apriltag_node    영상 → /detections · /tf (camera→tag0)  (tag)
@@ -46,6 +47,8 @@ def generate_launch_description():
     gnss_topic = LaunchConfiguration("gnss_topic")
     cam_info = LaunchConfiguration("camera_info_file")
     rectify = LaunchConfiguration("rectify")
+    gcs = LaunchConfiguration("gcs")
+    jpeg_quality = LaunchConfiguration("jpeg_quality")
 
     return LaunchDescription([
         DeclareLaunchArgument("video_source", default_value="udp",
@@ -68,9 +71,17 @@ def generate_launch_description():
                               description="보정 결과 YAML. 비우면 대략값(fx=fy=1250)을 쓴다"),
         DeclareLaunchArgument("rectify", default_value="false",
                               description="왜곡을 펴서 발행한다 (camera_info_file 이 있어야 뜻이 있다)"),
+        DeclareLaunchArgument("gcs", default_value="true",
+                              description="관제 PC 용 JPEG 중계 (/gcs/daiv/cam/compressed)"),
+        DeclareLaunchArgument("jpeg_quality", default_value="80",
+                              description="JPEG 품질 1~100. 낮출수록 대역폭이 준다"),
 
         Node(package="rd_bridge", executable="video_node", name="rd_video",
              output="screen",
+             # raw 는 /rc/* 로 낸다 — 관제 PC 가 /image_raw 라는 이름으로 구독하고 있어서
+             # 그 이름으로 내면 5MiB 프레임이 랜선으로 빨려나가 회선이 죽는다 (1.2Gbps)
+             remappings=[("image_raw", "/rc/image_raw"),
+                         ("camera_info", "/rc/camera_info")],
              # 형을 못 박는다 — 빈 문자열이 None 으로, "false" 가 문자열로 넘어가면
              # 노드가 InvalidParameterTypeException 으로 죽는다 (tags.yaml refine 과 같은 함정)
              parameters=[{"source": video_source, "port": video_port,
@@ -89,7 +100,7 @@ def generate_launch_description():
         #    video_node 에 camera_info_file 과 rectify:=true 를 준다 (거기서 같이 편다)
         Node(package="apriltag_ros", executable="apriltag_node", name="apriltag",
              output="screen", condition=IfCondition(tag),
-             remappings=[("image_rect", "/image_raw"), ("camera_info", "/camera_info")],
+             remappings=[("image_rect", "/rc/image_raw"), ("camera_info", "/rc/camera_info")],
              parameters=[os.path.join(get_package_share_directory("rd_bridge"),
                                       "config", "tags.yaml")]),
 
@@ -108,4 +119,24 @@ def generate_launch_description():
              output="screen", condition=IfCondition(usv_gnss),
              remappings=[("usv/raw_gnss", gnss_topic)]),
 
+        # 관제 PC 전송용 JPEG — /rc/image_raw → /gcs/daiv/cam/compressed
+        # raw 는 1.2Gbps 라 기가비트 회선에 안 들어간다. JPEG(q80) 이면 ~46Mbps.
+        # out_transport 를 박으면 compressed 하나만 광고된다 (베이스 /gcs/daiv/cam 은 안 생긴다).
+        # ⚠ 그래서 관제 PC 의 rqt_image_view 에서 /gcs/daiv/cam/compressed 를 직접 고르면 죽는다.
+        #    그쪽에서는 republish 로 한 번 풀어서 보라 (README 참고).
+        Node(package="image_transport", executable="republish",
+             name="image_republisher", output="screen",
+             condition=IfCondition(gcs),
+             # ⚠ arguments=["raw","compressed"] 로 주면 launch 에서 out_transport 가
+             #    빈 값으로 들어가 JPEG 이 안 나온다. 파라미터로 박아야 한다.
+             parameters=[{"in_transport": "raw",
+                          "out_transport": "compressed",
+                          # video_node 가 BEST_EFFORT 로 내므로 구독도 맞춰야 한다.
+                          # 기본(RELIABLE)이면 "incompatible QoS" 로 한 장도 안 온다.
+                          "qos_overrides./rc/image_raw.subscription.reliability": "best_effort",
+                          "out.compressed.jpeg_quality": ParameterValue(jpeg_quality,
+                                                                        value_type=int)}],
+             remappings=[("in", "/rc/image_raw"),
+                         ("out", "/gcs/daiv/cam"),
+                         ("out/compressed", "/gcs/daiv/cam/compressed")]),
     ])

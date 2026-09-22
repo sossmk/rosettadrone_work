@@ -33,6 +33,7 @@ import rclpy
 from cv_bridge import CvBridge
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import CameraInfo, Image
 
 FRAME_ID = "camera"      # /tf 의 부모 프레임 (camera → tag0)
@@ -62,7 +63,9 @@ class VideoNode(Node):
         self.fps = g("fps").value
         self.warn_after = g("warn_after").value
 
-        self.pub = self.create_publisher(Image, "image_raw", 10)
+        # 영상은 센서 QoS(BEST_EFFORT) 로 낸다 — 늦은 프레임을 붙잡고 있느니 버리는 게 낫고,
+        # 관제 PC 로 보내는 republish 도 이쪽에 맞춰 구독한다 (launch 주석 참고)
+        self.pub = self.create_publisher(Image, "image_raw", qos_profile_sensor_data)
         self.pub_info = self.create_publisher(CameraInfo, "camera_info", 10)
         self.info = None       # 첫 프레임 크기로 만든다
         self.remap = None      # rectify 일 때 (map1, map2)
