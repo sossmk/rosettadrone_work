@@ -462,6 +462,16 @@ USV_KEYS = ("space 시작/정지 · q 종료 · m 이동 켜고끄기 · g 짐�
             "  1~9 대형 (USV 기준 앞·오른쪽·고도) · [ ] kp · , . max_speed")
 
 
+def usv_forms(par):
+    """formations 배열 → [(앞, 오른쪽, 고도), ...]. 3 의 배수가 아니면 남는 꼬리는 버린다."""
+    a = list(par["formations"])
+    return [tuple(a[i:i + 3]) for i in range(0, len(a) - 2, 3)]
+
+
+def usv_menu(forms):
+    return "  ".join(f"{n}: 앞{f:+.0f} 오{r:+.0f} 고{a:.0f}m" for n, (f, r, a) in enumerate(forms, 1))
+
+
 def cmd_usv(args):
     """USV 추종 — /usv/follow 를 토글하고 파라미터를 고친다. 급할 때는 space (follow 와 같다)."""
     link = connect()
@@ -482,11 +492,12 @@ def cmd_usv(args):
     link.create_subscription(Twist, "cmd_vel", lambda m: cmd.update(
         t=time.time(), v=(m.linear.x, m.linear.y, m.linear.z, math.degrees(m.angular.z))), 10)
     time.sleep(0.6)      # 퍼블리셔가 짝지어질 시간 — 첫 토글을 잃지 않게
-    forms = [tuple(par["formations"][i:i + 3]) for i in range(0, len(par["formations"]) - 2, 3)]
-    banner("space 를 누르면 기체가 USV 를 따라 **움직인다**", USV_KEYS + "\n  " + "  ".join(
-        f"{n}: 앞{f:+.0f} 오{r:+.0f} 고{a:.0f}m" for n, (f, r, a) in enumerate(forms, 1)))
+    forms = usv_forms(par)
+    banner("space 를 누르면 기체가 USV 를 따라 **움직인다**",
+           USV_KEYS + "\n  " + usv_menu(forms))
 
     def on_key(k):
+        nonlocal forms
         if k == " ":
             st["armed"], st["t_arm"] = not st["armed"], time.time()
             pub.publish(Bool(data=st["armed"]))
@@ -494,9 +505,21 @@ def cmd_usv(args):
             name = "move" if k == "m" else "aim"
             par[name] = not par[name]
             tuner.write(name, par[name])
-        elif k.isdigit() and 1 <= int(k) <= len(forms):
-            par["formation"] = int(k)
-            tuner.write("formation", par["formation"])
+        elif k.isdigit():
+            # **누를 때마다 formations 를 다시 읽는다.** 노드는 매 tick 다시 읽으니 날면서도
+            # 대형이 늘어난다 — 시작 때 읽은 개수로 숫자키를 막으면 키가 **조용히 삼켜진다.**
+            # 9/22 실험 1-B 가 그렇게 날아갔다 (T5 의 formations 를 T4 보다 늦게 넣었다)
+            got = tuner.read(("formations",))
+            if got:
+                par["formations"] = got["formations"]
+                forms = usv_forms(par)
+            n = int(k)
+            if 1 <= n <= len(forms):
+                par["formation"] = n
+                tuner.write("formation", n)
+            else:
+                print(f"\n  ✗ 대형 {n} 번이 없다 — 지금 {len(forms)}개다. "
+                      f"T5 에서 formations 를 넣었나?\n  {usv_menu(forms)}")
         else:
             tune(k, USV_TUNE, par, tuner)
 
