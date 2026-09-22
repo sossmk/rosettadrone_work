@@ -20,7 +20,7 @@
     1. USV 위치 추정: 최근 vel_window 초의 좌표로 속도를 내고, (좌표 나이 + lead_secs) 만큼 등속 외삽
     2. 목표점 = 추정 위치에서 **대형**만큼 — USV 기수 기준 (앞 m, 오른쪽 m, 고도 m). 음수 = 뒤·왼쪽
     3. 수평 = kp × 목표까지 거리 (nav_node 와 같은 P) + USV 속도 feedforward, max_speed 로 자른다
-    4. 기수 = USV 쪽으로 (짐벌 yaw 는 상대·누적각이라 안 쓰고 몸체를 돌린다)
+    4. 기수 = USV 쪽으로 (좌우는 몸체로 맞춘다 — 짐벌 yaw 는 겨누는 데 안 쓴다)
     5. 틸트 = -atan2(우리 상대고도, USV 까지 수평거리) → DO_SET_SERVO ch9 (2° 넘게 바뀔 때, 최대 2Hz)
 
 대형은 formations = [앞, 오른쪽, 고도] × N 을 한 줄로, formation = 번호(1부터).
@@ -34,6 +34,10 @@ move·aim 열로 그때 무엇을 냈는지 구분한다 (rd_cmd usv 의 m·g �
     publish  false → /cmd_vel 을 아예 안 낸다 (지상 dry-run)
     move     false → 수평·수직만 0. **기수는 계속 돈다** — 제자리 회전 + 틸트만 보기
     aim      false → 짐벌 명령을 안 낸다 — 몸체 추종만 보기
+
+**짐벌 yaw 는 겨누는 데 안 쓰지만 시작 때 한 번 0 으로 되돌린다** (`yaw_zero`, 기본 켬).
+좌우를 몸체로 맞추므로 카메라는 기수와 같아야 하는데, 이전 시험(`rd_cmd.py gimbal --yaw`)이
+남긴 잔류각을 지우는 곳이 여기 말고 없었다. 자세한 것은 aim() 주석.
 기록은 ~/drone_ws/usvlog/ 에 CSV.
 """
 import math
@@ -45,7 +49,9 @@ from collections import deque
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mav  # noqa: E402
 
-CH_PITCH = 9
+CH_PITCH, CH_YAW = 9, 8
+# 앱은 각도와 상관없이 Rotation.Builder().time(2) 로 2초에 걸쳐 돌린다 (DroneModel.java:2009)
+YAW_SETTLE = 2.0
 
 
 def clamp(v, lim):
@@ -108,7 +114,8 @@ DEFAULTS = [("formations", [0.0, -10.0, 5.0, 0.0, 10.0, 5.0, -10.0, 0.0, 5.0]), 
             ("max_vz", 1.0), ("kp_yaw", 0.8), ("max_yaw_rate", 30.0),
             ("lost_secs", 2.0), ("giveup_secs", 10.0),
             # 출력 스위치 — 계산은 늘 같고 내보내는 것만 막는다 (실험 항목을 따로 보려고)
-            ("publish", True), ("move", True), ("aim", True)]
+            ("publish", True), ("move", True), ("aim", True),
+            ("yaw_zero", True)]      # 시작 때 짐벌 yaw 를 0 으로 (aim 이 켜져 있을 때만)
 
 
 def selftest():
@@ -199,6 +206,7 @@ class UsvFollowNode(Node):
         self.usv_hdg, self.t_usv_hdg, self.depth = None, 0.0, float("nan")
         self.armed = False
         self.tilt_sent, self.t_tilt = None, 0.0
+        self.yaw_zeroed, self.t_yaw = False, 0.0
         self.form_no = None
         self.csv = None
         self.t_log = 0.0
@@ -253,7 +261,7 @@ class UsvFollowNode(Node):
             return self.get_logger().error("아직 우리 위치·기수가 없다 — link_node 확인")
         if time.time() - min(self.t_me, self.t_hdg) > 1.0:
             return self.get_logger().error("우리 좌표·기수가 1초 넘게 낡았다 — link_node 확인")
-        self.armed, self.tilt_sent = True, None
+        self.armed, self.tilt_sent, self.yaw_zeroed = True, None, False
         os.makedirs(os.path.expanduser("~/drone_ws/usvlog"), exist_ok=True)
         path = os.path.expanduser(time.strftime("~/drone_ws/usvlog/%Y%m%d-%H%M%S.csv"))
         self.csv = open(path, "w")
@@ -263,7 +271,8 @@ class UsvFollowNode(Node):
         self.form_no = None      # 첫 tick 에 대형을 로그로 남기게
         self.get_logger().info(
             f"▶ USV 추종 시작 — 최대 {self.p('max_speed'):.1f}m/s · "
-            f"이동 {'켬' if self.p('move') else '끔'} · 짐벌 {'켬' if self.p('aim') else '끔'}")
+            f"이동 {'켬' if self.p('move') else '끔'} · 짐벌 {'켬' if self.p('aim') else '끔'}"
+            f"{'' if self.p('yaw_zero') else ' · yaw 0 안 보냄'}")
 
     def stop(self, why):
         if not self.armed:
@@ -276,14 +285,40 @@ class UsvFollowNode(Node):
             self.csv = None
         self.get_logger().info(f"■ 정지 — {why}")
 
+    def servo(self, ch, angle):
+        self.pub_cmd.publish(Float64MultiArray(
+            data=[float(mav.CMD_DO_SET_SERVO), float(ch), 1500.0 + angle * 5.5]))
+
     def aim(self, tilt):
+        """겨눈다 — 켜고 처음 한 번 yaw 0, 그 뒤로는 틸트만.
+
+        **yaw 0 은 "기수 방향" 이 아니라 "앱이 켜진 때의 방향" 이다.** ch8 은 절대각이 아니라
+        상대·누적각이다 — 앱은 `builder.yaw(-m_ServoPos_yaw + param)` 로 **직전에 받은 값과의
+        차이만큼** 돌리고 `m_ServoPos_yaw` 를 새 값으로 적는다 (DroneModel.java:2014). 누적값이
+        0 이 되면 앱이 켜진 때의 방향으로 돌아온다. 그러니 이 0 이 기수와 맞으려면 **앱을 켤 때
+        카메라가 기수를 보고 있어야 한다.** 보내 놓고도 어긋나면 앱을 다시 켜는 수밖에 없다.
+
+        yaw 를 낸 뒤 YAW_SETTLE 초는 틸트를 참는다. 앱은 rotate() 한 번에 2초를 쓰고 **다음
+        명령이 그것을 덮어쓴다.** 덮어쓰면 덜 돈 채로 `m_ServoPos_yaw` 만 0 이 되어 앱이 아는
+        각과 실제 각이 영영 어긋난다 — 되돌릴 길이 없다. 0.5초 주기의 틸트가 바로 그 덮어쓰기다.
+
+        `g` 로 짐벌을 껐다 켜면 다시 0 부터 맞춘다 — 날면서 손으로 되돌리는 유일한 수단이다.
+        """
         now = time.time()
-        if not self.p("aim") or now - self.t_tilt < 0.5:
+        if not self.p("aim"):
+            self.yaw_zeroed = False       # 다시 켤 때 yaw 부터 — `g` 가 곧 수동 재정렬이다
+            return
+        if self.p("yaw_zero") and not self.yaw_zeroed:
+            self.servo(CH_YAW, 0.0)
+            self.yaw_zeroed, self.t_yaw = True, now
+            self.get_logger().info(
+                f"짐벌 yaw 0 — 카메라를 앱 시작 방향으로. {YAW_SETTLE:.0f}초 뒤 틸트 시작")
+            return
+        if now - self.t_yaw < YAW_SETTLE or now - self.t_tilt < 0.5:
             return
         if self.tilt_sent is not None and abs(tilt - self.tilt_sent) < 2.0:
             return
-        self.pub_cmd.publish(Float64MultiArray(
-            data=[float(mav.CMD_DO_SET_SERVO), float(CH_PITCH), 1500.0 + tilt * 5.5]))
+        self.servo(CH_PITCH, tilt)
         self.tilt_sent, self.t_tilt = tilt, now
 
     # ------------------------------------------------------------------ 20Hz
