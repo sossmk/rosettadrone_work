@@ -7,6 +7,7 @@
     ros2 launch rd_bridge bridge.launch.py tag:=true follow:=true nav:=false \
         camera_info_file:=$HOME/rosettadrone_work/ros2/src/rd_bridge/config/camera.yaml   # 태그 추종
     ros2 launch rd_bridge bridge.launch.py usv:=true nav:=false   # USV GPS 추종
+    ros2 launch rd_bridge bridge.launch.py usv:=true usv_gnss:=true nav:=false   # 진짜 USV GNSS 로
 
     video_node       영상 → /image_raw · /camera_info
     link_node        UDP 14550 — 다운링크 → /rd/* · /cmd_vel → #84
@@ -14,10 +15,12 @@
     apriltag_node    영상 → /detections · /tf (camera→tag0)  (tag)
     tag_follow_node  /tf → /cmd_vel                        (follow)
     usv_follow_node  /usv/* → /cmd_vel · 짐벌 틸트           (usv)
+    usv_gnss_node    USV 항법장비 raw 배열 → /usv/fix · heading · vel  (usv_gnss)
 
 띄우기만 해서는 기체가 안 움직인다 — 항법·추종은 목표나 /tag/follow · /usv/follow 를 받아야 명령을 낸다.
 ⚠ nav · follow · usv 중 하나만 켠다 (셋 다 /cmd_vel).
 ⚠ 14550 은 link_node 가 독점한다 — QGC·gps_capture.py 와 같이 못 쓴다.
+⚠ usv_gnss 와 tools/usv_sim.py 를 같이 띄우지 않는다 — /usv/fix 에 퍼블리셔가 둘이 된다.
 """
 import os
 
@@ -39,6 +42,8 @@ def generate_launch_description():
     tag = LaunchConfiguration("tag")
     follow = LaunchConfiguration("follow")
     usv = LaunchConfiguration("usv")
+    usv_gnss = LaunchConfiguration("usv_gnss")
+    gnss_topic = LaunchConfiguration("gnss_topic")
     cam_info = LaunchConfiguration("camera_info_file")
     rectify = LaunchConfiguration("rectify")
 
@@ -55,6 +60,10 @@ def generate_launch_description():
                               description="태그 추종 노드. nav 와 같이 쓰지 말 것 (둘 다 /cmd_vel)"),
         DeclareLaunchArgument("usv", default_value="false",
                               description="USV GPS 추종 노드. nav · follow 와 같이 쓰지 말 것"),
+        DeclareLaunchArgument("usv_gnss", default_value="false",
+                              description="USV 항법장비 raw 배열 → /usv/*. usv_sim.py 와 같이 쓰지 말 것"),
+        DeclareLaunchArgument("gnss_topic", default_value="/maiv/fog/raw_gnss",
+                              description="USV 쪽 raw GNSS 토픽 (Float64MultiArray)"),
         DeclareLaunchArgument("camera_info_file", default_value="",
                               description="보정 결과 YAML. 비우면 대략값(fx=fy=1250)을 쓴다"),
         DeclareLaunchArgument("rectify", default_value="false",
@@ -91,4 +100,12 @@ def generate_launch_description():
         # USV 추종 — /usv/follow true 를 받아야 /cmd_vel · 짐벌 명령을 낸다
         Node(package="rd_bridge", executable="usv_follow_node", name="rd_usv_follow",
              output="screen", condition=IfCondition(usv)),
+
+        # USV 항법장비(FOG/INS) 의 raw 배열 → /usv/fix · /usv/heading · /usv/vel
+        # 이름만 다른 게 아니라 **타입이 다르다** (Float64MultiArray → NavSatFix) — remap 으로
+        # 안 되는 자리라 노드를 둔다. 토픽 이름만 다르면 gnss_topic 으로 바꾼다
+        Node(package="rd_bridge", executable="usv_gnss_node", name="rd_usv_gnss",
+             output="screen", condition=IfCondition(usv_gnss),
+             remappings=[("usv/raw_gnss", gnss_topic)]),
+
     ])
