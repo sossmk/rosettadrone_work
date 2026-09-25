@@ -49,7 +49,7 @@ python3 -m http.server 8000 -d ~/drone_ws/apk
 # RM500 브라우저로 http://<이 PC IP>:8000/ → apk 를 누르면 설치 관리자가 뜬다
 ```
 
-USB 데이터선이 안 통해서(9/10) HTTP 로 옮긴다. 파일 관리자는 apk 를 필터로 숨겨서 안 된다.
+`adb install` 이 이 기기에서 불안정해서(9/10) HTTP 로 옮긴다. MTP 로 복사해도 파일 관리자가 apk 를 필터로 숨겨서 안 된다.
 RM500 → PC 로 파일을 올려야 하면 `git show v1-2026-09-16:tools/file_bridge.py > /tmp/file_bridge.py`
 
 ⚠ **다른 PC 에서 빌드한 앱이 이미 깔려 있으면 덮어쓰기가 안 됩니다.**
@@ -86,8 +86,8 @@ RM500 앱 설정에 **전부** 넣으세요:
 ```bash
 ./tools/link_check.sh                  # T0 링크 위생
 ros2 launch rd_bridge bridge.launch.py nav:=false    # 브리지 (다른 터미널)
-ros2 topic echo /rd/battery            # T1 다운링크 + 배터리 전압
-ros2 topic hz /camera_info             # T4 영상 (~30Hz — 영상과 1:1). 안 나오면 video_node.py docstring 의 gst-launch 로 창부터
+ros2 topic echo /gcs/daiv/rd/battery            # T1 다운링크 + 배터리 전압
+ros2 topic hz /gcs/daiv/camera_info    # T4 영상 (publish_fps, 기본 3Hz — 영상과 1:1). 안 나오면 video_node.py docstring 의 gst-launch 로 창부터
 ```
 
 **정상이면 이렇게 나옵니다** (2026-09-10 실측):
@@ -139,6 +139,8 @@ RM500 의 USB 옵션을 **`Transfer files`(MTP)** 로 두고 케이블을 꽂으
 | 경로 | 내용 |
 |---|---|
 | `진행상황.md` | **누적 기록.** 날짜별 블록 + 현재 상태 표. 여기부터 읽으세요 |
+| `진행기록-2026-08-28_09-14.md` | 9/14 이전 날짜 블록 (진행상황.md 에서 옮김) |
+| `실험가이드.md` | **실험별 터미널 구성·명령·로그 위치** |
 | `할일.md` | **앞으로 할 것.** AR 태그 추종·정밀 착륙 패키지의 구조와 순서, 지고 갈 제약 |
 | `patches/` | **앱 소스 패치 4개.** `02` 가 영상을 살리는 핵심 (Manifest 의 `VideoService` 주석 복구) |
 | `HTML_for_study/` | **브라우저로 여는 설명 문서 모음.** `구조.html` 이 전체 구조 한 장 요약(층·데이터 흐름·토픽·언제 어떤 도구를 쓰나) · `공부-*.html` 노드별 해설 · `architecture-ros2.html`·`workflow-usv-experiment.html` 다이어그램 |
@@ -148,7 +150,7 @@ RM500 의 USB 옵션을 **`Transfer files`(MTP)** 로 두고 케이블을 꽂으
 | `토픽.md` | **토픽 한 장** — 형식·주기·단위·좌표계. 주기 확인은 `ros2 topic hz` |
 | `missions/` | 경유점 파일 (`rd_cmd.py mission`) |
 | `tools/gps_capture.py` | **경로 기록** — RC 로 날며 Enter 마다 좌표를 `missions/*.txt` 에 쌓는다 (`rd_cmd.py mission` 으로 날림) |
-| `ros2/` | **ROS 2 브리지 + 항법 (`rd_bridge`).** 영상 → `/image_raw` · 다운링크 → `/rd/*` · `/cmd_vel` → #84 · **`nav_node` = 유도 루프(우리 것, `flyTo()` 대체)**. ⚠ 실기 검증 전 — `ros2/README.md` |
+| `ros2/` | **ROS 2 브리지 + 항법 (`rd_bridge`).** 영상 → `/gcs/daiv/cam/compressed` · 다운링크 → `/gcs/daiv/rd/*` · `/gcs/daiv/cmd_vel` → #84 · **`nav_node` = 유도 루프(우리 것, `flyTo()` 대체)** · USV 추종 · 임무 시퀀서 — `ros2/README.md` |
 | `tools/mav.py` | MAVLink v2 최소 구현(공유). CRC 는 앱의 `CRC.java` 에서 직접 뽑았다 |
 | `secrets/keys.xml` | **DJI App Key. 아래 경고 참조** |
 | `setup_new_pc.sh` | 새 PC 복구 스크립트 |
@@ -193,29 +195,10 @@ clone 한 번에 인증키까지 따라와서 새 PC 설정이 명령 한 줄로
 ./tools/link_check.sh          # 앱에 넣을 GCS IP + 포트점유 + 방화벽을 한 번에
 ```
 
-## 지금 어디까지 왔나 (2026-09-14 기준)
+## 지금 어디까지 왔나
 
-- ✅ 빌드 성공 · RM500 설치 · **DJI 라이트 green + `Mavic 2`**
-- ✅ **T1 다운링크** — 실기 텔레메트리. 위경도 `0,0` 은 **실내 GPS 미수신이고 앱은 정상**(위성 0개·NO_FIX)
-- ✅ **T2 업링크** — `COMMAND_ACK` · `AUTOPILOT_VERSION` 수신
-- ✅ **T3 짐벌** — 명령으로 카메라가 실제로 움직임. 기체 하드웨어까지 전 경로 증명
-- ✅ **T5 cmd_vel (SIM)** — 축 대응·부호 확정. `vx>0`=앞 · `vy>0`=오른쪽 · **`vz>0`=위(MAVLink 와 반대)** · `yawRate>0`=시계방향
-- ✅ **T4 영상 (9/10 통과)** — 1632x1088 · 31.9fps · 2514 kbps · IDR 31장.
-  원인은 **업스트림 `AndroidManifest.xml` 에서 `VideoService` 가 주석 처리**된 것이었고 `patches/02` 로 복구했다.
-  진짜 스트림 30초를 `~/drone_ws/capture/` 에 저장해 뒀다 → **드론 없이 ROS 브리지·태그 검출 개발 가능**
-- ✅ **배터리 전압 (9/10 해결)** — `patches/03`. 16.98 V · 13.05 A (전에는 0.00 V)
-- ✅ **야외 GPS fix (9/11 확인)** — 위성 수신 정상. 실내 `0,0` 판정이 맞았다
-- 🔶 **ROS 2 브리지 + 항법 (9/14)** — 영상·다운링크 7토픽·`/cmd_vel`→#84, 그리고
-  **`nav_node` 가 유도 루프를 돌린다**(앱 `flyTo()` 대체 — 항법 제어권을 우리가 가짐).
-  ⚠ **실기 검증 0.** 9/14 에 한 것은 크래시 점검까지다 → `ros2/README.md`
-- ⛔ 앱 `flyTo()` 경로 **폐기** — 좌표는 `gps_capture.py` 로 재고 `nav_node` 에 준다
-- 🔴 **조종권을 RC 로 되돌리려면 앱 화면의 Safety(자물쇠) 버튼이 필요하다** (9/14 소스 확인).
-  순서: **①도구 종료 → ②스틱 놓고 5초 → ③Safety 버튼**, 안 되면 S 모드.
-  도구를 끄는 것만으로는 안 풀린다 — `cancelMotion()` 은 타이머만 죽인다. 제약 #20·#21·#22
-- ⬜ `markWaypoint()` NPE 지뢰 미패치 (`MainActivity.java:511,528`) — 앱 화면에서 웨이포인트를 찍을 때만 터진다. MAVLink 경로는 무관
-- ⬜ 화면 **RTL 버튼** NPE (`DroneModel.doReturnToLaunch:396`) — MAVLink `NAV_RETURN_TO_LAUNCH` 가 같은 함수를 타는지 확인 필요
+**`진행상황.md` 맨 위 「현재 상태」** 를 보세요. 앞으로 할 일도 거기 「다음에 할 일」에 있습니다.
+(9/14 기준으로 여기 적어 두었던 요약은 `진행기록-2026-08-28_09-14.md` 로 옮겼습니다.)
 
 ⚠ **`COMMAND_ACK: ACCEPTED` 를 성공으로 읽지 마세요.** 앱은 DJI 가 에러를 돌려줘도
 무조건 ACCEPTED 를 보냅니다(`DroneModel.java:2029`). 상태 변화로 검증해야 합니다.
-
-앞으로 할 일은 **`할일.md`** 에 있습니다.

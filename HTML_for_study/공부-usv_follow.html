@@ -143,7 +143,7 @@ svg .wat { stroke: var(--muted); }
     <div class="arrow">→</div>
     <div class="node us"><b>usv_follow_node</b><span>20Hz tick · plan()</span></div>
     <div class="arrow">→</div>
-    <div class="node"><b>/cmd_vel</b><span>vx vy vz wz · 앱 규약</span></div>
+    <div class="node"><b>/gcs/daiv/cmd_vel</b><span>vx vy vz wz · 앱 규약</span></div>
     <div class="arrow">→</div>
     <div class="node"><b>link_node</b><span>캡 · 데드맨 · 브레이크</span></div>
     <div class="arrow">→</div>
@@ -152,14 +152,14 @@ svg .wat { stroke: var(--muted); }
   <div class="flow">
     <div class="node us"><b>usv_follow_node</b><span>aim() · 최대 2Hz</span></div>
     <div class="arrow">→</div>
-    <div class="node"><b>/rd/command</b><span>DO_SET_SERVO · 채널 9</span></div>
+    <div class="node"><b>/gcs/daiv/rd/command</b><span>DO_SET_SERVO · 채널 9</span></div>
     <div class="arrow">→</div>
     <div class="node"><b>link_node</b><span>COMMAND_LONG</span></div>
     <div class="arrow">→</div>
     <div class="node"><b>앱 짐벌</b><span>2초에 걸쳐 회전</span></div>
   </div>
-  <p>되돌아오는 길은 <code>link_node</code> 가 내는 <code>/rd/fix</code>(위경도 + 상대고도, 약 5Hz)와 <code>/rd/heading</code>(기수, 약 10Hz)이다. 이 노드는 <b>카메라가 무엇을 보는지 모른다.</b> 태그 추종과 달리 영상을 쓰지 않고, 두 좌표만으로 "카메라가 어디를 봐야 하는가"를 계산해 그쪽으로 돌려 놓는다. 되먹임 없는 <b>개루프 겨눔</b>이다.</p>
-  <p>뜨자마자 움직이지 않는다. <code>/usv/follow true</code>(<code>rd_cmd.py usv</code> 의 space)를 받아야 시작한다. <code>publish:=false</code> 로 띄우면 <code>/cmd_vel</code> 은 내지 않고 짐벌만 겨눈다. 지상에서 겨눔만 볼 때 쓴다. <code>move:=false</code> 는 수평·수직만 막고 기수는 살려 둔다(제자리 회전+틸트), <code>aim:=false</code> 는 짐벌만 막는다. <b>셋 다 출력 스위치일 뿐 계산은 갈라지지 않는다</b> — 능력을 하나씩 떼어 평가하려고 둔 것이다.</p>
+  <p>되돌아오는 길은 <code>link_node</code> 가 내는 <code>/gcs/daiv/rd/fix</code>(위경도 + 상대고도, 약 5Hz)와 <code>/gcs/daiv/rd/heading</code>(기수, 약 10Hz)이다. 이 노드는 <b>카메라가 무엇을 보는지 모른다.</b> 태그 추종과 달리 영상을 쓰지 않고, 두 좌표만으로 "카메라가 어디를 봐야 하는가"를 계산해 그쪽으로 돌려 놓는다. 되먹임 없는 <b>개루프 겨눔</b>이다.</p>
+  <p>뜨자마자 움직이지 않는다. <code>/gcs/daiv/usv/follow true</code>(<code>rd_cmd.py usv</code> 의 space)를 받아야 시작한다. <code>publish:=false</code> 로 띄우면 <code>/gcs/daiv/cmd_vel</code> 은 내지 않고 짐벌만 겨눈다. 지상에서 겨눔만 볼 때 쓴다. <code>move:=false</code> 는 수평·수직만 막고 기수는 살려 둔다(제자리 회전+틸트), <code>aim:=false</code> 는 짐벌만 막는다. <b>셋 다 출력 스위치일 뿐 계산은 갈라지지 않는다</b> — 능력을 하나씩 떼어 평가하려고 둔 것이다.</p>
 </section>
 
 <section id="los">
@@ -217,12 +217,12 @@ e = wrap(β − ψ)        좌우 오차 → 몸체를 돌려 0 으로 (ψ = 우
       <thead><tr><th>양</th><th>기준</th><th>부호 · 범위</th><th>어디서</th></tr></thead>
       <tbody>
         <tr><td>북 · 동 (N, E)</td><td>지구, m</td><td>북 +, 동 +</td><td><code>mav.offset_to_gps</code> 안</td></tr>
-        <tr><td>방위 β · 기수 ψ · USV 헤딩 ψu</td><td>북 = 0°</td><td>시계 +, 0~360°</td><td><code>/rd/heading</code> · <code>/usv/heading</code></td></tr>
+        <tr><td>방위 β · 기수 ψ · USV 헤딩 ψu</td><td>북 = 0°</td><td>시계 +, 0~360°</td><td><code>/gcs/daiv/rd/heading</code> · <code>/usv/heading</code></td></tr>
         <tr><td>상대각 rel · 좌우 오차 e</td><td>우리 기수 = 0°</td><td>오른쪽 +, −180~180°</td><td><code>mav.relative_bearing</code></td></tr>
-        <tr><td>vx · vy</td><td>우리 기체축</td><td>앞 +, 오른쪽 +</td><td><code>/cmd_vel</code> — 앱 규약, REP-103 이 아니다</td></tr>
-        <tr><td>vz</td><td>—</td><td>위 +</td><td><code>/cmd_vel</code></td></tr>
+        <tr><td>vx · vy</td><td>우리 기체축</td><td>앞 +, 오른쪽 +</td><td><code>/gcs/daiv/cmd_vel</code> — 앱 규약, REP-103 이 아니다</td></tr>
+        <tr><td>vz</td><td>—</td><td>위 +</td><td><code>/gcs/daiv/cmd_vel</code></td></tr>
         <tr><td>wz</td><td>—</td><td>시계 +, 토픽은 rad/s</td><td>link_node 가 °/s 로 바꿔 75°/s 로 자른다</td></tr>
-        <tr><td>h</td><td>이륙 지점</td><td>위 +</td><td><code>/rd/fix</code> 의 altitude</td></tr>
+        <tr><td>h</td><td>이륙 지점</td><td>위 +</td><td><code>/gcs/daiv/rd/fix</code> 의 altitude</td></tr>
         <tr><td>틸트 θ</td><td>수평선</td><td>아래 −, 0 ~ −90°</td><td>DO_SET_SERVO 채널 9, PWM = 1500 + 5.5θ</td></tr>
         <tr><td>대형 (f, r, a)</td><td>USV 헤딩</td><td>앞 +, 오른쪽 +, a = 상대고도</td><td>파라미터 <code>formations</code> · <code>formation</code></td></tr>
       </tbody>
@@ -283,7 +283,7 @@ vz    = clamp(kp_alt · (a − h), ±max_vz)            # a = 대형 고도
         <p><code>plan()</code> 72–73행. 몸체를 <b>목표점이 아니라 p̂(USV)</b> 쪽으로 돌린다. 가는 방향과 보는 방향은 다를 수 있다.</p>
         <div class="formula">e  = wrap(bearing(me, est) − ψ)
 wz = clamp(kp_yaw · e, ±max_yaw_rate)     # kp_yaw 0.8 /s, max 30°/s
-     → rad/s 로 바꿔 /cmd_vel 의 angular.z 로</div>
+     → rad/s 로 바꿔 /gcs/daiv/cmd_vel 의 angular.z 로</div>
         <p class="ex">bearing(me, est) = 76.8° → e = 76.8° → 0.8 × 76.8 = 61.4 → <b class="num">30°/s 로 자름 (0.524 rad/s)</b></p>
       </div>
     </div>
@@ -476,7 +476,7 @@ VFOV = 2 · atan(544 / 1310.4) = 45.1°     세로 화각
 
   <details class="code" open>
     <summary><b>plan()</b><span>한 tick 의 계산 전부 — ROS 없이 돈다</span></summary>
-<pre class="src" style="counter-reset: ln 46"><span class="l">def plan(me, hdg, usv, usv_hdg, usv_vel, lead, form, p):</span><span class="l">    """한 tick 의 계산. ROS 없이 돈다.</span><span class="l"></span><span class="l">    me = (lat, lon, 상대고도) · usv = (lat, lon) · usv_vel = (북, 동) m/s · lead = 외삽 초</span><span class="l">    form = 대형 (앞, 오른쪽, 고도) — USV 기수 기준.</span><span class="l">    돌려주는 것: 추정 USV 좌표, 목표 좌표, 목표까지 m, USV 까지 수평 m, 틸트 °,</span><span class="l">                 /cmd_vel (x=앞 · y=오른쪽 · z=위 m/s, wz=시계 rad/s).</span><span class="l">    """</span><span class="l">    lat, lon, alt = me</span><span class="l">    vn, ve = usv_vel</span><span class="l c">    # ponytail: 등속 외삽 — 급선회나 수 초 지연이면 틀린다. 그때 칼만으로</span><span class="l hl">    est = mav.offset_to_gps(usv[0], usv[1], 0.0, vn * lead, ve * lead)</span><span class="l hl">    goal = mav.offset_to_gps(est[0], est[1], usv_hdg, form[0], form[1])</span><span class="l"></span><span class="l">    dist = mav.meters_between(lat, lon, goal[0], goal[1])</span><span class="l">    rel = math.radians(mav.relative_bearing(mav.bearing_between(lat, lon, goal[0], goal[1]), hdg))</span><span class="l hl">    speed = min(p("max_speed"), p("kp") * dist)</span><span class="l">    h = math.radians(hdg)</span><span class="l hl">    vx = speed * math.cos(rel) + vn * math.cos(h) + ve * math.sin(h)</span><span class="l hl">    vy = speed * math.sin(rel) - vn * math.sin(h) + ve * math.cos(h)</span><span class="l">    norm = math.hypot(vx, vy)</span><span class="l">    if norm &gt; p("max_speed"):</span><span class="l hl">        vx, vy = vx * p("max_speed") / norm, vy * p("max_speed") / norm</span><span class="l hl">    vz = clamp(p("kp_alt") * (form[2] - alt), p("max_vz"))</span><span class="l"></span><span class="l hl">    yaw_err = mav.relative_bearing(mav.bearing_between(lat, lon, est[0], est[1]), hdg)</span><span class="l hl">    wz = math.radians(clamp(p("kp_yaw") * yaw_err, p("max_yaw_rate")))</span><span class="l"></span><span class="l hl">    horiz = mav.meters_between(lat, lon, est[0], est[1])</span><span class="l hl">    tilt = max(-90.0, min(0.0, -math.degrees(math.atan2(max(alt, 0.0), horiz))))</span><span class="l">    return est, goal, dist, horiz, tilt, (vx, vy, vz, wz)</span></pre>
+<pre class="src" style="counter-reset: ln 46"><span class="l">def plan(me, hdg, usv, usv_hdg, usv_vel, lead, form, p):</span><span class="l">    """한 tick 의 계산. ROS 없이 돈다.</span><span class="l"></span><span class="l">    me = (lat, lon, 상대고도) · usv = (lat, lon) · usv_vel = (북, 동) m/s · lead = 외삽 초</span><span class="l">    form = 대형 (앞, 오른쪽, 고도) — USV 기수 기준.</span><span class="l">    돌려주는 것: 추정 USV 좌표, 목표 좌표, 목표까지 m, USV 까지 수평 m, 틸트 °,</span><span class="l">                 /gcs/daiv/cmd_vel (x=앞 · y=오른쪽 · z=위 m/s, wz=시계 rad/s).</span><span class="l">    """</span><span class="l">    lat, lon, alt = me</span><span class="l">    vn, ve = usv_vel</span><span class="l c">    # ponytail: 등속 외삽 — 급선회나 수 초 지연이면 틀린다. 그때 칼만으로</span><span class="l hl">    est = mav.offset_to_gps(usv[0], usv[1], 0.0, vn * lead, ve * lead)</span><span class="l hl">    goal = mav.offset_to_gps(est[0], est[1], usv_hdg, form[0], form[1])</span><span class="l"></span><span class="l">    dist = mav.meters_between(lat, lon, goal[0], goal[1])</span><span class="l">    rel = math.radians(mav.relative_bearing(mav.bearing_between(lat, lon, goal[0], goal[1]), hdg))</span><span class="l hl">    speed = min(p("max_speed"), p("kp") * dist)</span><span class="l">    h = math.radians(hdg)</span><span class="l hl">    vx = speed * math.cos(rel) + vn * math.cos(h) + ve * math.sin(h)</span><span class="l hl">    vy = speed * math.sin(rel) - vn * math.sin(h) + ve * math.cos(h)</span><span class="l">    norm = math.hypot(vx, vy)</span><span class="l">    if norm &gt; p("max_speed"):</span><span class="l hl">        vx, vy = vx * p("max_speed") / norm, vy * p("max_speed") / norm</span><span class="l hl">    vz = clamp(p("kp_alt") * (form[2] - alt), p("max_vz"))</span><span class="l"></span><span class="l hl">    yaw_err = mav.relative_bearing(mav.bearing_between(lat, lon, est[0], est[1]), hdg)</span><span class="l hl">    wz = math.radians(clamp(p("kp_yaw") * yaw_err, p("max_yaw_rate")))</span><span class="l"></span><span class="l hl">    horiz = mav.meters_between(lat, lon, est[0], est[1])</span><span class="l hl">    tilt = max(-90.0, min(0.0, -math.degrees(math.atan2(max(alt, 0.0), horiz))))</span><span class="l">    return est, goal, dist, horiz, tilt, (vx, vy, vz, wz)</span></pre>
   </details>
   <details class="code">
     <summary><b>usv_velocity() · formation()</b><span>① 속도 추정 · 대형 고르기</span></summary>

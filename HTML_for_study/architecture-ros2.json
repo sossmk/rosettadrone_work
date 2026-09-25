@@ -23,7 +23,7 @@
           "cmdvel",
           "nav"
         ],
-        "note": "다운링크로 위치를 받고 /cmd_vel 로 되돌려 보내는 한 바퀴."
+        "note": "다운링크로 위치를 받고 /gcs/daiv/cmd_vel 로 되돌려 보내는 한 바퀴."
       },
       {
         "id": "vision-chain",
@@ -111,7 +111,7 @@
       "type": "backend",
       "label": "tag_follow_node",
       "sublabel": "태그 위 정지 · 기수 정렬",
-      "tag": "/tag/follow 대기",
+      "tag": "/gcs/daiv/tag/follow 대기",
       "pos": [
         1000,
         40
@@ -171,7 +171,7 @@
       "type": "backend",
       "label": "nav_node",
       "sublabel": "경유점 P 유도 · flyTo() 대체",
-      "tag": "/nav/goal 대기",
+      "tag": "/gcs/daiv/nav/goal 대기",
       "pos": [
         570,
         150
@@ -191,7 +191,7 @@
       "type": "backend",
       "label": "usv_follow_node",
       "sublabel": "외삽 · 대형 · 짐벌 틸트",
-      "tag": "/usv/follow 대기",
+      "tag": "/gcs/daiv/usv/follow 대기",
       "pos": [
         570,
         430
@@ -223,7 +223,7 @@
     {
       "id": "cmdvel",
       "type": "messagebus",
-      "label": "/cmd_vel · /rd/command",
+      "label": "/gcs/daiv/{cmd_vel, rd/command}",
       "sublabel": "업링크 토픽 · 앱 규약",
       "tag": "20Hz · 쓰는 노드는 한 번에 하나",
       "pos": [
@@ -291,7 +291,7 @@
       "id": "tel-nav",
       "from": "link",
       "to": "nav",
-      "label": "/rd/fix · /rd/heading",
+      "label": "/gcs/daiv/rd/{fix, heading}",
       "fromSide": "right",
       "toSide": "left"
     },
@@ -299,7 +299,7 @@
       "id": "tel-usv",
       "from": "link",
       "to": "usvfollow",
-      "label": "/rd/fix · /rd/heading",
+      "label": "/gcs/daiv/rd/{fix, heading}",
       "fromSide": "bottom",
       "toSide": "left",
       "via": [
@@ -320,7 +320,7 @@
       "id": "nav-cmd",
       "from": "nav",
       "to": "cmdvel",
-      "label": "/cmd_vel",
+      "label": "/gcs/daiv/cmd_vel",
       "fromSide": "right",
       "toSide": "left",
       "via": [
@@ -338,7 +338,7 @@
       "id": "tag-cmd",
       "from": "tagfollow",
       "to": "cmdvel",
-      "label": "/cmd_vel",
+      "label": "/gcs/daiv/cmd_vel",
       "fromSide": "bottom",
       "toSide": "top"
     },
@@ -346,7 +346,7 @@
       "id": "usv-cmd",
       "from": "usvfollow",
       "to": "cmdvel",
-      "label": "/cmd_vel · /rd/command (짐벌 틸트)",
+      "label": "/gcs/daiv/cmd_vel · /gcs/daiv/rd/command (짐벌 틸트)",
       "fromSide": "bottom",
       "toSide": "bottom",
       "via": [
@@ -419,7 +419,7 @@
       "title": "링크 — link_node",
       "items": [
         "UDP 14550 을 혼자 잡는다 — QGC · gps_capture.py 와 동시에 못 쓴다",
-        "/cmd_vel 이 오기 전에는 #84 를 한 발도 안 쏜다 (Virtual Stick 이 안 켜진다)",
+        "/gcs/daiv/cmd_vel 이 오기 전에는 #84 를 한 발도 안 쏜다 (Virtual Stick 이 안 켜진다)",
         "0.3초 끊기면 BRAKE 로 0 을 1초 쏘고 입을 닫는다"
       ]
     },
@@ -428,7 +428,7 @@
       "title": "유도 — 세 노드",
       "items": [
         "셋 다 단순 P (kp 0.35) — 앱의 flyTo() 를 우리 루프로 대체한 것",
-        "nav · tag_follow · usv_follow 는 셋 다 /cmd_vel 에 쓴다 — 한 번에 하나만 켠다",
+        "nav · tag_follow · usv_follow 는 셋 다 /gcs/daiv/cmd_vel 에 쓴다 — 한 번에 하나만 켠다",
         "mav.py 는 tools/mav.py 심링크 — link · nav · usv_follow 가 같이 쓴다 (사본 금지)",
         "목표 토픽 전에는 아무것도 안 낸다 · 시작·정지는 tools/rd_cmd.py"
       ]
@@ -438,7 +438,7 @@
       "title": "영상 · 태그 · 남은 것",
       "items": [
         "apriltag_ros 는 /image_raw 와 /camera_info 를 쌍으로 구독 — 하나 없으면 검출 0",
-        "/cmd_vel 은 REP-103 이 아니라 앱 규약 (y>0 오른쪽 · angular.z>0 시계)",
+        "/gcs/daiv/cmd_vel 은 REP-103 이 아니라 앱 규약 (y>0 오른쪽 · angular.z>0 시계)",
         "실기 검증 전 — sign_* · 대형 기본값 · 카메라 보정값은 추정이다"
       ]
     }
