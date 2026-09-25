@@ -1,0 +1,273 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "mission_node.py 속 — 20Hz tick() 한 바퀴",
+    "output": "mission-node-tick.html",
+    "quality_profile": "showcase",
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "external": {
+          "label": "센서 콜백"
+        },
+        "frontend": {
+          "label": "사람 명령 콜백"
+        },
+        "security": {
+          "label": "안전 가드"
+        },
+        "backend": {
+          "label": "tick 안의 함수"
+        },
+        "messagebus": {
+          "label": "전부 해제"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "in",
+      "label": "콜백 — 값·래치만 적는다"
+    },
+    {
+      "id": "tick",
+      "label": "tick() 20Hz — 한 바퀴"
+    },
+    {
+      "id": "sw",
+      "label": "switchover() 안 — 해제 뒤 무장"
+    },
+    {
+      "id": "chg",
+      "label": "모드가 바뀐 tick — go()"
+    }
+  ],
+  "mainPath": [
+    "sweep",
+    "switch",
+    "tel",
+    "next",
+    "work"
+  ],
+  "nodes": [
+    {
+      "id": "cb_sensor",
+      "lane": "in",
+      "col": 2,
+      "type": "external",
+      "label": "센서 콜백",
+      "sublabel": "fix·batt·usv·tag·cmd",
+      "tag": "시각만 갱신",
+      "width": 136
+    },
+    {
+      "id": "cb_edge",
+      "lane": "in",
+      "col": 3,
+      "type": "frontend",
+      "label": "명령 콜백",
+      "sublabel": "start·goto·return·abort",
+      "tag": "Edge.fire() 래치",
+      "width": 136
+    },
+    {
+      "id": "sweep",
+      "lane": "tick",
+      "col": 0,
+      "type": "security",
+      "label": "재시작 스윕",
+      "sublabel": "첫 2 tick disarm_all()",
+      "tag": "고아 제어기 방지",
+      "width": 136
+    },
+    {
+      "id": "switch",
+      "lane": "tick",
+      "col": 1,
+      "type": "backend",
+      "label": "switchover()",
+      "sublabel": "pending → owner",
+      "tag": "sleep 없이 시각 비교",
+      "width": 136
+    },
+    {
+      "id": "tel",
+      "lane": "tick",
+      "col": 2,
+      "type": "backend",
+      "label": "telemetry()",
+      "sublabel": "연속 초로 접기 + need_home",
+      "tag": "batt 는 5초 뒤 엣지",
+      "width": 136
+    },
+    {
+      "id": "next",
+      "lane": "tick",
+      "col": 3,
+      "type": "backend",
+      "label": "next_mode()",
+      "sublabel": "첫 매치 반환 · 전이 ≤ 1",
+      "tag": "순수 함수 · selftest",
+      "width": 136
+    },
+    {
+      "id": "work",
+      "lane": "tick",
+      "col": 4,
+      "type": "backend",
+      "label": "work() → log()",
+      "sublabel": "재발행 · hold_alt · CSV",
+      "tag": "전이는 안 한다",
+      "width": 136
+    },
+    {
+      "id": "wait",
+      "lane": "sw",
+      "col": 1,
+      "type": "backend",
+      "label": "해제 후 대기",
+      "sublabel": "0.5s · tag 는 2.5s",
+      "tag": "tag: 0.5s 에 짐벌 -90°",
+      "width": 136
+    },
+    {
+      "id": "armn",
+      "lane": "sw",
+      "col": 2,
+      "type": "backend",
+      "label": "arm() 연발",
+      "sublabel": "usv·tag 3틱 · nav 1번",
+      "tag": "조용하면 재무장·경고",
+      "width": 136
+    },
+    {
+      "id": "idle",
+      "lane": "chg",
+      "col": 2,
+      "type": "messagebus",
+      "label": "IDLE 진입",
+      "sublabel": "disarm_all · CSV 닫기",
+      "tag": "조종권은 RC S",
+      "width": 136
+    },
+    {
+      "id": "go",
+      "lane": "chg",
+      "col": 3,
+      "type": "backend",
+      "label": "go(mode)",
+      "sublabel": "abort 뺀 래치 전부 비움",
+      "tag": "그 tick 은 return",
+      "width": 136
+    },
+    {
+      "id": "owner",
+      "lane": "chg",
+      "col": 4,
+      "type": "security",
+      "label": "set_owner()",
+      "sublabel": "disarm_all → pending",
+      "tag": "arm_for(mode) 하나",
+      "width": 136
+    }
+  ],
+  "edges": [
+    {
+      "from": "sweep",
+      "to": "switch",
+      "label": "3번째 tick 부터",
+      "variant": "emphasis"
+    },
+    {
+      "from": "switch",
+      "to": "tel",
+      "variant": "emphasis"
+    },
+    {
+      "from": "tel",
+      "to": "next",
+      "variant": "emphasis"
+    },
+    {
+      "from": "next",
+      "to": "work",
+      "label": "모드 그대로",
+      "variant": "emphasis"
+    },
+    {
+      "from": "cb_sensor",
+      "to": "tel"
+    },
+    {
+      "from": "cb_edge",
+      "to": "next",
+      "label": "ev 래치"
+    },
+    {
+      "from": "next",
+      "to": "go",
+      "label": "모드 바뀜",
+      "role": "branch"
+    },
+    {
+      "from": "go",
+      "to": "owner"
+    },
+    {
+      "from": "go",
+      "to": "idle",
+      "label": "IDLE 이면",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "from": "switch",
+      "to": "wait",
+      "label": "pending 있음",
+      "role": "branch"
+    },
+    {
+      "from": "wait",
+      "to": "armn",
+      "label": "시간 다 참"
+    },
+    {
+      "from": "owner",
+      "to": "wait",
+      "label": "다음 tick",
+      "role": "return",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "전이 규칙 두 개",
+      "items": [
+        "next_mode() 는 tick 에서 한 번만 → 전이는 최대 하나",
+        "돌려받은 사건 키 하나만 지운다 — 연쇄 통과 차단",
+        "모드가 바뀌면 래치 비움 — 이륙 중 누른 복귀는 버려진다"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "무장은 조용히 실패한다",
+      "items": [
+        "start() 는 좌표가 낡으면 armed 없이 그냥 돌아간다",
+        "그래서 /gcs/daiv/cmd_vel 을 읽기만 한다 — 3초 조용하면 경고",
+        "nav 목표 재발행은 미션 재시작이라 3번까지만"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "고칠 때 먼저 돌릴 것",
+      "items": [
+        "mission_node.py --selftest — assert 8묶음",
+        "ros2 topic hz /gcs/daiv/cmd_vel ≈ 20Hz (40Hz 면 둘이 쏜다)",
+        "need_home() 의 volt_valid 가드는 지우지 말 것"
+      ]
+    }
+  ]
+}
