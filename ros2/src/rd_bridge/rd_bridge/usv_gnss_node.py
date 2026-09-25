@@ -233,11 +233,7 @@ class UsvGnssNode(Node):
             "  (remap 예: -r usv/raw_gnss:=/maiv/fog/raw_gnss)")
 
     def fallback(self):
-        return {"hdg": self.p("hdg_index"), "lat": self.p("lat_index"),
-                "lon": self.p("lon_index"), "alt": self.p("alt_index"),
-                "vn": self.p("vn_index"), "ve": self.p("ve_index"),
-                "vd": self.p("vd_index"), "lat_std": self.p("lat_std_index"),
-                "lon_std": self.p("lon_std_index"), "alt_std": self.p("alt_std_index")}
+        return {k: self.p(f"{k}_index") for k in (*FIELDS, "hdg")}
 
     def on_raw(self, m):
         label = m.layout.dim[0].label if m.layout.dim else ""
@@ -283,7 +279,7 @@ class UsvGnssNode(Node):
         if self.p("publish_vel") and not any(math.isnan(g[k]) for k in ("vn", "ve", "vd")):
             vel = TwistStamped()
             vel.header.stamp, vel.header.frame_id = stamp, "enu"
-            # NED → ENU. /rd/velocity 와 같은 규약이다 (x=동 y=북 z=위)
+            # NED → ENU. /gcs/daiv/rd/velocity 와 같은 규약이다 (x=동 y=북 z=위)
             vel.twist.linear.x, vel.twist.linear.y = g["ve"], g["vn"]
             vel.twist.linear.z = -g["vd"]
             self.pub_vel.publish(vel)

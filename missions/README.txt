@@ -16,7 +16,7 @@
 
 파일 없이 바로 줄 때:
 
-    ros2 topic pub --once /nav/mission std_msgs/msg/Float64MultiArray \
+    ros2 topic pub --once /gcs/daiv/nav/mission std_msgs/msg/Float64MultiArray \
         '{data: [37.5665123, 126.9780456, 5.0,  37.5666000, 126.9781000, 5.0]}'
-    ros2 topic pub --once /nav/mission_offset std_msgs/msg/Float64MultiArray \
+    ros2 topic pub --once /gcs/daiv/nav/mission_offset std_msgs/msg/Float64MultiArray \
         '{data: [10, 0, 0,  10, 10, 0,  0, 10, 0,  0, 0, 0]}'

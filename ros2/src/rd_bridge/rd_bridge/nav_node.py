@@ -4,12 +4,12 @@
     ros2 run rd_bridge nav_node
     python3 tools/rd_cmd.py mission missions/square10.txt         # 파일로 (space 시작/중단)
     # 또는 직접 — alt 는 상대고도, 0 이하면 받는 순간의 고도 유지
-    ros2 topic pub --once /nav/goal sensor_msgs/msg/NavSatFix '{latitude: 37.5, longitude: 126.9, altitude: 5.0}'
-    ros2 topic pub --once /nav/goal_offset geometry_msgs/msg/Vector3 '{x: 5.0, y: 0.0, z: 0.0}'   # x=앞 y=오른쪽
-    ros2 topic pub --once /nav/mission std_msgs/msg/Float64MultiArray '{data: [lat, lon, alt,  lat, lon, alt]}'
-    ros2 topic pub --once /nav/mission_offset std_msgs/msg/Float64MultiArray '{data: [10,0,0,  10,10,0]}'
-    ros2 topic pub --once /nav/cancel std_msgs/msg/Empty '{}'
-    ros2 topic echo /nav/wp --field data          # 진행 [지금 번호, 전체]
+    ros2 topic pub --once /gcs/daiv/nav/goal sensor_msgs/msg/NavSatFix '{latitude: 37.5, longitude: 126.9, altitude: 5.0}'
+    ros2 topic pub --once /gcs/daiv/nav/goal_offset geometry_msgs/msg/Vector3 '{x: 5.0, y: 0.0, z: 0.0}'   # x=앞 y=오른쪽
+    ros2 topic pub --once /gcs/daiv/nav/mission std_msgs/msg/Float64MultiArray '{data: [lat, lon, alt,  lat, lon, alt]}'
+    ros2 topic pub --once /gcs/daiv/nav/mission_offset std_msgs/msg/Float64MultiArray '{data: [10,0,0,  10,10,0]}'
+    ros2 topic pub --once /gcs/daiv/nav/cancel std_msgs/msg/Empty '{}'
+    ros2 topic echo /gcs/daiv/nav/wp --field data          # 진행 [지금 번호, 전체]
 
 · offset 은 전부 **받는 순간의 위치·기수 기준**이다 (앞 점 기준이 아니다)
 · 경유점마다 감속해서 선 뒤 다음으로 간다. 중간점에서는 0 을 내지 않는다
@@ -48,16 +48,16 @@ class NavNode(Node):
             self.declare_parameter(name, val)
         self.p = lambda name: self.get_parameter(name).value
 
-        self.pub = self.create_publisher(Twist, "cmd_vel", 10)
-        self.pub_wp = self.create_publisher(Int32MultiArray, "nav/wp", 10)
-        self.create_subscription(NavSatFix, "rd/fix", self.on_fix, 10)
-        self.create_subscription(Float64, "rd/heading", self.on_hdg, 10)
-        self.create_subscription(NavSatFix, "nav/goal", self.on_goal, 10)
-        self.create_subscription(Vector3, "nav/goal_offset", self.on_offset, 10)
-        self.create_subscription(Float64MultiArray, "nav/mission", self.on_mission, 10)
-        self.create_subscription(Float64MultiArray, "nav/mission_offset",
+        self.pub = self.create_publisher(Twist, "gcs/daiv/cmd_vel", 10)
+        self.pub_wp = self.create_publisher(Int32MultiArray, "gcs/daiv/nav/wp", 10)
+        self.create_subscription(NavSatFix, "gcs/daiv/rd/fix", self.on_fix, 10)
+        self.create_subscription(Float64, "gcs/daiv/rd/heading", self.on_hdg, 10)
+        self.create_subscription(NavSatFix, "gcs/daiv/nav/goal", self.on_goal, 10)
+        self.create_subscription(Vector3, "gcs/daiv/nav/goal_offset", self.on_offset, 10)
+        self.create_subscription(Float64MultiArray, "gcs/daiv/nav/mission", self.on_mission, 10)
+        self.create_subscription(Float64MultiArray, "gcs/daiv/nav/mission_offset",
                                  self.on_mission_offset, 10)
-        self.create_subscription(Empty, "nav/cancel", lambda _: self.stop("취소"), 10)
+        self.create_subscription(Empty, "gcs/daiv/nav/cancel", lambda _: self.stop("취소"), 10)
 
         self.pos = None      # (lat, lon, alt)
         self.t_pos = 0.0
@@ -67,7 +67,7 @@ class NavNode(Node):
         self.csv = None
         self.t_log = 0.0
         self.create_timer(0.05, self.tick)   # 20Hz
-        self.get_logger().info("대기 중 — /nav/goal · goal_offset · mission · mission_offset")
+        self.get_logger().info("대기 중 — /gcs/daiv/nav/goal · goal_offset · mission · mission_offset")
 
     def on_fix(self, m):
         self.pos = (m.latitude, m.longitude, m.altitude)
@@ -86,13 +86,13 @@ class NavNode(Node):
     def on_mission(self, m):
         pts = triples(m.data)
         if pts is None:
-            return self.get_logger().error("/nav/mission 은 [lat, lon, alt] × N 이어야 한다")
+            return self.get_logger().error("/gcs/daiv/nav/mission 은 [lat, lon, alt] × N 이어야 한다")
         self.start(pts)
 
     def on_mission_offset(self, m):
         pts = triples(m.data)
         if pts is None:
-            return self.get_logger().error("/nav/mission_offset 은 [앞, 오른쪽, alt] × N 이어야 한다")
+            return self.get_logger().error("/gcs/daiv/nav/mission_offset 은 [앞, 오른쪽, alt] × N 이어야 한다")
         self.start_offset(pts)
 
     def start_offset(self, pts):
@@ -104,6 +104,11 @@ class NavNode(Node):
     def start(self, pts):
         if self.pos is None or self.hdg is None:
             return self.get_logger().error("아직 위치·기수가 없다 — link_node 확인")
+        # 좌표 검증은 여기 한 군데 — rd_cmd.py mission·직접 topic pub·시퀀서가 전부 지나간다
+        for lat, lon, _ in pts:
+            why = mav.bad_fix(lat, lon)
+            if why:
+                return self.get_logger().error(f"경유점을 버린다 — {why} ({lat}, {lon})")
         self.close_csv()
         alt0 = self.pos[2]
         self.goals = [(lat, lon, alt if alt > 0 else alt0) for lat, lon, alt in pts]

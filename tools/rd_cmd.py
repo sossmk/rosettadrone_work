@@ -18,22 +18,24 @@
   · **조종권은 저절로 RC 로 안 돌아온다.** 급하면 S 모드. 아니면 도구 종료 → 스틱 놓고 5초
     → 앱 Safety(자물쇠) 버튼
   · 앱의 ACK 는 무조건 ACCEPTED 다. 짐벌은 눈으로, 이동은 좌표로 판정한다
-  · /cmd_vel 은 앱 규약: vx>0 앞 · vy>0 오른쪽 · vz>0 위 · yaw>0 시계.
+  · /gcs/daiv/cmd_vel 은 앱 규약: vx>0 앞 · vy>0 오른쪽 · vz>0 위 · yaw>0 시계.
     link_node 가 수평 2.5 · 수직 1.5 m/s · 75°/s 로 한 번 더 깎는다
 """
 import argparse, math, os, select, sys, termios, threading, time, tty
 
 import rclpy
 from geometry_msgs.msg import Twist
-from rcl_interfaces.msg import Parameter as ParamMsg, ParameterType, ParameterValue
 from rcl_interfaces.srv import GetParameters, SetParameters
 from rclpy.node import Node
+from rclpy.parameter import Parameter, parameter_value_to_python
 from sensor_msgs.msg import NavSatFix
-from std_msgs.msg import Bool, Empty, Float64, Float64MultiArray, Int32MultiArray
+from std_msgs.msg import Bool, Empty, Float64, Float64MultiArray, Int32, Int32MultiArray
 from tf2_msgs.msg import TFMessage
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path[:0] = [HERE, os.path.join(HERE, "../ros2/src/rd_bridge/rd_bridge")]
 import mav   # 명령 번호 · 거리·방위 계산
+from mission_node import CTRL_NO, NAMES as SORTIE_MODES   # 모드 표는 시퀀서의 것 하나만
 
 SPIN = {"stop": False, "thread": None, "node": None}
 CMD_REQUEST_AUTOPILOT_CAPABILITIES = 520
@@ -46,11 +48,11 @@ class Bridge(Node):
 
     def __init__(self):
         super().__init__("rd_cmd")
-        self.pub_vel = self.create_publisher(Twist, "cmd_vel", 10)
-        self.pub_cmd = self.create_publisher(Float64MultiArray, "rd/command", 10)
-        self.create_subscription(NavSatFix, "rd/fix", self.on_fix, 10)
-        self.create_subscription(Float64, "rd/heading", self.on_hdg, 10)
-        self.create_subscription(Int32MultiArray, "rd/ack", self.on_ack, 50)
+        self.pub_vel = self.create_publisher(Twist, "gcs/daiv/cmd_vel", 10)
+        self.pub_cmd = self.create_publisher(Float64MultiArray, "gcs/daiv/rd/command", 10)
+        self.create_subscription(NavSatFix, "gcs/daiv/rd/fix", self.on_fix, 10)
+        self.create_subscription(Float64, "gcs/daiv/rd/heading", self.on_hdg, 10)
+        self.create_subscription(Int32MultiArray, "gcs/daiv/rd/ack", self.on_ack, 50)
         self.tel = {}
         self.acks = []       # (받은시각, 명령번호, 결과)
         self.acks84 = 0
@@ -88,7 +90,7 @@ class Bridge(Node):
 
 
 def connect():
-    """브리지가 떠 있는지 /rd/heading 으로 확인한다. spin 은 뒤 스레드가 돌린다."""
+    """브리지가 떠 있는지 /gcs/daiv/rd/heading 으로 확인한다. spin 은 뒤 스레드가 돌린다."""
     rclpy.init()
     b = Bridge()
 
@@ -97,12 +99,12 @@ def connect():
             rclpy.spin_once(b, timeout_sec=0.1)
     SPIN["node"], SPIN["thread"] = b, threading.Thread(target=spin, daemon=True)
     SPIN["thread"].start()
-    print("브리지(link_node) 확인 중… (/rd/heading)")
+    print("브리지(link_node) 확인 중… (/gcs/daiv/rd/heading)")
     t0 = time.time()
     while time.time() - t0 < 6.0 and "yaw" not in b.tel:
         time.sleep(0.1)
     if "yaw" not in b.tel:
-        print("  ✗ /rd/heading 이 안 온다. 먼저: ros2 launch rd_bridge bridge.launch.py nav:=false")
+        print("  ✗ /gcs/daiv/rd/heading 이 안 온다. 먼저: ros2 launch rd_bridge bridge.launch.py nav:=false")
         return None
     time.sleep(0.5)      # 퍼블리셔가 짝지어질 시간
     print(f"  ✓ 기수 {b.tel['yaw']:.0f}° · 고도 {fmt(b.tel.get('alt'), 'm')}")
@@ -334,22 +336,12 @@ class Tuner:
         r = wait_future(self.cli_get.call_async(GetParameters.Request(names=list(names))))
         if r is None or len(r.values) != len(names):
             return {}
-        pick = {ParameterType.PARAMETER_BOOL: "bool_value",
-                ParameterType.PARAMETER_INTEGER: "integer_value",
-                ParameterType.PARAMETER_DOUBLE: "double_value",
-                ParameterType.PARAMETER_STRING: "string_value",
-                ParameterType.PARAMETER_DOUBLE_ARRAY: "double_array_value"}
-        return {n: getattr(v, pick[v.type]) for n, v in zip(names, r.values)}
+        return {n: parameter_value_to_python(v) for n, v in zip(names, r.values)}
 
     def write(self, name, value):
-        if isinstance(value, bool):
-            pv = ParameterValue(type=ParameterType.PARAMETER_BOOL, bool_value=value)
-        elif isinstance(value, int):
-            pv = ParameterValue(type=ParameterType.PARAMETER_INTEGER, integer_value=value)
-        else:
-            pv = ParameterValue(type=ParameterType.PARAMETER_DOUBLE, double_value=float(value))
+        # 타입은 value 로 정해진다 (bool·int·float) — 노드가 선언한 타입과 같아야 받아 준다
         wait_future(self.cli_set.call_async(
-            SetParameters.Request(parameters=[ParamMsg(name=name, value=pv)])))
+            SetParameters.Request(parameters=[Parameter(name, value=value).to_parameter_msg()])))
 
 
 def tune(k, table, par, tuner):
@@ -358,6 +350,16 @@ def tune(k, table, par, tuner):
         name, step, lo, hi = table[k]
         par[name] = round(min(hi, max(lo, par[name] + step)), 2)
         tuner.write(name, par[name])
+
+
+def arm_state(st, cmd, now):
+    """추종 도구의 상태 한 마디 — 켰나, 명령이 흐르나."""
+    if not st["armed"]:
+        return "대기"
+    if now - cmd["t"] < 1.5:
+        return "추종중"
+    # 켠 직후는 아직 첫 명령이 안 왔을 뿐이다
+    return "시작 중…" if now - st["t_arm"] < 1.5 else "명령끊김"
 
 
 def send_twice(pub, msg):
@@ -382,9 +384,9 @@ FOLLOW_KEYS = ("space 시작/정지 · q 종료 · y yaw 켜고끄기\n  [ ] kp 
 
 
 def cmd_follow(args):
-    """태그 추종 — /tag/follow 를 토글하고 파라미터를 고친다.
+    """태그 추종 — /gcs/daiv/tag/follow 를 토글하고 파라미터를 고친다.
 
-    ⚠ /cmd_vel 은 추종 노드가 낸다. 이 도구는 Ctrl+C 로 기체를 못 세운다 — 급할 때는 space.
+    ⚠ /gcs/daiv/cmd_vel 은 추종 노드가 낸다. 이 도구는 Ctrl+C 로 기체를 못 세운다 — 급할 때는 space.
     """
     link = connect()
     if link is None:
@@ -406,9 +408,9 @@ def cmd_follow(args):
                 p = tf.transform.translation
                 tag.update(t=time.time(), x=p.x, y=p.y, z=p.z)
 
-    pub = link.create_publisher(Bool, "tag/follow", 10)
+    pub = link.create_publisher(Bool, "gcs/daiv/tag/follow", 10)
     link.create_subscription(TFMessage, "/tf", on_tf, 50)
-    link.create_subscription(Twist, "cmd_vel", lambda m: cmd.update(
+    link.create_subscription(Twist, "gcs/daiv/cmd_vel", lambda m: cmd.update(
         t=time.time(), v=(m.linear.x, m.linear.y, m.linear.z, math.degrees(m.angular.z))), 10)
     time.sleep(0.6)      # 퍼블리셔가 짝지어질 시간 — 첫 토글을 잃지 않게
     banner("space 를 누르면 기체가 태그를 따라 **움직인다**", FOLLOW_KEYS)
@@ -432,12 +434,7 @@ def cmd_follow(args):
         else:
             see = (f"앞{par['sign_fwd'] * tag['y']:+.2f} "
                    f"오{par['sign_right'] * tag['x']:+.2f} z{tag['z']:4.2f}m")
-        if not st["armed"]:
-            state = "대기"
-        elif now - cmd["t"] < 1.5:
-            state = "추종중"
-        else:     # 켠 직후는 아직 첫 명령이 안 왔을 뿐이다
-            state = "시작 중…" if now - st["t_arm"] < 1.5 else "명령끊김"
+        state = arm_state(st, cmd, now)
         vx, vy, vz, wz = cmd["v"]
         return (f"[{state}] {see} · cmd {vx:+.2f} {vy:+.2f} {vz:+.2f} {wz:+3.0f}°/s"
                 f" · kp{par['kp']:.2f} spd{par['min_speed']:.2f}~{par['max_speed']:.2f}"
@@ -448,7 +445,7 @@ def cmd_follow(args):
         key_loop(on_key, tick, hz=5)
     finally:
         send_twice(pub, Bool(data=False))
-        print(f"\n■ /tag/follow false 송출 — 노드가 0 을 내고 link_node 가 1초 브레이크\n{RC_BACK}")
+        print(f"\n■ /gcs/daiv/tag/follow false 송출 — 노드가 0 을 내고 link_node 가 1초 브레이크\n{RC_BACK}")
     return 0
 
 
@@ -473,7 +470,7 @@ def usv_menu(forms):
 
 
 def cmd_usv(args):
-    """USV 추종 — /usv/follow 를 토글하고 파라미터를 고친다. 급할 때는 space (follow 와 같다)."""
+    """USV 추종 — /gcs/daiv/usv/follow 를 토글하고 파라미터를 고친다. 급할 때는 space (follow 와 같다)."""
     link = connect()
     if link is None:
         return 1
@@ -486,10 +483,10 @@ def cmd_usv(args):
     usv = {"t": 0.0, "lat": None, "lon": None}
     cmd = {"t": 0.0, "v": (0.0, 0.0, 0.0, 0.0)}
     st = {"armed": False, "t_arm": 0.0}
-    pub = link.create_publisher(Bool, "usv/follow", 10)
+    pub = link.create_publisher(Bool, "gcs/daiv/usv/follow", 10)
     link.create_subscription(NavSatFix, "usv/fix", lambda m: usv.update(
         t=time.time(), lat=m.latitude, lon=m.longitude), 10)
-    link.create_subscription(Twist, "cmd_vel", lambda m: cmd.update(
+    link.create_subscription(Twist, "gcs/daiv/cmd_vel", lambda m: cmd.update(
         t=time.time(), v=(m.linear.x, m.linear.y, m.linear.z, math.degrees(m.angular.z))), 10)
     time.sleep(0.6)      # 퍼블리셔가 짝지어질 시간 — 첫 토글을 잃지 않게
     forms = usv_forms(par)
@@ -532,12 +529,7 @@ def cmd_usv(args):
         else:
             d = mav.meters_between(tel["lat"], tel["lon"], usv["lat"], usv["lon"])
             see = f"USV {d:5.1f}m" + (f" ({now - usv['t']:.0f}초 전)" if now - usv["t"] > 2 else "")
-        if not st["armed"]:
-            state = "대기"
-        elif now - cmd["t"] < 1.5:
-            state = "추종중"
-        else:
-            state = "시작 중…" if now - st["t_arm"] < 1.5 else "명령끊김"
+        state = arm_state(st, cmd, now)
         vx, vy, vz, wz = cmd["v"]
         return (f"[{state}] {see} · cmd {vx:+.2f} {vy:+.2f} {vz:+.2f} {wz:+3.0f}°/s"
                 f" · 대형{par['formation']} kp{par['kp']:.2f} spd{par['max_speed']:.1f}"
@@ -548,7 +540,87 @@ def cmd_usv(args):
         key_loop(on_key, tick, hz=5)
     finally:
         send_twice(pub, Bool(data=False))
-        print(f"\n■ /usv/follow false 송출 — 노드가 0 을 내고 link_node 가 1초 브레이크\n{RC_BACK}")
+        print(f"\n■ /gcs/daiv/usv/follow false 송출 — 노드가 0 을 내고 link_node 가 1초 브레이크\n{RC_BACK}")
+    return 0
+
+
+# -------------------------------------------------------------- sortie
+SORTIE_NODE = "/rd_mission"
+SORTIE_TUNE = {
+    "[": ("volt_land", -0.10, 12.0, 17.0), "]": ("volt_land", +0.10, 12.0, 17.0),
+    ",": ("cruise",    -0.50,  0.5,  2.5), ".": ("cruise",    +0.50,  0.5,  2.5),
+}
+SORTIE_CTRL = {n: c or "없음" for c, n in CTRL_NO.items()}
+SORTIE_KEYS = ("space 시작 · r 복귀 · x 중단 · q 종료\n"
+               "  1~6 그 임무만 따로 (1 이륙 · 2 USV추종 · 3 복귀 · 4 태그정렬 · 5 착륙 · 6 끝)\n"
+               "  [ ] volt_land · , . cruise")
+
+
+def cmd_sortie(args):
+    """임무 시퀀서 — 시작·복귀·중단을 누르고, 숫자키로 개별 임무만 따로 시험한다.
+
+    ⚠ 이 도구도 /gcs/daiv/cmd_vel 을 직접 쏘지 않는다. 급하면 x (중단) 또는 rd_cmd.py usv 의 space.
+    """
+    link = connect()
+    if link is None:
+        return 1
+    tuner = Tuner(link, SORTIE_NODE)
+    par = tuner.read(("volt_land", "cruise", "takeoff_alt", "start_mode"))
+    if not par:
+        print(f"  ✗ {SORTIE_NODE} 가 안 떠 있다 — bridge.launch.py 에 mission:=true")
+        return 1
+
+    st = {"t": 0.0, "mode": 0, "ctrl": 0, "secs": 0}
+    cmd = {"t": 0.0}
+    pub_start = link.create_publisher(Empty, "gcs/daiv/mission/start", 10)
+    pub_ret = link.create_publisher(Empty, "gcs/daiv/mission/return", 10)
+    pub_abort = link.create_publisher(Empty, "gcs/daiv/mission/abort", 10)
+    pub_goto = link.create_publisher(Int32, "gcs/daiv/mission/goto", 10)
+    link.create_subscription(Int32MultiArray, "gcs/daiv/mission/state", lambda m: st.update(
+        t=time.time(), mode=m.data[0], ctrl=m.data[1],
+        secs=m.data[2] if len(m.data) > 2 else 0), 10)
+    link.create_subscription(Twist, "gcs/daiv/cmd_vel", lambda _: cmd.update(t=time.time()), 10)
+    time.sleep(0.6)      # 퍼블리셔가 짝지어질 시간 — 첫 토글을 잃지 않게
+    banner("space 를 누르면 기체가 **이륙해서 임무를 혼자 진행한다**", SORTIE_KEYS)
+
+    def on_key(k):
+        if k == " ":
+            pub_start.publish(Empty())
+        elif k == "r":
+            pub_ret.publish(Empty())
+        elif k == "x":
+            send_twice(pub_abort, Empty())
+        elif k.isdigit() and k != "0":
+            n = int(k)
+            if n in SORTIE_MODES:
+                # 개별 임무만 — 노드의 can_jump() 가 땅/하늘·station 을 보고 거절할 수 있다
+                pub_goto.publish(Int32(data=n))
+                print(f"\n  → {SORTIE_MODES[n]} 로 건너뛰기 요청 (노드 로그에서 수락 여부를 본다)")
+            else:
+                print(f"\n  ✗ 모드 {n} 은 없다 — 1~6")
+        else:
+            tune(k, SORTIE_TUNE, par, tuner)
+
+    def tick():
+        now, tel = time.time(), link.tel
+        if st["t"] == 0.0:
+            state = "상태 없음"
+        elif now - st["t"] > 3.0:
+            state = f"시퀀서 끊김 {now - st['t']:.0f}초"
+        else:
+            state = f"{SORTIE_MODES.get(st['mode'], '?')} {st['secs']:3d}s"
+        drive = "조용" if now - cmd["t"] > 1.5 else "주행중"
+        return (f"[{state}] 주인 {SORTIE_CTRL.get(st['ctrl'], '?')} · /gcs/daiv/cmd_vel {drive}"
+                f" · 고도{fmt(tel.get('alt'), 'm')} 전압{fmt(tel.get('volt'), 'V', 2)}"
+                f" · volt_land {par['volt_land']:.1f} cruise {par['cruise']:.1f}"
+                f" · 이륙고도 {par['takeoff_alt']:.1f}m"
+                + (f" · start_mode {par['start_mode']}" if par.get("start_mode") else ""))
+
+    try:
+        key_loop(on_key, tick, hz=5)
+    finally:
+        send_twice(pub_abort, Empty())
+        print(f"\n■ /gcs/daiv/mission/abort 송출 — 시퀀서가 제어기를 전부 해제한다\n{RC_BACK}")
     return 0
 
 
@@ -604,7 +676,7 @@ def print_plan(pts, goals, here):
 def cmd_mission(args):
     """경유점 비행 — 파일을 nav_node 에 넘기고 진행을 본다.
 
-    ⚠ /cmd_vel 은 nav_node 가 낸다. 추종 노드와 같이 켜지 않는다. 급할 때는 space.
+    ⚠ /gcs/daiv/cmd_vel 은 nav_node 가 낸다. 추종 노드와 같이 켜지 않는다. 급할 때는 space.
     """
     try:
         pts = load_mission(args.file)
@@ -624,7 +696,7 @@ def cmd_mission(args):
     while "lat" not in link.tel and time.time() - t0 < 5.0:
         time.sleep(0.1)
     if "lat" not in link.tel:
-        print("  ✗ /rd/fix 가 안 온다 — 좌표 없이는 시작 못 한다")
+        print("  ✗ /gcs/daiv/rd/fix 가 안 온다 — 좌표 없이는 시작 못 한다")
         return 1
 
     here = (link.tel["lat"], link.tel["lon"])
@@ -636,12 +708,12 @@ def cmd_mission(args):
     wp = {"i": 0, "n": 0}
     cmd = {"t": 0.0, "v": (0.0, 0.0, 0.0)}
     st = {"goals": [], "t_start": 0.0}
-    link.create_subscription(Int32MultiArray, "nav/wp",
+    link.create_subscription(Int32MultiArray, "gcs/daiv/nav/wp",
                              lambda m: wp.update(i=m.data[0], n=m.data[1]), 10)
-    link.create_subscription(Twist, "cmd_vel", lambda m: cmd.update(
+    link.create_subscription(Twist, "gcs/daiv/cmd_vel", lambda m: cmd.update(
         t=time.time(), v=(m.linear.x, m.linear.y, m.linear.z)), 10)
-    pub_mission = link.create_publisher(Float64MultiArray, "nav/mission", 10)
-    pub_cancel = link.create_publisher(Empty, "nav/cancel", 10)
+    pub_mission = link.create_publisher(Float64MultiArray, "gcs/daiv/nav/mission", 10)
+    pub_cancel = link.create_publisher(Empty, "gcs/daiv/nav/cancel", 10)
     time.sleep(0.6)      # 퍼블리셔가 짝지어질 시간
     banner("space 를 누르면 기체가 **움직인다**", NAV_KEYS)
 
@@ -666,7 +738,7 @@ def cmd_mission(args):
             state = f"비행중 {wp['i']}/{wp['n']}] (다른 곳에서 준 미션)"
         elif not st["t_start"]:
             state = "대기]"
-        elif now - st["t_start"] < 1.5:      # /nav/wp 가 아직 안 왔다
+        elif now - st["t_start"] < 1.5:      # /gcs/daiv/nav/wp 가 아직 안 왔다
             state = "시작 중…]"
         else:
             state = "끝남] 이유는 nav_node 로그"
@@ -678,7 +750,7 @@ def cmd_mission(args):
         key_loop(on_key, tick, hz=5)
     finally:
         send_twice(pub_cancel, Empty())
-        print(f"\n■ /nav/cancel 송출 — nav_node 가 0 을 내고 link_node 가 1초 브레이크\n{RC_BACK}")
+        print(f"\n■ /gcs/daiv/nav/cancel 송출 — nav_node 가 0 을 내고 link_node 가 1초 브레이크\n{RC_BACK}")
     return 0
 
 
@@ -711,13 +783,16 @@ def main():
 
     sub.add_parser("usv", help="USV GPS 추종 시작·정지·튜닝")
 
+    sub.add_parser("sortie", help="임무 시퀀서 — 이륙→추종→복귀→착륙. 숫자키로 개별 임무만")
+
     p = sub.add_parser("mission", help="경유점 비행 — 파일을 nav_node 에 넘긴다")
     p.add_argument("file", help="missions/*.txt — 줄마다 gps|offset <a> <b> [고도]")
 
     args = ap.parse_args()
     try:
         return {"ping": cmd_ping, "gimbal": cmd_gimbal, "takeoff": cmd_takeoff, "drive": cmd_drive,
-                "follow": cmd_follow, "usv": cmd_usv, "mission": cmd_mission}[args.mode](args)
+                "follow": cmd_follow, "usv": cmd_usv, "sortie": cmd_sortie,
+                "mission": cmd_mission}[args.mode](args)
     finally:
         if SPIN["thread"] is not None:
             SPIN["stop"] = True

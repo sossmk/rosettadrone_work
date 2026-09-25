@@ -3,10 +3,10 @@
 
     ros2 launch rd_bridge bridge.launch.py usv:=true nav:=false
     python3 tools/rd_cmd.py usv          # space 시작/정지 · 파라미터 튜닝
-    # 또는 직접: /usv/follow (Bool) true·false · /usv/cancel (Empty)
+    # 또는 직접: /gcs/daiv/usv/follow (Bool) true·false · /gcs/daiv/usv/cancel (Empty)
 
-⚠ /usv/follow true 를 받기 전에는 /cmd_vel 도 짐벌도 안 낸다.
-⚠ nav_node · tag_follow_node 와 동시에 켜지 않는다 — 셋 다 /cmd_vel 에 쓴다.
+⚠ /gcs/daiv/usv/follow true 를 받기 전에는 /gcs/daiv/cmd_vel 도 짐벌도 안 낸다.
+⚠ nav_node · tag_follow_node 와 동시에 켜지 않는다 — 셋 다 /gcs/daiv/cmd_vel 에 쓴다.
 
 입력 — 센서 4종은 센서 QoS(BEST_EFFORT)로 받는다. RELIABLE 퍼블리셔와도 붙는다.
 믿을 수 없는 좌표(0,0 · NaN · NO_FIX · 범위 밖)는 버린다 — 버리면 아래 끊김 처리가 맡는다.
@@ -14,13 +14,14 @@
     /usv/fix      NavSatFix  위경도 (고도는 안 쓴다 — USV = 수면)
     /usv/heading  Float64    기수 ° (0=북, 시계)
     /usv/depth    Float64    수심 m — 기록만
-    /rd/fix · /rd/heading    우리 위치·상대고도·기수 (link_node)
+    /gcs/daiv/rd/fix · /gcs/daiv/rd/heading    우리 위치·상대고도·기수 (link_node)
 
 한 tick 에 하는 일 — plan() 한 함수
     1. USV 위치 추정: 최근 vel_window 초의 좌표로 속도를 내고, (좌표 나이 + lead_secs) 만큼 등속 외삽
     2. 목표점 = 추정 위치에서 **대형**만큼 — USV 기수 기준 (앞 m, 오른쪽 m, 고도 m). 음수 = 뒤·왼쪽
     3. 수평 = kp × 목표까지 거리 (nav_node 와 같은 P) + USV 속도 feedforward, max_speed 로 자른다
     4. 기수 = USV 쪽으로 (좌우는 몸체로 맞춘다 — 짐벌 yaw 는 겨누는 데 안 쓴다)
+       kp_yaw × 오차 + 시선이 도는 속도 앞먹임(kp_ff) — 움직이는 동안 뒤처지지 않게
     5. 틸트 = -atan2(우리 상대고도, USV 까지 수평거리) → DO_SET_SERVO ch9 (2° 넘게 바뀔 때, 최대 2Hz)
 
 대형은 formations = [앞, 오른쪽, 고도] × N 을 한 줄로, formation = 번호(1부터).
@@ -31,7 +32,7 @@ USV 가 돌면 대형도 같이 돈다 (지도 방위가 아니라 USV 헤딩 �
 출력 스위치 3개 — **계산은 늘 똑같이 돌고 내보내는 것만 막는다.** 능력을 하나씩 떼어
 평가하려는 것이라 로직이 갈라지면 안 된다. CSV 에는 막았을 때도 계산값이 그대로 남고,
 move·aim 열로 그때 무엇을 냈는지 구분한다 (rd_cmd usv 의 m·g 키로 날면서 바꾼다).
-    publish  false → /cmd_vel 을 아예 안 낸다 (지상 dry-run)
+    publish  false → /gcs/daiv/cmd_vel 을 아예 안 낸다 (지상 dry-run)
     move     false → 수평·수직만 0. **기수는 계속 돈다** — 제자리 회전 + 틸트만 보기
     aim      false → 짐벌 명령을 안 낸다 — 몸체 추종만 보기
 
@@ -64,7 +65,7 @@ def plan(me, hdg, usv, usv_hdg, usv_vel, lead, form, p):
     me = (lat, lon, 상대고도) · usv = (lat, lon) · usv_vel = (북, 동) m/s · lead = 외삽 초
     form = 대형 (앞, 오른쪽, 고도) — USV 기수 기준.
     돌려주는 것: 추정 USV 좌표, 목표 좌표, 목표까지 m, USV 까지 수평 m, 틸트 °,
-                 /cmd_vel (x=앞 · y=오른쪽 · z=위 m/s, wz=시계 rad/s).
+                 /gcs/daiv/cmd_vel (x=앞 · y=오른쪽 · z=위 m/s, wz=시계 rad/s).
     """
     lat, lon, alt = me
     vn, ve = usv_vel
@@ -83,10 +84,17 @@ def plan(me, hdg, usv, usv_hdg, usv_vel, lead, form, p):
         vx, vy = vx * p("max_speed") / norm, vy * p("max_speed") / norm
     vz = clamp(p("kp_alt") * (form[2] - alt), p("max_vz"))
 
-    yaw_err = mav.relative_bearing(mav.bearing_between(lat, lon, est[0], est[1]), hdg)
-    wz = math.radians(clamp(p("kp_yaw") * yaw_err, p("max_yaw_rate")))
-
+    b = mav.bearing_between(lat, lon, est[0], est[1])
     horiz = mav.meters_between(lat, lon, est[0], est[1])
+    yaw_err = mav.relative_bearing(b, hdg)
+    # 앞먹임 — 시선(우리→USV)이 도는 속도 °/s = 상대속도 중 시선에 수직인 성분 ÷ 거리.
+    # P 만으로는 도는 시선을 늘 ω/kp_yaw 만큼 뒤진다. 머리 위(거리 0)는 1m 로 막는다
+    dn = vn - (vx * math.cos(h) - vy * math.sin(h))    # USV 속도 − 우리 속도, 북
+    de = ve - (vx * math.sin(h) + vy * math.cos(h))    #                      동
+    b = math.radians(b)
+    los = math.degrees((math.cos(b) * de - math.sin(b) * dn) / max(horiz, 1.0))
+    wz = math.radians(clamp(p("kp_ff") * los + p("kp_yaw") * yaw_err, p("max_yaw_rate")))
+
     tilt = max(-90.0, min(0.0, -math.degrees(math.atan2(max(alt, 0.0), horiz))))
     return est, goal, dist, horiz, tilt, (vx, vy, vz, wz)
 
@@ -112,6 +120,7 @@ DEFAULTS = [("formations", [0.0, -10.0, 5.0, 0.0, 10.0, 5.0, -10.0, 0.0, 5.0]), 
             ("lead_secs", 0.5),
             ("vel_window", 2.0), ("kp", 0.35), ("max_speed", 2.5), ("kp_alt", 0.35),
             ("max_vz", 1.0), ("kp_yaw", 0.8), ("max_yaw_rate", 30.0),
+            ("kp_ff", 1.0),          # 기수 앞먹임 배율 — 0 이면 예전과 같다 (실기 A/B 용)
             ("lost_secs", 2.0), ("giveup_secs", 10.0),
             # 출력 스위치 — 계산은 늘 같고 내보내는 것만 막는다 (실험 항목을 따로 보려고)
             ("publish", True), ("move", True), ("aim", True),
@@ -164,6 +173,22 @@ def selftest():
     ten = mav.offset_to_gps(37.0, 127.0, 0.0, 10.0, 0.0)
     assert abs(plan((37.0, 127.0, 5.0), 0.0, ten, 0.0, (0, 0), 0.0,
                     formation(dict(DEFAULTS).get), p)[4] + 26.57) < 0.1
+
+    # 앞먹임 — 좌 10m → 후 10m 전환을 20Hz 로 흘려 본다 (기체가 명령을 그대로 따른다고 치고).
+    # 앞먹임이 없으면 기수가 21° 까지 뒤진다. 부호가 틀리면 오히려 커진다
+    def worst_lag(kp_ff):
+        q = dict(DEFAULTS, kp_ff=kp_ff).get
+        usv = (37.0, 127.0)
+        m, hdg, worst = [*mav.offset_to_gps(*usv, 0.0, 0.0, -10.0), 5.0], 90.0, 0.0
+        for _ in range(200):
+            *_, (vx, vy, _, wz) = plan(tuple(m), hdg, usv, 0.0, (0, 0), 0.0, (-10.0, 0.0, 5.0), q)
+            worst = max(worst, abs(mav.relative_bearing(mav.bearing_between(*m[:2], *usv), hdg)))
+            h = math.radians(hdg)
+            m[:2] = mav.offset_to_gps(m[0], m[1], 0.0, (vx * math.cos(h) - vy * math.sin(h)) * 0.05,
+                                      (vx * math.sin(h) + vy * math.cos(h)) * 0.05)
+            hdg = (hdg + math.degrees(wz) * 0.05) % 360.0
+        return worst
+    assert worst_lag(0.0) > 15.0 and worst_lag(1.0) < 2.0, (worst_lag(0.0), worst_lag(1.0))
     print("selftest ok")
 
 
@@ -187,19 +212,19 @@ class UsvFollowNode(Node):
             self.declare_parameter(name, val)
         self.p = lambda name: self.get_parameter(name).value
 
-        self.pub = self.create_publisher(Twist, "cmd_vel", 10)
-        self.pub_cmd = self.create_publisher(Float64MultiArray, "rd/command", 10)
+        self.pub = self.create_publisher(Twist, "gcs/daiv/cmd_vel", 10)
+        self.pub_cmd = self.create_publisher(Float64MultiArray, "gcs/daiv/rd/command", 10)
         # 센서는 센서 QoS(BEST_EFFORT)로 받는다 — 제공 ≥ 요구면 붙으므로 RELIABLE 퍼블리셔와도 붙는다
         sensor = qos_profile_sensor_data
-        self.create_subscription(NavSatFix, "rd/fix", self.on_fix, sensor)
-        self.create_subscription(Float64, "rd/heading", self.on_hdg, sensor)
+        self.create_subscription(NavSatFix, "gcs/daiv/rd/fix", self.on_fix, sensor)
+        self.create_subscription(Float64, "gcs/daiv/rd/heading", self.on_hdg, sensor)
         self.create_subscription(NavSatFix, "usv/fix", self.on_usv_fix, sensor)
         self.create_subscription(Float64, "usv/heading", self.on_usv_hdg, sensor)
         self.create_subscription(Float64, "usv/depth",
                                  lambda m: setattr(self, "depth", m.data), sensor)
         # 명령은 RELIABLE 그대로 — 정지를 잃으면 안 된다
-        self.create_subscription(Bool, "usv/follow", self.on_follow, 10)
-        self.create_subscription(Empty, "usv/cancel", lambda _: self.stop("취소"), 10)
+        self.create_subscription(Bool, "gcs/daiv/usv/follow", self.on_follow, 10)
+        self.create_subscription(Empty, "gcs/daiv/usv/cancel", lambda _: self.stop("취소"), 10)
 
         self.me, self.t_me, self.hdg, self.t_hdg = None, 0.0, None, 0.0
         self.usv_hist = deque()          # (t, lat, lon) — vel_window 초
@@ -212,8 +237,8 @@ class UsvFollowNode(Node):
         self.t_log = 0.0
         self.create_timer(0.05, self.tick)   # 20Hz
         self.get_logger().info(
-            "대기 중 — /usv/follow true 로 시작"
-            + ("" if self.p("publish") else "  [publish:=false — /cmd_vel 을 내지 않는다]"))
+            "대기 중 — /gcs/daiv/usv/follow true 로 시작"
+            + ("" if self.p("publish") else "  [publish:=false — /gcs/daiv/cmd_vel 을 내지 않는다]"))
 
     # ------------------------------------------------------------- 수신
     def drop(self, which, m):
@@ -251,7 +276,7 @@ class UsvFollowNode(Node):
         if msg.data:
             self.start()
         else:
-            self.stop("/usv/follow false")
+            self.stop("/gcs/daiv/usv/follow false")
 
     # ------------------------------------------------------------- 켜고 끄기
     def start(self):
