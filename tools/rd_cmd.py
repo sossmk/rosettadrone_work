@@ -469,6 +469,26 @@ def usv_menu(forms):
     return "  ".join(f"{n}: 앞{f:+.0f} 오{r:+.0f} 고{a:.0f}m" for n, (f, r, a) in enumerate(forms, 1))
 
 
+def set_formation(n, par, tuner):
+    """대형을 n 번으로 — usv · sortie 둘 다 쓴다. par 의 formations·formation 을 고친다.
+
+    **누를 때마다 formations 를 다시 읽는다.** 노드는 매 tick 다시 읽으니 날면서도
+    대형이 늘어난다 — 시작 때 읽은 개수로 막으면 키가 **조용히 삼켜진다.**
+    9/22 실험 1-B 가 그렇게 날아갔다 (T5 의 formations 를 T4 보다 늦게 넣었다)
+    """
+    got = tuner.read(("formations",))
+    if got:
+        par["formations"] = got["formations"]
+    forms = usv_forms(par)
+    if 1 <= n <= len(forms):
+        par["formation"] = n
+        tuner.write("formation", n)
+    else:
+        print(f"\n  ✗ 대형 {n} 번이 없다 — 지금 {len(forms)}개다. "
+              f"T5 에서 formations 를 넣었나?\n  {usv_menu(forms)}")
+    return forms
+
+
 def cmd_usv(args):
     """USV 추종 — /gcs/daiv/usv/follow 를 토글하고 파라미터를 고친다. 급할 때는 space (follow 와 같다)."""
     link = connect()
@@ -503,20 +523,7 @@ def cmd_usv(args):
             par[name] = not par[name]
             tuner.write(name, par[name])
         elif k.isdigit():
-            # **누를 때마다 formations 를 다시 읽는다.** 노드는 매 tick 다시 읽으니 날면서도
-            # 대형이 늘어난다 — 시작 때 읽은 개수로 숫자키를 막으면 키가 **조용히 삼켜진다.**
-            # 9/22 실험 1-B 가 그렇게 날아갔다 (T5 의 formations 를 T4 보다 늦게 넣었다)
-            got = tuner.read(("formations",))
-            if got:
-                par["formations"] = got["formations"]
-                forms = usv_forms(par)
-            n = int(k)
-            if 1 <= n <= len(forms):
-                par["formation"] = n
-                tuner.write("formation", n)
-            else:
-                print(f"\n  ✗ 대형 {n} 번이 없다 — 지금 {len(forms)}개다. "
-                      f"T5 에서 formations 를 넣었나?\n  {usv_menu(forms)}")
+            forms = set_formation(int(k), par, tuner)
         else:
             tune(k, USV_TUNE, par, tuner)
 
@@ -551,9 +558,11 @@ SORTIE_TUNE = {
     ",": ("cruise",    -0.50,  0.5,  2.5), ".": ("cruise",    +0.50,  0.5,  2.5),
 }
 SORTIE_CTRL = {n: c or "없음" for c, n in CTRL_NO.items()}
+# 대형 키 — 숫자는 이미 모드 건너뛰기라 글자 줄(a s d f …)을 1·2·3·4… 번 대형에 쓴다
+SORTIE_FORM_KEYS = "asdfghjkl"
 SORTIE_KEYS = ("space 시작 · r 복귀 · x 중단 · q 종료\n"
                "  1~6 그 임무만 따로 (1 이륙 · 2 USV추종 · 3 복귀 · 4 태그정렬 · 5 착륙 · 6 끝)\n"
-               "  [ ] volt_land · , . cruise")
+               "  a s d f … 대형 1·2·3·4… (USV추종 중이면 바로 바뀐다) · [ ] volt_land · , . cruise")
 
 
 def cmd_sortie(args):
@@ -570,6 +579,12 @@ def cmd_sortie(args):
         print(f"  ✗ {SORTIE_NODE} 가 안 떠 있다 — bridge.launch.py 에 mission:=true")
         return 1
 
+    # 대형은 rd_usv_follow 의 파라미터다 — 시퀀서는 대형을 모른다. 못 읽어도 임무는 된다
+    usv_tuner = Tuner(link, USV_NODE)
+    upar = usv_tuner.read(("formation", "formations"))
+    if not upar:
+        print(f"  ⚠ {USV_NODE} 파라미터를 못 읽었다 — 대형 키(a s d …)는 안 먹는다")
+
     st = {"t": 0.0, "mode": 0, "ctrl": 0, "secs": 0}
     cmd = {"t": 0.0}
     pub_start = link.create_publisher(Empty, "gcs/daiv/mission/start", 10)
@@ -581,7 +596,8 @@ def cmd_sortie(args):
         secs=m.data[2] if len(m.data) > 2 else 0), 10)
     link.create_subscription(Twist, "gcs/daiv/cmd_vel", lambda _: cmd.update(t=time.time()), 10)
     time.sleep(0.6)      # 퍼블리셔가 짝지어질 시간 — 첫 토글을 잃지 않게
-    banner("space 를 누르면 기체가 **이륙해서 임무를 혼자 진행한다**", SORTIE_KEYS)
+    banner("space 를 누르면 기체가 **이륙해서 임무를 혼자 진행한다**",
+           SORTIE_KEYS + ("\n  " + usv_menu(usv_forms(upar)) if upar else ""))
 
     def on_key(k):
         if k == " ":
@@ -598,6 +614,9 @@ def cmd_sortie(args):
                 print(f"\n  → {SORTIE_MODES[n]} 로 건너뛰기 요청 (노드 로그에서 수락 여부를 본다)")
             else:
                 print(f"\n  ✗ 모드 {n} 은 없다 — 1~6")
+        elif k in SORTIE_FORM_KEYS:
+            if upar:
+                set_formation(SORTIE_FORM_KEYS.index(k) + 1, upar, usv_tuner)
         else:
             tune(k, SORTIE_TUNE, par, tuner)
 
@@ -614,7 +633,8 @@ def cmd_sortie(args):
                 f" · 고도{fmt(tel.get('alt'), 'm')} 전압{fmt(tel.get('volt'), 'V', 2)}"
                 f" · volt_land {par['volt_land']:.1f} cruise {par['cruise']:.1f}"
                 f" · 이륙고도 {par['takeoff_alt']:.1f}m"
-                + (f" · start_mode {par['start_mode']}" if par.get("start_mode") else ""))
+                + (f" · start_mode {par['start_mode']}" if par.get("start_mode") else "")
+                + (f" · 대형{upar['formation']}" if upar else ""))
 
     try:
         key_loop(on_key, tick, hz=5)

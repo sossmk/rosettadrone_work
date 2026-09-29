@@ -28,24 +28,22 @@ rd_cmd.py 의 /usv/fix 구독이 RELIABLE 이라, BEST_EFFORT 로 내면 추종�
 GPS 에서 조용히 틀리는 것이 제일 무섭다 (위도 0.001° ≈ 111m, missions/README.txt).
 이름을 못 찾으면 *_index 파라미터로 물러서고, 그때는 경고를 찍는다.
 
-2026-09-22 14:15 실측 배치 (22개, 말로 셀 때의 "N번" = data[N-1]):
-    data[0] unix_seconds · [1] microseconds(→20Hz) · [2] latitude_rad · [3] longitude_rad
-    [4] height_m · [5..7] vel_north/east/down_mps · [8] latitude_std_m · [9] longitude_std_m
-    [10] 12.3 · [11] -0.5597(-32.07°) · [12] **heading 1.87047(107.17°)** · [13],[14] 0.1784
-    [15] 4.0 · [16..21] 1,1,0,1,1,1
-  [10] 이후의 이름은 터미널에서 라벨이 잘려 아직 모른다 — **뜰 때 라벨 전문을 로그에 찍는다.**
-  그 로그로 확정한 뒤 FIELDS 에 박고 이 표를 채운다.
-  2026-09-22 18:33 2차 실측 → USV-GNSS-실측-2026-09-22.md (저장소 최상위). 거기서 확인된 것:
-  20Hz(50ms 간격) 확정 · [12]=기수가 4시간 뒤에도 107.5° 로 재확인 · [11]은 상수가 아니다
-  (-32.07° → +17.04°, 자세로 보인다) · 꼬리 9개는 두 세션이 비트까지 동일.
-  ⚠ 2차에서도 라벨은 longitude_s… 에서 잘렸다. echo 로는 못 알아낸다 — **노드 로그**를 봐야 한다.
+배치 (22개, 20Hz, 라벨 2026-09-29 노드 로그로 확정 — echo 는 라벨을 잘라서 못 본다):
+    [0] unix_seconds · [1] microseconds · [2] latitude_rad · [3] longitude_rad · [4] height_m
+    [5..7] vel_north/east/down_mps · [8] latitude_std_m · [9] longitude_std_m · [10] height_std_m
+    [11] tilt_rad · [12] heading_rad · [13] tilt_std_rad · [14] heading_std_rad · [15] gnss_fix_status
+    [16] doppler_velocity_valid · [17] time_valid · [18] external_gnss · [19] tilt_valid
+    [20] heading_valid · [21] floating_ambiguity_heading
+  'head' 가 든 이름이 넷이라 뜰 때 "여럿이다 — hdg_index=12 를 쓴다" 경고가 나온다. 정상이다.
+  ⚠ [15]·[20] 유효 플래그는 아직 안 본다 — 9/29 수렴 전(std 4~10m)에 기수가 0.0 으로 나왔다.
 
-⚠ **기수 관례가 미확정이다.** 실측 107.17° 가 "0=북 시계" 인지 ENU(0=동 반시계) 인지
-  배가 서 있어서 추론이 안 됐다. 기본은 그대로 쓰고, 뒤집혔으면 코드가 아니라
-  heading_sign · heading_offset_deg 를 고친다 (tag_follow_node 의 sign_fwd 와 같은 방식):
-      ros2 param set /rd_usv_gnss heading_sign -1.0
+**기수 = 센싱값 + 90°** (heading_offset_deg 기본 90, 2026-09-29 실기로 확정).
+  USV 의 GNSS 안테나 두 개가 선수에 **수직**으로 놓여 있어서 heading_rad 는 두 안테나를 잇는
+  선의 방위다. 9/29 센싱 15~17° 일 때 실제 선수가 약 100° 였다 (눈으로 확인).
+  보정 전 9/29 비행은 대형 1·2·3 이 좌·우·뒤가 아니라 **뒤·앞·오른쪽** 에 섰다.
+  안테나를 다시 달면 코드가 아니라 파라미터로 고친다:
       ros2 param set /rd_usv_gnss heading_offset_deg 90.0
-  교차확인은 /maiv/fog/euler_orientation 과 나침반.
+      ros2 param set /rd_usv_gnss heading_sign -1.0        # 회전 방향까지 반대일 때만
 
 ⚠ **좌표가 정밀하지 않다.** 실측 latitude_std 4.2m · longitude_std 6.5m — RTK 가 아니다.
   usv_sim 의 가짜 좌표는 오차가 0 이었다. usv_follow_node 는 이 좌표에 대형(기본 10m)을
@@ -136,7 +134,7 @@ DEFAULTS = [("use_label", True), ("hdg_index", 12),
             ("lat_index", 2), ("lon_index", 3), ("alt_index", 4),
             ("vn_index", 5), ("ve_index", 6), ("vd_index", 7),
             ("lat_std_index", 8), ("lon_std_index", 9), ("alt_std_index", 10),
-            ("heading_sign", 1.0), ("heading_offset_deg", 0.0),
+            ("heading_sign", 1.0), ("heading_offset_deg", 90.0),   # 안테나가 선수에 수직 — 맨 위 주석
             ("publish_vel", True)]
 
 # 2026-09-22 14:15:52.05 실측 한 줄. selftest 가 이것으로 검증한다 (pytest 는 이 저장소에 없다)
@@ -164,6 +162,9 @@ def selftest():
     # 기수 관례 보정 — ENU(0=동, 반시계) 였다면 (90 - 107.17) % 360
     assert abs(parse(SAMPLE, base, -1.0, 90.0)["hdg"] - 342.830) < 1e-3
     assert abs(parse(SAMPLE, base, 1.0, 300.0)["hdg"] - 47.170) < 1e-3    # 360 을 넘어 감긴다
+    # 기본값 = 안테나 수직 보정. 9/29 센싱 16° → 선수 106° (실제 약 100°)
+    d = dict(DEFAULTS)
+    assert abs(parse(SAMPLE, base, d["heading_sign"], d["heading_offset_deg"])["hdg"] - 197.170) < 1e-3
 
     # 짧은 줄은 통째로 버린다 (기수 자리까지 없다)
     assert parse(SAMPLE[:12], base) is None
