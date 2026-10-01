@@ -15,8 +15,10 @@
 remap 은 이름만 바꾼다. Float64MultiArray → NavSatFix 는 remap 으로 안 된다.
 
     /usv/raw_gnss  Float64MultiArray  ← launch 에서 /maiv/fog/raw_gnss 로 remap. 20 Hz
+    /usv/euler     Float32MultiArray  ← launch 에서 /maiv/fog/euler_orientation 으로 remap. ~130 Hz
+                                        라벨 roll_rad,pitch_rad,heading_rad — **기수는 여기서 읽는다**
     /usv/fix       NavSatFix          위경도(deg)·타원체고도 m · 공분산
-    /usv/heading   Float64            기수 ° (0=북, 시계)
+    /usv/heading   Float64            기수 ° (0=북, 시계). raw_gnss 가 올 때마다(20Hz) 최근 euler 값으로
     /usv/vel       TwistStamped       **ENU** m/s (x=동 y=북 z=위) — 내기만 한다
 
 발행은 **RELIABLE(10)** 이다. usv_follow_node 는 BEST_EFFORT 로 받으니 아무거나 붙지만
@@ -37,13 +39,24 @@ GPS 에서 조용히 틀리는 것이 제일 무섭다 (위도 0.001° ≈ 111m,
   'head' 가 든 이름이 넷이라 뜰 때 "여럿이다 — hdg_index=12 를 쓴다" 경고가 나온다. 정상이다.
   ⚠ [15]·[20] 유효 플래그는 아직 안 본다 — 9/29 수렴 전(std 4~10m)에 기수가 0.0 으로 나왔다.
 
-**기수 = 센싱값 + 90°** (heading_offset_deg 기본 90, 2026-09-29 실기로 확정).
-  USV 의 GNSS 안테나 두 개가 선수에 **수직**으로 놓여 있어서 heading_rad 는 두 안테나를 잇는
-  선의 방위다. 9/29 센싱 15~17° 일 때 실제 선수가 약 100° 였다 (눈으로 확인).
-  보정 전 9/29 비행은 대형 1·2·3 이 좌·우·뒤가 아니라 **뒤·앞·오른쪽** 에 섰다.
-  안테나를 다시 달면 코드가 아니라 파라미터로 고친다:
-      ros2 param set /rd_usv_gnss heading_offset_deg 90.0
-      ros2 param set /rd_usv_gnss heading_sign -1.0        # 회전 방향까지 반대일 때만
+**기수는 euler_orientation 에서 읽는다** (heading_source 기본 "euler", 2026-09-30 부터).
+  9/30 실기 20분 내내 raw_gnss 의 [11..14] 가 0.0 · [19]·[20] 유효 플래그가 0 이었다 — 두 안테나
+  기수가 아예 안 나왔고, 거기에 +90 을 더한 **90.0° 고정** 이 /usv/heading 으로 나가 대형이
+  USV 선수와 상관없이 섰다. 같은 때 euler heading_rad 는 239° 로 살아 있었다 (USV 이동방향
+  220° — 느리게 흘러가는 중이라 선수와 20° 쯤 어긋날 수 있다). euler 는 FOG/INS 가 낸 선체
+  자세라 안테나 배치와 상관없다 → **보정 0** (euler_heading_offset_deg).
+  euler 가 euler_timeout 초 넘게 안 오면 /usv/heading 을 **내지 않는다** — 옛 값으로 대형을
+  돌리느니 usv_follow_node 의 giveup_secs → 정지가 받게 한다. 좌표(/usv/fix)는 그대로 낸다.
+
+heading_source:=raw 로 돌리면 예전처럼 raw_gnss [12] 를 쓴다. **기수 = 센싱값 + 90°**
+  (heading_offset_deg 기본 90, 2026-09-29 실기로 확정). USV 의 GNSS 안테나 두 개가 선수에
+  **수직**으로 놓여 있어서 heading_rad 는 두 안테나를 잇는 선의 방위다. 9/29 센싱 15~17° 일 때
+  실제 선수가 약 100° 였다 (눈으로 확인). 보정 전 9/29 비행은 대형 1·2·3 이 좌·우·뒤가 아니라
+  **뒤·앞·오른쪽** 에 섰다. 오프셋이 소스마다 따로인 것은 물리가 달라서다 — 안테나 배치 대 선체 자세.
+      ros2 param set /rd_usv_gnss heading_source raw
+      ros2 param set /rd_usv_gnss heading_offset_deg 90.0          # raw 전용
+      ros2 param set /rd_usv_gnss euler_heading_offset_deg 0.0     # euler 전용
+      ros2 param set /rd_usv_gnss heading_sign -1.0        # 회전 방향까지 반대일 때만 (둘 다에 걸린다)
 
 ⚠ **좌표가 정밀하지 않다.** 실측 latitude_std 4.2m · longitude_std 6.5m — RTK 가 아니다.
   usv_sim 의 가짜 좌표는 오차가 0 이었다. usv_follow_node 는 이 좌표에 대형(기본 10m)을
@@ -129,13 +142,35 @@ def parse(data, idx, hdg_sign=1.0, hdg_offset=0.0):
                     pick(data, idx.get("alt_std")))}
 
 
+EULER_HDG = "heading_rad"       # euler_orientation 라벨: roll_rad,pitch_rad,heading_rad
+
+
+def euler_index(label, fallback):
+    """euler 라벨 → 기수 자리. 라벨에 heading_rad 가 없으면 fallback(euler_hdg_index)."""
+    names = [s.strip() for s in label.split(",")] if label else []
+    return names.index(EULER_HDG) if EULER_HDG in names else fallback
+
+
+def euler_heading(data, i, hdg_sign=1.0, hdg_offset=0.0):
+    """euler 한 줄 → 기수 °(0=북, 시계). 자리가 없거나 숫자가 아니면 None."""
+    v = pick(data, i)
+    return None if math.isnan(v) else (hdg_sign * math.degrees(v) + hdg_offset) % 360.0
+
+
 # *_index 기본값 — 2026-09-22 실측 배치. 라벨이 있으면 라벨이 이긴다
 DEFAULTS = [("use_label", True), ("hdg_index", 12),
             ("lat_index", 2), ("lon_index", 3), ("alt_index", 4),
             ("vn_index", 5), ("ve_index", 6), ("vd_index", 7),
             ("lat_std_index", 8), ("lon_std_index", 9), ("alt_std_index", 10),
-            ("heading_sign", 1.0), ("heading_offset_deg", 90.0),   # 안테나가 선수에 수직 — 맨 위 주석
+            ("heading_sign", 1.0), ("heading_offset_deg", 90.0),   # raw 전용. 안테나가 선수에 수직 — 맨 위 주석
+            # 기수 소스 — "euler"(FOG 자세, 기본) · "raw"(raw_gnss [12]). 맨 위 주석
+            ("heading_source", "euler"), ("euler_hdg_index", 2),
+            ("euler_heading_offset_deg", 0.0), ("euler_timeout", 1.0),
             ("publish_vel", True)]
+
+# 2026-09-30 실측 euler_orientation 한 줄 (Float32). 4.5454 rad = 260.43°
+EULER_SAMPLE = [-0.014577262103557587, -0.0018347874283790588, 4.5453925132751465]
+EULER_LABEL = "roll_rad,pitch_rad,heading_rad"
 
 # 2026-09-22 14:15:52.05 실측 한 줄. selftest 가 이것으로 검증한다 (pytest 는 이 저장소에 없다)
 SAMPLE = [1790054152.0, 50000.0, 0.6318299083483848, 2.224992173277046, 218.66723669315095,
@@ -165,6 +200,14 @@ def selftest():
     # 기본값 = 안테나 수직 보정. 9/29 센싱 16° → 선수 106° (실제 약 100°)
     d = dict(DEFAULTS)
     assert abs(parse(SAMPLE, base, d["heading_sign"], d["heading_offset_deg"])["hdg"] - 197.170) < 1e-3
+
+    # euler — 라벨에서 heading_rad 자리를 찾고, 기본 보정은 0 (선체 자세라 안테나 배치와 무관)
+    assert d["heading_source"] == "euler" and d["euler_heading_offset_deg"] == 0.0
+    ei = euler_index(EULER_LABEL, 0)
+    assert ei == 2 and euler_index("", 2) == 2 and euler_index("yaw,heading_rad", 9) == 1
+    assert abs(euler_heading(EULER_SAMPLE, ei) - 260.430) < 1e-2
+    assert abs(euler_heading(EULER_SAMPLE, ei, 1.0, 180.0) - 80.430) < 1e-2     # 360 을 넘어 감긴다
+    assert euler_heading(EULER_SAMPLE, 5) is None and euler_heading([float("nan")] * 3, 2) is None
 
     # 짧은 줄은 통째로 버린다 (기수 자리까지 없다)
     assert parse(SAMPLE[:12], base) is None
@@ -207,7 +250,7 @@ from rclpy.executors import ExternalShutdownException  # noqa: E402
 from rclpy.node import Node  # noqa: E402
 from rclpy.qos import qos_profile_sensor_data  # noqa: E402
 from sensor_msgs.msg import NavSatFix, NavSatStatus  # noqa: E402
-from std_msgs.msg import Float64, Float64MultiArray  # noqa: E402
+from std_msgs.msg import Float32MultiArray, Float64, Float64MultiArray  # noqa: E402
 
 
 class UsvGnssNode(Node):
@@ -225,6 +268,11 @@ class UsvGnssNode(Node):
         # 센서 QoS(BEST_EFFORT)로 받는다 — RELIABLE 퍼블리셔와도 붙는다 (제공 ≥ 요구)
         self.create_subscription(Float64MultiArray, "usv/raw_gnss", self.on_raw,
                                  qos_profile_sensor_data)
+        # 기수 — FOG 자세. 130Hz 로 오니 최근 값만 들고 있다가 raw_gnss 와 같이 낸다
+        self.create_subscription(Float32MultiArray, "usv/euler", self.on_euler,
+                                 qos_profile_sensor_data)
+        self.euler_label, self.euler_i = None, None
+        self.euler_hdg, self.t_euler = None, 0.0
 
         self.label = None            # 라벨이 바뀌면 다시 풀고 다시 찍는다
         self.idx = None
@@ -232,6 +280,28 @@ class UsvGnssNode(Node):
         self.get_logger().info(
             "대기 중 — /usv/raw_gnss 를 기다린다"
             "  (remap 예: -r usv/raw_gnss:=/maiv/fog/raw_gnss)")
+
+    def on_euler(self, m):
+        label = m.layout.dim[0].label if m.layout.dim else ""
+        if label != self.euler_label:
+            self.euler_label = label
+            self.euler_i = euler_index(label, self.p("euler_hdg_index"))
+            self.get_logger().info(f"euler 라벨: {label or '(없다)'} → 기수 data[{self.euler_i}]")
+        h = euler_heading(m.data, self.euler_i, self.p("heading_sign"),
+                          self.p("euler_heading_offset_deg"))
+        if h is not None:
+            self.euler_hdg, self.t_euler = h, time.monotonic()
+
+    def heading(self, g):
+        """낼 기수 ° 와 출처 글자. 못 믿으면 (None, 이유) — 그때는 /usv/heading 을 안 낸다."""
+        if self.p("heading_source") == "raw":
+            return g["hdg"], "raw"
+        if self.euler_hdg is None:
+            return None, "euler 가 아직 안 왔다 (-r usv/euler:=/maiv/fog/euler_orientation)"
+        age = time.monotonic() - self.t_euler
+        if age > self.p("euler_timeout"):
+            return None, f"euler 가 {age:.1f}초째 안 온다"
+        return self.euler_hdg, "euler"
 
     def fallback(self):
         return {k: self.p(f"{k}_index") for k in (*FIELDS, "hdg")}
@@ -275,7 +345,12 @@ class UsvGnssNode(Node):
                                        0.0, 0.0, alt_s ** 2]
             fix.position_covariance_type = NavSatFix.COVARIANCE_TYPE_DIAGONAL_KNOWN
         self.pub_fix.publish(fix)
-        self.pub_hdg.publish(Float64(data=g["hdg"]))
+        hdg, src = self.heading(g)
+        if hdg is None:
+            # 옛 기수로 대형을 돌리지 않는다 — usv_follow_node 의 giveup_secs → 정지가 받는다
+            self.get_logger().warning(f"기수를 안 낸다 — {src}", throttle_duration_sec=2.0)
+        else:
+            self.pub_hdg.publish(Float64(data=hdg))
 
         if self.p("publish_vel") and not any(math.isnan(g[k]) for k in ("vn", "ve", "vd")):
             vel = TwistStamped()
@@ -290,8 +365,9 @@ class UsvGnssNode(Node):
         if t - self.t_log > 1.0:
             self.t_log = t
             self.get_logger().info(
-                f"{g['lat']:.7f}, {g['lon']:.7f}  고도 {g['alt']:6.1f}m  기수 {g['hdg']:5.1f}°"
-                f"  std {lat_s:.1f}/{lon_s:.1f}m  속도 N{g['vn']:+.2f} E{g['ve']:+.2f}"
+                f"{g['lat']:.7f}, {g['lon']:.7f}  고도 {g['alt']:6.1f}m  기수 "
+                + (f"{hdg:5.1f}°({src})" if hdg is not None else "  -  ")
+                + f"  std {lat_s:.1f}/{lon_s:.1f}m  속도 N{g['vn']:+.2f} E{g['ve']:+.2f}"
                 f"  받은 줄 {self.n}" + (f"  버린 줄 {self.dropped}" if self.dropped else ""))
 
 

@@ -3,13 +3,19 @@
 /**:
   ros__parameters:
     image_transport: raw
-    family: 36h11
+    # **현장(군산)에서는 25h7 로 간다** — 새 태그를 뽑을 수 없다 (2026-10-01 결정).
+    # 25h7 은 기본 apriltag_ros 에 없다 — ~/drone_ws/tag25h7_ws 의 apriltag_ros 를 쓴다.
+    #   ~/.bashrc 가 source ~/drone_ws/tag25h7_ws/install/setup.bash 를 해 둔다 (새 터미널이면 된다)
+    # 복귀 뒤 36h11 을 새로 뽑으면 family: 36h11 · size 0.192 로 되돌린다
+    family: 25h7
     # 자로 잰 값을 넣는 곳은 **여기 한 곳뿐이다.**
     # 지금 쓰는 인쇄물 실측 (9/16): 작은 한 칸 24mm · 검은 사각형 한 변 192mm.
     # 36h11 은 검은 사각형이 8칸이라 24 x 8 = 192 로 두 실측이 맞는다.
     # 태그를 새로 뽑으면 한 칸을 재서 x8 하거나 검은 사각형을 직접 재서 고친다.
+    # 9/30 25h7 옛 태그 (id 0): 한 칸 약 5cm(눈대중) · 25h7 은 검은 사각형이 7칸 → 0.05 x 7 = 0.35.
+    #   검은 사각형 한 변을 줄자로 재면 그 값으로 고친다
     # ⚠ tag.sizes(id별)를 쓰면 그쪽이 이겨서 이 값이 조용히 무시된다 — 아래 주석 참고
-    size: 0.192
+    size: 0.35
     max_hamming: 0
     detector:
       threads: 2

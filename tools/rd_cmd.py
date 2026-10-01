@@ -453,7 +453,8 @@ def cmd_follow(args):
 USV_NODE = "/rd_usv_follow"
 USV_TUNE = {
     "[": ("kp",        -0.05, 0.05,  3.0), "]": ("kp",        +0.05, 0.05,  3.0),
-    ",": ("max_speed", -0.10, 0.10,  2.5), ".": ("max_speed", +0.10, 0.10,  2.5),
+    # 상한은 기본값(4.5)보다 커야 한다 — 작으면 키 한 번에 상한으로 뚝 떨어진다
+    ",": ("max_speed", -0.10, 0.10,  5.0), ".": ("max_speed", +0.10, 0.10,  5.0),
 }
 USV_KEYS = ("space 시작/정지 · q 종료 · m 이동 켜고끄기 · g 짐벌 겨눔 켜고끄기\n"
             "  1~9 대형 (USV 기준 앞·오른쪽·고도) · [ ] kp · , . max_speed")
@@ -648,7 +649,7 @@ def cmd_sortie(args):
 NAV_NODE = "/rd_nav"
 NAV_TUNE = {
     "[": ("kp",            -0.05, 0.05,  3.0), "]": ("kp",            +0.05, 0.05,  3.0),
-    ",": ("max_speed",     -0.10, 0.10,  2.5), ".": ("max_speed",     +0.10, 0.10,  2.5),
+    ",": ("max_speed",     -0.10, 0.10,  5.0), ".": ("max_speed",     +0.10, 0.10,  5.0),
     "o": ("arrive_radius", -0.50, 0.50, 10.0), "p": ("arrive_radius", +0.50, 0.50, 10.0),
 }
 NAV_KEYS = "space 시작/중단 · q 종료\n  [ ] kp · , . max_speed · o p arrive_radius"

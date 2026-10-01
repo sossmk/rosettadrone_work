@@ -43,7 +43,7 @@ class NavNode(Node):
 
     def __init__(self):
         super().__init__("rd_nav")
-        for name, val in [("kp", 0.35), ("max_speed", 2.5), ("kp_alt", 0.35),
+        for name, val in [("kp", 0.5), ("max_speed", 4.5), ("kp_alt", 0.35),
                           ("max_vz", 1.5), ("arrive_radius", 1.0)]:
             self.declare_parameter(name, val)
         self.p = lambda name: self.get_parameter(name).value

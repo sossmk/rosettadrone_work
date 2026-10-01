@@ -10,6 +10,7 @@
         camera_info_file:=$HOME/rosettadrone_work/ros2/src/rd_bridge/config/camera.yaml   # 태그 추종
     ros2 launch rd_bridge bridge.launch.py usv:=true nav:=false   # USV GPS 추종
     ros2 launch rd_bridge bridge.launch.py usv:=true usv_gnss:=true nav:=false   # 진짜 USV GNSS 로
+    ros2 launch rd_bridge bridge.launch.py usv:=true usv_gnss:=true nav:=false usv_below:=6.0   # 그날 높이차가 다를 때 (기본 8.0)
     ros2 launch rd_bridge bridge.launch.py mission:=true          # 임무 시퀀서 (전부 띄운다)
 
     video_node       영상 → /gcs/daiv/cam/compressed (JPEG, 기본 3Hz·0.5배) · /gcs/daiv/camera_info
@@ -18,7 +19,7 @@
     apriltag_node    영상 → /gcs/daiv/detections · /tf (camera→tag0)  (tag)
     tag_follow_node  /tf → /gcs/daiv/cmd_vel                        (follow)
     usv_follow_node  /usv/* → /gcs/daiv/cmd_vel · 짐벌 틸트           (usv)
-    usv_gnss_node    USV 항법장비 raw 배열 → /usv/fix · heading · vel  (usv_gnss)
+    usv_gnss_node    USV 항법장비 raw 배열·euler → /usv/fix · heading · vel  (usv_gnss)
     mission_node     이륙→추종→복귀→착륙. /gcs/daiv/cmd_vel 은 안 낸다 (mission)
 
 띄우기만 해서는 기체가 안 움직인다 — 항법·추종은 목표나 /gcs/daiv/tag/follow · /gcs/daiv/usv/follow 를 받아야 명령을 낸다.
@@ -54,6 +55,8 @@ def generate_launch_description():
     usv = LaunchConfiguration("usv")
     usv_gnss = LaunchConfiguration("usv_gnss")
     gnss_topic = LaunchConfiguration("gnss_topic")
+    euler_topic = LaunchConfiguration("euler_topic")
+    usv_below = LaunchConfiguration("usv_below")
     mission = LaunchConfiguration("mission")
     cam_info = LaunchConfiguration("camera_info_file")
     rectify = LaunchConfiguration("rectify")
@@ -78,6 +81,11 @@ def generate_launch_description():
                               description="USV 항법장비 raw 배열 → /usv/*. usv_sim.py 와 같이 쓰지 말 것"),
         DeclareLaunchArgument("gnss_topic", default_value="/maiv/fog/raw_gnss",
                               description="USV 쪽 raw GNSS 토픽 (Float64MultiArray)"),
+        DeclareLaunchArgument("euler_topic", default_value="/maiv/fog/euler_orientation",
+                              description="USV 쪽 자세 토픽 (Float32MultiArray) — 기수를 여기서 읽는다"),
+        DeclareLaunchArgument("usv_below", default_value="8.0",
+                              description="USV 가 이륙 지면보다 낮은 m — 틸트 보정. 현장(안벽) 값을 여기 기본값 "
+                                          "한 곳에 둔다. 땅에서 이륙하면 0 (끔)"),
         DeclareLaunchArgument("mission", default_value="false",
                               description="임무 시퀀서. nav·tag·follow·usv 를 전부 같이 띄우고 "
                                           "rd_mission 이 한 번에 하나만 무장시킨다"),
@@ -138,15 +146,17 @@ def generate_launch_description():
              output="screen", condition=IfCondition(OrSubstitution(follow, mission))),
 
         # USV 추종 — /gcs/daiv/usv/follow true 를 받아야 /gcs/daiv/cmd_vel · 짐벌 명령을 낸다
+        # usv_below 는 float 로 못박는다 — "6" 처럼 주면 int 로 읽혀 파라미터 타입이 안 맞는다
         Node(package="rd_bridge", executable="usv_follow_node", name="rd_usv_follow",
-             output="screen", condition=IfCondition(OrSubstitution(usv, mission))),
+             output="screen", condition=IfCondition(OrSubstitution(usv, mission)),
+             parameters=[{"usv_below": ParameterValue(usv_below, value_type=float)}]),
 
         # USV 항법장비(FOG/INS) 의 raw 배열 → /usv/fix · /usv/heading · /usv/vel
         # 이름만 다른 게 아니라 **타입이 다르다** (Float64MultiArray → NavSatFix) — remap 으로
         # 안 되는 자리라 노드를 둔다. 토픽 이름만 다르면 gnss_topic 으로 바꾼다
         Node(package="rd_bridge", executable="usv_gnss_node", name="rd_usv_gnss",
              output="screen", condition=IfCondition(usv_gnss),
-             remappings=[("usv/raw_gnss", gnss_topic)]),
+             remappings=[("usv/raw_gnss", gnss_topic), ("usv/euler", euler_topic)]),
 
         # 임무 시퀀서 — /gcs/daiv/cmd_vel 을 내지 않는다. 위 셋을 하나씩 무장·해제할 뿐이다
         Node(package="rd_bridge", executable="mission_node", name="rd_mission",
