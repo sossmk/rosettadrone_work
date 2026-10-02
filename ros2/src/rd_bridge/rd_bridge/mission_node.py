@@ -67,7 +67,7 @@ CH_PITCH = 9                      # usv_follow_node 와 같은 짐벌 채널
 
 DEFAULTS = [
     ("takeoff_alt", 5.0), ("alt_reach", 0.8), ("takeoff_secs", 30.0),
-    ("return_alt", 8.0), ("arrive_radius", 3.0), ("return_secs", 180.0),
+    ("return_alt", 10.0), ("arrive_radius", 3.0), ("return_secs", 180.0),   # 10/1 8 → 10m
     ("land_on_timeout", True),
     ("align_alt", 3.0), ("align_radius", 0.6), ("land_alt", 1.2),
     ("land_radius", 0.35), ("land_gspeed", 0.3), ("hold_secs", 1.0),
@@ -247,7 +247,7 @@ def selftest():
     walk.append(m)
     m, _, used = next_mode(m, 10.0, {"batt": True}, dict(fresh, alt=5.0, dist=150.0), p)
     walk.append(m); assert used == "batt"
-    m = next_mode(m, 60.0, {}, dict(fresh, alt=8.0, dist=1.0), p)[0]
+    m = next_mode(m, 60.0, {}, dict(fresh, alt=p("return_alt"), dist=1.0), p)[0]
     walk.append(m)
     m = next_mode(m, 20.0, {}, dict(fresh, alt=1.2, tag_r=0.2, land_hold=1.5), p)[0]
     walk.append(m)

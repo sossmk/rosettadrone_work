@@ -125,9 +125,9 @@ def formation(p):
     return tuple(f[3 * i - 3:3 * i]) if len(f) % 3 == 0 and 1 <= i <= len(f) // 3 else None
 
 
-# 대형 — 1 좌 · 2 우 · 3 후 (USV 기준 앞·오른쪽·고도). 셋 다 옆 10m · 고도 10m (이륙 지점 기준)
-# 이륙 지점과 USV 높이가 같으면 정지 틸트 -45°
-DEFAULTS = [("formations", [0.0, -10.0, 10.0, 0.0, 10.0, 10.0, -10.0, 0.0, 10.0]), ("formation", 1),
+# 대형 — 1 좌 · 2 우 · 3 후 (USV 기준 앞·오른쪽·고도). 셋 다 옆 20m · 고도 10m (이륙 지점 기준)
+# 10/1 실기에서 10m 는 너무 가까워 20m 로. 정지 틸트는 usv_below 8 이면 -42°, 0 이면 -27°
+DEFAULTS = [("formations", [0.0, -20.0, 10.0, 0.0, 20.0, 10.0, -20.0, 0.0, 10.0]), ("formation", 1),
             ("lead_secs", 0.5),
             ("vel_window", 2.0), ("kp", 0.35), ("max_speed", 4.5), ("kp_alt", 0.35),
             ("max_vz", 1.0), ("kp_yaw", 0.8), ("max_yaw_rate", 30.0),
@@ -179,9 +179,9 @@ def selftest():
     assert formation(dict(formations=[1.0, 2.0, 3.0], formation=2).get) is None    # 번호가 없다
     assert formation(dict(formations=[1.0, 2.0, 3.0], formation=0).get) is None    # 0 번은 없다
     assert formation(dict(formations=[1.0, 2.0], formation=1).get) is None         # 3 의 배수가 아니다
-    # 기본 대형 — 1 좌 · 2 우 · 3 후, 셋 다 옆 10m · 고도 10m
+    # 기본 대형 — 1 좌 · 2 우 · 3 후, 셋 다 옆 20m · 고도 10m
     assert [formation(dict(DEFAULTS, formation=i).get) for i in (1, 2, 3)] == [
-        (0.0, -10.0, 10.0), (0.0, 10.0, 10.0), (-10.0, 0.0, 10.0)]
+        (0.0, -20.0, 10.0), (0.0, 20.0, 10.0), (-20.0, 0.0, 10.0)]
     assert formation(dict(DEFAULTS, formation=4).get) is None
     # 그 자리에 서면 USV 까지 수평 10m · 고도 5m → 틸트 -26.6°
     ten = mav.offset_to_gps(37.0, 127.0, 0.0, 10.0, 0.0)
