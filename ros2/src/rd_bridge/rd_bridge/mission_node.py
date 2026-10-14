@@ -72,6 +72,8 @@ DEFAULTS = [
     ("align_alt", 3.0), ("align_radius", 0.6), ("land_alt", 1.2),
     ("land_radius", 0.35), ("land_gspeed", 0.3), ("hold_secs", 1.0),
     ("tag_secs", 25.0), ("land_without_tag", True), ("land_secs", 45.0),
+    # 착륙 명령 뒤 이만큼 지나도 고도가 0.3m 안 줄면 다시 낸다 (최대 3번) — 10/1 첫 명령이 씹혔다
+    ("land_retry_secs", 3.0),
     ("usv_lost_secs", 15.0), ("fix_secs", 2.0),
     ("switch_secs", 0.5), ("gimbal_secs", 2.5), ("gimbal_tilt", -90.0),
     ("volt_land", 14.0), ("volt_per_sec", 0.003), ("cruise", 2.0),
@@ -379,7 +381,8 @@ class MissionNode(Node):
         self.owner, self.pending, self.t_switch, self.arm_left = None, None, 0.0, 0
         self.gimbal_sent, self.t_armed, self.t_rearm = False, 0.0, 0.0
         self.goal_tries = 0
-        self.land_sent, self.land_resent, self.takeoff_resent = False, False, False
+        self.land_sent, self.land_tries, self.takeoff_resent = False, 0, False
+        self.t_land_sent, self.alt_land_sent = 0.0, 0.0
         self.aligned = False
         self.ev = {k: Edge() for k in ("start", "ret", "batt", "abort", "goto")}
         self.goto = None
@@ -515,7 +518,8 @@ class MissionNode(Node):
             if k != "abort":
                 e.latched = False            # 이전 모드에서 누른 것은 큐잉하지 않는다
         self.aligned = False
-        self.land_sent = self.land_resent = self.takeoff_resent = False
+        self.land_sent = self.takeoff_resent = False
+        self.land_tries = 0
         self.t_align = self.t_land = self.t_touch = 0.0
         self.set_owner(CTRL.get(mode))
         if prev == IDLE and mode != IDLE and self.csv is None:
@@ -693,15 +697,24 @@ class MissionNode(Node):
 
         elif self.mode == LAND:
             if not self.land_sent and t_in >= self.p("switch_secs"):
-                self.land_sent = True
-                self.command(mav.CMD_NAV_LAND, 0, 0, 0, 0, 0, 0, 0)
+                self.send_land(now, tel)
                 self.get_logger().info(f"착륙 명령 — 고도 {tel['alt']:.1f}m · "
                                        f"대지속도 {tel['gspeed']:.2f}m/s")
-            elif (self.land_sent and not self.land_resent
-                  and t_in > self.p("land_secs") * 0.5 and tel["alt"] > 1.0):
-                self.land_resent = True
-                self.command(mav.CMD_NAV_LAND, 0, 0, 0, 0, 0, 0, 0)
-                self.get_logger().warning("안 내려온다 — 착륙 명령 한 번 더")
+            elif (self.land_sent and self.land_tries < 3 and tel["alt"] > 0.5
+                  and now - self.t_land_sent > self.p("land_retry_secs")
+                  and tel["alt"] > self.alt_land_sent - 0.3):
+                # 10/1: 첫 명령이 link_node BRAKE 의 0 에 덮여 22초를 호버했다. link_node 를
+                # 고쳤지만, 앱이 명령을 흘리는 다른 경우도 있을 수 있어 짧게 다시 낸다
+                self.land_tries += 1
+                self.get_logger().warning(
+                    f"{self.p('land_retry_secs'):.0f}초째 안 내려온다 "
+                    f"({self.alt_land_sent:.1f} → {tel['alt']:.1f}m) — 착륙 명령 다시 "
+                    f"{self.land_tries}/3")
+                self.send_land(now, tel)
+
+    def send_land(self, now, tel):
+        self.command(mav.CMD_NAV_LAND, 0, 0, 0, 0, 0, 0, 0)
+        self.land_sent, self.t_land_sent, self.alt_land_sent = True, now, tel["alt"]
 
     def log(self, now, tel, why):
         if now - self.t_log < 1.0:

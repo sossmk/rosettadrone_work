@@ -21,6 +21,10 @@
 /gcs/daiv/cmd_vel 이 오기 전에는 #84 를 한 발도 안 쏜다 — 앱은 #84 를 받는 순간 Virtual Stick 을
 켜고, 그동안 RC 스틱이 안 먹는다.
     IDLE → (Twist 옴) → ACTIVE 20Hz → (0.3초 끊김) → BRAKE 0 을 1초 → IDLE 송신 정지
+    NAV_LAND(21) · NAV_TAKEOFF(22) 를 받으면 **그 자리에서 IDLE** — BRAKE 의 0 을 더 쏘지 않는다.
+      2026-10-01: mission 의 착륙 명령이 BRAKE 한가운데(진입 0.5초)에 떨어지고, 뒤따른 0 이
+      착륙을 덮어서 7회 중 6회가 22초 뒤 재전송에서야 내려왔다. 착륙·이륙은 앱이 스스로
+      기체를 세우는 명령이라 BRAKE 가 할 일을 대신한다.
 
 ⚠ IDLE 로 돌아가도 Virtual Stick 은 안 풀린다. RC 로 되돌리기: 이 노드 종료 → 스틱 놓고
   5초 → 앱 Safety 버튼, 안 되면 S 모드.
@@ -131,13 +135,22 @@ class CmdVelNode(Node):
 
     # ------------------------------------------------------------ 명령 수신
     def on_command(self, msg):
-        """[명령번호, p1..p7] → COMMAND_LONG (짐벌·이륙)."""
+        """[명령번호, p1..p7] → COMMAND_LONG (짐벌·이륙·착륙)."""
         d = list(msg.data)
         if not d:
             return
-        self.get_logger().info(f"COMMAND_LONG {int(d[0])} {d[1:8]}")
+        cmd = int(d[0])
+        if cmd in (mav.CMD_NAV_LAND, mav.CMD_NAV_TAKEOFF) and self.state != IDLE:
+            # 먼저 입을 닫는다 — 이 뒤에 나가는 #84 0 이 착륙·이륙을 덮는다 (맨 위 주석)
+            if self.state == ACTIVE:
+                self.get_logger().warning(
+                    f"⚠ ACTIVE 중에 {cmd} — 누가 아직 /gcs/daiv/cmd_vel 을 쏘고 있다. "
+                    "다음 Twist 가 오면 다시 ACTIVE 가 되어 이 명령을 덮는다")
+            self.get_logger().info(f"{self.state} → IDLE ({cmd} — 0 을 더 쏘지 않는다)")
+            self.state = IDLE
+        self.get_logger().info(f"COMMAND_LONG {cmd} {d[1:8]}")
         if self.link is not None:
-            self.link.command_long(int(d[0]), *d[1:8])
+            self.link.command_long(cmd, *d[1:8])
 
     # -------------------------------------------------------------- 20Hz 송신
     def tick(self):
