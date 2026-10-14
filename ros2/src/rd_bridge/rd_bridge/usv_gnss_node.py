@@ -28,14 +28,17 @@ rd_cmd 는 한 줄도 안 고친다 — /usv/fix · /usv/heading 규약이 그�
 
 **기수는 euler_orientation 에서 읽는다** (2026-09-30 부터). 9/30 실기 20분 내내 raw_gnss 의
   두 안테나 기수가 0 이었고, 같은 때 euler heading_rad 는 살아 있었다.
-  **기수 = heading_rad + 90°** (euler_heading_offset_deg 기본 90, 2026-10-01 실기로 정정).
+  **기수 = heading_rad − 45°** (euler_heading_offset_deg 기본 −45, 새만금 시험(~10/14) 현장 정정).
+  ⚠ 이 값은 USV GNSS/FOG 가 시험마다 엉뚱한 기수를 주어 **현장에서 맞춘 값**이다 (0 → +90 → −45).
+  장비·설치가 바뀌면 다시 맞춘다 — 대형 3(뒤)이 USV 바로 뒤에 서는지로 판정한다.
+  아래 +90 경위는 10/1 기록이다.
   9/30 에는 "선체 자세라 안테나 배치와 무관" 이라고 보고 보정 0 으로 두었는데 틀렸다 — 10/1
   대형 3(뒤)이 USV **오른쪽**에 섰고, USV 가 0.5m/s 로 갈 때 이동방향 − 기수 = +84~+92° 였다.
   9/29 raw_gnss 의 +90 (안테나 둘이 선수에 수직) 과 같은 값이다 — euler 기수도 그 두 안테나에서 나온다.
   ⚠ USV 가 제자리에서 돌 때의 이동방향은 판정에 못 쓴다 (안테나가 회전 중심에서 떨어져 옆으로 휩쓸린다).
   euler 가 euler_timeout 초 넘게 안 오면 /usv/heading 을 **내지 않는다** — 옛 값으로 대형을
   돌리느니 usv_follow_node 의 giveup_secs → 정지가 받게 한다. 좌표(/usv/fix)는 그대로 낸다.
-      ros2 param set /rd_usv_gnss euler_heading_offset_deg 90.0
+      ros2 param set /rd_usv_gnss euler_heading_offset_deg -45.0
       ros2 param set /rd_usv_gnss heading_sign -1.0        # 회전 방향이 반대일 때만
 
 발행은 **RELIABLE(10)** 이다. usv_follow_node 는 BEST_EFFORT 로 받으니 아무거나 붙지만
@@ -85,7 +88,7 @@ def fix_problem(status, lat, lon):
 
 
 DEFAULTS = [("heading_sign", 1.0), ("euler_hdg_index", 2),
-            ("euler_heading_offset_deg", 90.0), ("euler_timeout", 1.0),   # 맨 위 주석 — 10/1 0 → 90
+            ("euler_heading_offset_deg", -45.0), ("euler_timeout", 1.0),   # 맨 위 주석 — 0 → 90(10/1) → −45(새만금)
             ("heading_hz", 20.0)]
 
 # 2026-09-30 실측 euler_orientation 한 줄 (Float32). 4.5454 rad = 260.43°
@@ -96,10 +99,10 @@ HEMI_SAMPLE = (0, 35.890544696666666, 126.51697957683334)
 
 
 def selftest():
-    # euler — 라벨에서 heading_rad 자리를 찾고, 기본 보정은 +90 (안테나 둘이 선수에 수직 — 10/1)
+    # euler — 라벨에서 heading_rad 자리를 찾고, 기본 보정은 −45 (새만금 현장 정정)
     d = dict(DEFAULTS)
-    assert d["euler_heading_offset_deg"] == 90.0 and d["heading_sign"] == 1.0
-    assert abs(euler_heading(EULER_SAMPLE, 2, 1.0, d["euler_heading_offset_deg"]) - 350.430) < 1e-2
+    assert d["euler_heading_offset_deg"] == -45.0 and d["heading_sign"] == 1.0
+    assert abs(euler_heading(EULER_SAMPLE, 2, 1.0, d["euler_heading_offset_deg"]) - 215.430) < 1e-2
     ei = euler_index(EULER_LABEL, 0)
     assert ei == 2 and euler_index("", 2) == 2 and euler_index("yaw,heading_rad", 9) == 1
     assert euler_index("roll_rad, pitch_rad, heading_rad", 0) == 2            # 공백이 섞여도

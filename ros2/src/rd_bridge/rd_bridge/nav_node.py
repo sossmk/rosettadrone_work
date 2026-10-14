@@ -66,7 +66,7 @@ class NavNode(Node):
 
     def __init__(self):
         super().__init__("rd_nav")
-        for name, val in [("kp", 0.5), ("max_speed", 4.5), ("kp_alt", 0.35),
+        for name, val in [("kp", 0.5), ("max_speed", 6.5), ("kp_alt", 0.75),
                           ("max_vz", 1.5), ("arrive_radius", 1.0),
                           # 기수·카메라 — 맨 위 주석. kp_yaw · max_yaw_rate 는 usv_follow_node 와 같은 값
                           ("face_goal", True), ("kp_yaw", 0.8), ("max_yaw_rate", 30.0),
