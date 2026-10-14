@@ -4,23 +4,27 @@
     ros2 run rd_bridge link_node --ros-args -p dry_run:=true     # 전송 없이 변환만
 
 다운링크 (앱 → 토픽, 새 값이 올 때만 발행 — 주기는 토픽.md)
-    /rd/fix       NavSatFix         위경도 · altitude 에 **상대고도**
-    /rd/rel_alt   Float32           상대고도 m
-    /rd/attitude  Vector3Stamped    roll · pitch · yaw **deg**
-    /rd/heading   Float64           기수 deg (0=북, 시계)
-    /rd/velocity  TwistStamped      대지속도 **ENU** m/s (z>0 상승)
-    /rd/gspeed    Float32           대지속도 크기 m/s
-    /rd/battery   BatteryState      전압 · 전류 (patches/03 필요)
-    /rd/ack       Int32MultiArray   [명령번호, 결과]
+    /gcs/daiv/rd/fix       NavSatFix         위경도 · altitude 에 **상대고도**
+    /gcs/daiv/rd/rel_alt   Float32           상대고도 m
+    /gcs/daiv/rd/attitude  Vector3Stamped    roll · pitch · yaw **deg**
+    /gcs/daiv/rd/heading   Float64           기수 deg (0=북, 시계)
+    /gcs/daiv/rd/velocity  TwistStamped      대지속도 **ENU** m/s (z>0 상승)
+    /gcs/daiv/rd/gspeed    Float32           대지속도 크기 m/s
+    /gcs/daiv/rd/battery   BatteryState      전압 · 전류 (patches/03 필요)
+    /gcs/daiv/rd/ack       Int32MultiArray   [명령번호, 결과]
 
 업링크 (토픽 → 앱)
-    /cmd_vel      Twist             → #84, 20Hz. **앱 규약**: x>0 앞 · y>0 오른쪽 · z>0 위 ·
+    /gcs/daiv/cmd_vel      Twist             → #84, 20Hz. **앱 규약**: x>0 앞 · y>0 오른쪽 · z>0 위 ·
                                       angular.z>0 시계(rad/s). REP-103 이 아니다
-    /rd/command   Float64MultiArray [명령번호, p1..p7] → COMMAND_LONG
+    /gcs/daiv/rd/command   Float64MultiArray [명령번호, p1..p7] → COMMAND_LONG
 
-/cmd_vel 이 오기 전에는 #84 를 한 발도 안 쏜다 — 앱은 #84 를 받는 순간 Virtual Stick 을
+/gcs/daiv/cmd_vel 이 오기 전에는 #84 를 한 발도 안 쏜다 — 앱은 #84 를 받는 순간 Virtual Stick 을
 켜고, 그동안 RC 스틱이 안 먹는다.
     IDLE → (Twist 옴) → ACTIVE 20Hz → (0.3초 끊김) → BRAKE 0 을 1초 → IDLE 송신 정지
+    NAV_LAND(21) · NAV_TAKEOFF(22) 를 받으면 **그 자리에서 IDLE** — BRAKE 의 0 을 더 쏘지 않는다.
+      2026-10-01: mission 의 착륙 명령이 BRAKE 한가운데(진입 0.5초)에 떨어지고, 뒤따른 0 이
+      착륙을 덮어서 7회 중 6회가 22초 뒤 재전송에서야 내려왔다. 착륙·이륙은 앱이 스스로
+      기체를 세우는 명령이라 BRAKE 가 할 일을 대신한다.
 
 ⚠ IDLE 로 돌아가도 Virtual Stick 은 안 풀린다. RC 로 되돌리기: 이 노드 종료 → 스틱 놓고
   5초 → 앱 Safety 버튼, 안 되면 S 모드.
@@ -51,7 +55,7 @@ class CmdVelNode(Node):
     def __init__(self):
         super().__init__("rd_link")
 
-        # max_* 는 안전 캡(yaw 는 deg/s). scale_* 는 전부 1 — /cmd_vel 이 이미 앱 규약이다
+        # max_* 는 안전 캡(yaw 는 deg/s). scale_* 는 전부 1 — /gcs/daiv/cmd_vel 이 이미 앱 규약이다
         for name, val in [("port", 14550), ("rate", 20.0), ("deadman", 0.3), ("brake_secs", 1.0),
                           ("max_vx", 2.5), ("max_vy", 2.5), ("max_vz", 1.5), ("max_yaw_rate", 75.0),
                           ("scale_vx", 1.0), ("scale_vy", 1.0), ("scale_vz", 1.0), ("scale_yaw", 1.0),
@@ -92,23 +96,23 @@ class CmdVelNode(Node):
                     "안 붙으면 ./tools/link_check.sh 로 T0 부터")
 
         # 다운링크 토픽
-        self.pub_fix = self.create_publisher(NavSatFix, "rd/fix", 10)
-        self.pub_alt = self.create_publisher(Float32, "rd/rel_alt", 10)
-        self.pub_att = self.create_publisher(Vector3Stamped, "rd/attitude", 10)
-        self.pub_hdg = self.create_publisher(Float64, "rd/heading", 10)
-        self.pub_vel = self.create_publisher(TwistStamped, "rd/velocity", 10)
-        self.pub_gsp = self.create_publisher(Float32, "rd/gspeed", 10)
-        self.pub_bat = self.create_publisher(BatteryState, "rd/battery", 10)
+        self.pub_fix = self.create_publisher(NavSatFix, "gcs/daiv/rd/fix", 10)
+        self.pub_alt = self.create_publisher(Float32, "gcs/daiv/rd/rel_alt", 10)
+        self.pub_att = self.create_publisher(Vector3Stamped, "gcs/daiv/rd/attitude", 10)
+        self.pub_hdg = self.create_publisher(Float64, "gcs/daiv/rd/heading", 10)
+        self.pub_vel = self.create_publisher(TwistStamped, "gcs/daiv/rd/velocity", 10)
+        self.pub_gsp = self.create_publisher(Float32, "gcs/daiv/rd/gspeed", 10)
+        self.pub_bat = self.create_publisher(BatteryState, "gcs/daiv/rd/battery", 10)
         # 종류별로 마지막에 발행한 값의 수신 시각 — 새 값만 낸다
         self.seen = {"pos": 0.0, "att": 0.0, "hud": 0.0, "sys": 0.0}
 
-        self.create_subscription(Twist, "cmd_vel", self.on_cmd, 10)
-        self.create_subscription(Float64MultiArray, "rd/command", self.on_command, 10)
-        self.pub_ack = self.create_publisher(Int32MultiArray, "rd/ack", 10)
+        self.create_subscription(Twist, "gcs/daiv/cmd_vel", self.on_cmd, 10)
+        self.create_subscription(Float64MultiArray, "gcs/daiv/rd/command", self.on_command, 10)
+        self.pub_ack = self.create_publisher(Int32MultiArray, "gcs/daiv/rd/ack", 10)
         self.create_timer(1.0 / self.rate, self.tick)
         self.create_timer(2.0, self.report)
         self.get_logger().info(
-            f"/cmd_vel 대기 중 — 오기 전에는 #84 를 쏘지 않는다. "
+            f"/gcs/daiv/cmd_vel 대기 중 — 오기 전에는 #84 를 쏘지 않는다. "
             f"캡 vx±{self.cap[0]} vy±{self.cap[1]} vz±{self.cap[2]} yaw±{self.cap[3]}°/s")
 
     # ------------------------------------------------------------ Twist 수신
@@ -119,12 +123,7 @@ class CmdVelNode(Node):
         vz = msg.linear.z * sz
         yaw = math.degrees(msg.angular.z) * syaw
 
-        capped = [
-            max(-self.cap[0], min(self.cap[0], vx)),
-            max(-self.cap[1], min(self.cap[1], vy)),
-            max(-self.cap[2], min(self.cap[2], vz)),
-            max(-self.cap[3], min(self.cap[3], yaw)),
-        ]
+        capped = [max(-c, min(c, v)) for c, v in zip(self.cap, (vx, vy, vz, yaw))]
         if any(abs(a - b) > 1e-6 for a, b in zip(capped, (vx, vy, vz, yaw))):
             self.clamped += 1
 
@@ -136,13 +135,22 @@ class CmdVelNode(Node):
 
     # ------------------------------------------------------------ 명령 수신
     def on_command(self, msg):
-        """[명령번호, p1..p7] → COMMAND_LONG (짐벌·이륙)."""
+        """[명령번호, p1..p7] → COMMAND_LONG (짐벌·이륙·착륙)."""
         d = list(msg.data)
         if not d:
             return
-        self.get_logger().info(f"COMMAND_LONG {int(d[0])} {d[1:8]}")
+        cmd = int(d[0])
+        if cmd in (mav.CMD_NAV_LAND, mav.CMD_NAV_TAKEOFF) and self.state != IDLE:
+            # 먼저 입을 닫는다 — 이 뒤에 나가는 #84 0 이 착륙·이륙을 덮는다 (맨 위 주석)
+            if self.state == ACTIVE:
+                self.get_logger().warning(
+                    f"⚠ ACTIVE 중에 {cmd} — 누가 아직 /gcs/daiv/cmd_vel 을 쏘고 있다. "
+                    "다음 Twist 가 오면 다시 ACTIVE 가 되어 이 명령을 덮는다")
+            self.get_logger().info(f"{self.state} → IDLE ({cmd} — 0 을 더 쏘지 않는다)")
+            self.state = IDLE
+        self.get_logger().info(f"COMMAND_LONG {cmd} {d[1:8]}")
         if self.link is not None:
-            self.link.command_long(int(d[0]), *d[1:8])
+            self.link.command_long(cmd, *d[1:8])
 
     # -------------------------------------------------------------- 20Hz 송신
     def tick(self):
@@ -151,7 +159,7 @@ class CmdVelNode(Node):
         if self.state == ACTIVE and now - self.t_cmd > self.deadman:
             self.state, self.t_brake = BRAKE, now
             self.get_logger().info(
-                f"ACTIVE → BRAKE (/cmd_vel 이 {self.deadman}초 이상 끊겼다) — "
+                f"ACTIVE → BRAKE (/gcs/daiv/cmd_vel 이 {self.deadman}초 이상 끊겼다) — "
                 f"0 을 {self.brake_secs}초 쏜 뒤 입을 닫는다")
         if self.state == BRAKE and now - self.t_brake > self.brake_secs:
             self.state = IDLE

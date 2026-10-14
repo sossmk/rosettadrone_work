@@ -3,35 +3,45 @@
 
     ros2 launch rd_bridge bridge.launch.py usv:=true nav:=false
     python3 tools/rd_cmd.py usv          # space 시작/정지 · 파라미터 튜닝
-    # 또는 직접: /usv/follow (Bool) true·false · /usv/cancel (Empty)
+    # 또는 직접: /gcs/daiv/usv/follow (Bool) true·false · /gcs/daiv/usv/cancel (Empty)
 
-⚠ /usv/follow true 를 받기 전에는 /cmd_vel 도 짐벌도 안 낸다.
-⚠ nav_node · tag_follow_node 와 동시에 켜지 않는다 — 셋 다 /cmd_vel 에 쓴다.
+⚠ /gcs/daiv/usv/follow true 를 받기 전에는 /gcs/daiv/cmd_vel 도 짐벌도 안 낸다.
+⚠ nav_node · tag_follow_node 와 동시에 켜지 않는다 — 셋 다 /gcs/daiv/cmd_vel 에 쓴다.
 
 입력 — 센서 4종은 센서 QoS(BEST_EFFORT)로 받는다. RELIABLE 퍼블리셔와도 붙는다.
 믿을 수 없는 좌표(0,0 · NaN · NO_FIX · 범위 밖)는 버린다 — 버리면 아래 끊김 처리가 맡는다.
 (USV 팀 토픽 이름이 다르면 remap 한다 — 예: -r usv/fix:=/boat/gps)
-    /usv/fix      NavSatFix  위경도 (고도는 안 쓴다 — USV = 수면)
+    /usv/fix      NavSatFix  위경도 · 타원체고도 (고도는 CSV 에 적기만 한다)
     /usv/heading  Float64    기수 ° (0=북, 시계)
     /usv/depth    Float64    수심 m — 기록만
-    /rd/fix · /rd/heading    우리 위치·상대고도·기수 (link_node)
+    /gcs/daiv/rd/fix · /gcs/daiv/rd/heading    우리 위치·상대고도·기수 (link_node)
 
 한 tick 에 하는 일 — plan() 한 함수
     1. USV 위치 추정: 최근 vel_window 초의 좌표로 속도를 내고, (좌표 나이 + lead_secs) 만큼 등속 외삽
     2. 목표점 = 추정 위치에서 **대형**만큼 — USV 기수 기준 (앞 m, 오른쪽 m, 고도 m). 음수 = 뒤·왼쪽
     3. 수평 = kp × 목표까지 거리 (nav_node 와 같은 P) + USV 속도 feedforward, max_speed 로 자른다
     4. 기수 = USV 쪽으로 (좌우는 몸체로 맞춘다 — 짐벌 yaw 는 겨누는 데 안 쓴다)
-    5. 틸트 = -atan2(우리 상대고도, USV 까지 수평거리) → DO_SET_SERVO ch9 (2° 넘게 바뀔 때, 최대 2Hz)
+       kp_yaw × 오차 + 시선이 도는 속도 앞먹임(kp_ff) — 움직이는 동안 뒤처지지 않게
+    5. 틸트 = -atan2(우리 상대고도 + USV 가 이륙 지점보다 낮은 만큼, USV 까지 수평거리)
+       → DO_SET_SERVO ch9 (2° 넘게 바뀔 때, 최대 2Hz)
 
 대형은 formations = [앞, 오른쪽, 고도] × N 을 한 줄로, formation = 번호(1부터).
-USV 가 돌면 대형도 같이 돈다 (지도 방위가 아니라 USV 헤딩 기준). 날면서 rd_cmd usv 의 1~9 로 바꾼다.
+USV 가 돌면 대형도 같이 돈다 (지도 방위가 아니라 USV 헤딩 기준). 날면서 rd_cmd usv 의 1~9,
+rd_cmd sortie 의 a s d … 로 바꾼다 (둘 다 formation 파라미터를 쓴다).
 
-상대고도는 이륙 지점 기준이다 — 수면 높이에서 이륙해야 "수면 위 높이" 가 된다.
+상대고도는 이륙 지점 기준이다. 안벽에서 이륙하면 USV 는 그만큼 아래에 있어서 틸트가 얕아진다
+(9/29·9/30: 안벽이 수면보다 약 6m 높았다 → USV 가 화면 아래로 치우쳤다). 그래서 틸트만 보정한다.
+    usv_below  USV(조준점)가 이륙 지면보다 낮은 m — **사람이 재서 넣는 고정값**. 0 이면 보정 끔
+               현장 값은 **런치 인자 기본값 한 곳**(bridge.launch.py, 지금 8.0)에서 바꾼다.
+               그날만 다르면 usv_below:=6.0 처럼 준다. 아래 DEFAULTS 의 0 은 ros2 run 으로 띄울 때만 쓰인다
+GNSS 고도로 재지 않는 까닭 (2026-09-30): USV GNSS 고도가 수면 위에서 몇 분 사이 9~43m 를 오갔다.
+  RTK 가 아니라 수렴이 안 된다 — 거기서 낸 보정은 틸트를 오히려 흔든다. 조석으로 수면이 바뀌면 다시 잰다.
+⚠ 보정은 **틸트만**이다. 대형의 고도(formations 의 셋째 값)는 여전히 이륙 지점 기준이다.
 
 출력 스위치 3개 — **계산은 늘 똑같이 돌고 내보내는 것만 막는다.** 능력을 하나씩 떼어
 평가하려는 것이라 로직이 갈라지면 안 된다. CSV 에는 막았을 때도 계산값이 그대로 남고,
 move·aim 열로 그때 무엇을 냈는지 구분한다 (rd_cmd usv 의 m·g 키로 날면서 바꾼다).
-    publish  false → /cmd_vel 을 아예 안 낸다 (지상 dry-run)
+    publish  false → /gcs/daiv/cmd_vel 을 아예 안 낸다 (지상 dry-run)
     move     false → 수평·수직만 0. **기수는 계속 돈다** — 제자리 회전 + 틸트만 보기
     aim      false → 짐벌 명령을 안 낸다 — 몸체 추종만 보기
 
@@ -58,13 +68,14 @@ def clamp(v, lim):
     return max(-lim, min(lim, v))
 
 
-def plan(me, hdg, usv, usv_hdg, usv_vel, lead, form, p):
+def plan(me, hdg, usv, usv_hdg, usv_vel, lead, form, p, usv_below=0.0):
     """한 tick 의 계산. ROS 없이 돈다.
 
     me = (lat, lon, 상대고도) · usv = (lat, lon) · usv_vel = (북, 동) m/s · lead = 외삽 초
     form = 대형 (앞, 오른쪽, 고도) — USV 기수 기준.
+    usv_below = USV 가 이륙 지점보다 낮은 m (usv_below 파라미터). 틸트에만 쓴다.
     돌려주는 것: 추정 USV 좌표, 목표 좌표, 목표까지 m, USV 까지 수평 m, 틸트 °,
-                 /cmd_vel (x=앞 · y=오른쪽 · z=위 m/s, wz=시계 rad/s).
+                 /gcs/daiv/cmd_vel (x=앞 · y=오른쪽 · z=위 m/s, wz=시계 rad/s).
     """
     lat, lon, alt = me
     vn, ve = usv_vel
@@ -83,11 +94,18 @@ def plan(me, hdg, usv, usv_hdg, usv_vel, lead, form, p):
         vx, vy = vx * p("max_speed") / norm, vy * p("max_speed") / norm
     vz = clamp(p("kp_alt") * (form[2] - alt), p("max_vz"))
 
-    yaw_err = mav.relative_bearing(mav.bearing_between(lat, lon, est[0], est[1]), hdg)
-    wz = math.radians(clamp(p("kp_yaw") * yaw_err, p("max_yaw_rate")))
-
+    b = mav.bearing_between(lat, lon, est[0], est[1])
     horiz = mav.meters_between(lat, lon, est[0], est[1])
-    tilt = max(-90.0, min(0.0, -math.degrees(math.atan2(max(alt, 0.0), horiz))))
+    yaw_err = mav.relative_bearing(b, hdg)
+    # 앞먹임 — 시선(우리→USV)이 도는 속도 °/s = 상대속도 중 시선에 수직인 성분 ÷ 거리.
+    # P 만으로는 도는 시선을 늘 ω/kp_yaw 만큼 뒤진다. 머리 위(거리 0)는 1m 로 막는다
+    dn = vn - (vx * math.cos(h) - vy * math.sin(h))    # USV 속도 − 우리 속도, 북
+    de = ve - (vx * math.sin(h) + vy * math.cos(h))    #                      동
+    b = math.radians(b)
+    los = math.degrees((math.cos(b) * de - math.sin(b) * dn) / max(horiz, 1.0))
+    wz = math.radians(clamp(p("kp_ff") * los + p("kp_yaw") * yaw_err, p("max_yaw_rate")))
+
+    tilt = max(-90.0, min(0.0, -math.degrees(math.atan2(max(alt + usv_below, 0.0), horiz))))
     return est, goal, dist, horiz, tilt, (vx, vy, vz, wz)
 
 
@@ -107,12 +125,17 @@ def formation(p):
     return tuple(f[3 * i - 3:3 * i]) if len(f) % 3 == 0 and 1 <= i <= len(f) // 3 else None
 
 
-# 대형 — 1 좌 · 2 우 · 3 후 (USV 기준 앞·오른쪽·고도). 셋 다 옆 10m · 고도 5m → 정지 틸트 -26.6°
-DEFAULTS = [("formations", [0.0, -10.0, 5.0, 0.0, 10.0, 5.0, -10.0, 0.0, 5.0]), ("formation", 1),
+# 대형 — 1 좌 · 2 우 · 3 후 (USV 기준 앞·오른쪽·고도). 셋 다 옆 20m · 고도 10m (이륙 지점 기준)
+# 10/1 실기에서 10m 는 너무 가까워 20m 로. 정지 틸트는 usv_below 8 이면 -42°, 0 이면 -27°
+DEFAULTS = [("formations", [0.0, -20.0, 10.0, 0.0, 20.0, 10.0, -20.0, 0.0, 10.0]), ("formation", 1),
             ("lead_secs", 0.5),
-            ("vel_window", 2.0), ("kp", 0.35), ("max_speed", 2.5), ("kp_alt", 0.35),
+            ("vel_window", 2.0), ("kp", 0.35), ("max_speed", 4.5), ("kp_alt", 0.35),
             ("max_vz", 1.0), ("kp_yaw", 0.8), ("max_yaw_rate", 30.0),
+            ("kp_ff", 1.0),          # 기수 앞먹임 배율 — 0 이면 예전과 같다 (실기 A/B 용)
             ("lost_secs", 2.0), ("giveup_secs", 10.0),
+            # 틸트 보정 — USV 가 이륙 지면보다 낮은 m, 고정값. 0 이면 보정 없이 예전과 같다 (맨 위 주석)
+            # 런치로 띄우면 런치 인자(기본 8.0)가 늘 이 값을 덮는다
+            ("usv_below", 0.0),
             # 출력 스위치 — 계산은 늘 같고 내보내는 것만 막는다 (실험 항목을 따로 보려고)
             ("publish", True), ("move", True), ("aim", True),
             ("yaw_zero", True)]      # 시작 때 짐벌 yaw 를 0 으로 (aim 이 켜져 있을 때만)
@@ -129,8 +152,8 @@ def selftest():
     # USV 가 북으로 1 m/s — feedforward 가 앞으로 더해진다
     *_, (vx2, _, _, _) = plan(me, 0.0, north20, 0.0, (1.0, 0.0), 0.0, back, p)
     assert abs(vx2 - 4.5) < 0.02, vx2
-    *_, (vx5, vy5, _, _) = plan(me, 0.0, north20, 0.0, (1.0, 0.0), 0.0, back, dict(DEFAULTS).get)
-    assert abs(math.hypot(vx5, vy5) - 2.5) < 0.01                               # max_speed
+    *_, (vx5, vy5, _, _) = plan(me, 0.0, north20, 0.0, (1.0, 0.0), 0.0, back, dict(DEFAULTS, max_speed=2.5).get)
+    assert abs(math.hypot(vx5, vy5) - 2.5) < 0.01                               # max_speed 로 자른다
     # 우리가 동쪽을 보고 있으면 USV(북)는 왼쪽 — vy<0, 왼쪽으로 돈다(wz<0)
     *_, (vx3, vy3, _, wz3) = plan(me, 90.0, north20, 0.0, (0, 0), 0.0, back, p)
     assert abs(vx3) < 0.01 and vy3 < -3.0 and wz3 < 0
@@ -156,14 +179,35 @@ def selftest():
     assert formation(dict(formations=[1.0, 2.0, 3.0], formation=2).get) is None    # 번호가 없다
     assert formation(dict(formations=[1.0, 2.0, 3.0], formation=0).get) is None    # 0 번은 없다
     assert formation(dict(formations=[1.0, 2.0], formation=1).get) is None         # 3 의 배수가 아니다
-    # 기본 대형 — 1 좌 · 2 우 · 3 후, 셋 다 옆 10m · 고도 5m
+    # 기본 대형 — 1 좌 · 2 우 · 3 후, 셋 다 옆 20m · 고도 10m
     assert [formation(dict(DEFAULTS, formation=i).get) for i in (1, 2, 3)] == [
-        (0.0, -10.0, 5.0), (0.0, 10.0, 5.0), (-10.0, 0.0, 5.0)]
+        (0.0, -20.0, 10.0), (0.0, 20.0, 10.0), (-20.0, 0.0, 10.0)]
     assert formation(dict(DEFAULTS, formation=4).get) is None
     # 그 자리에 서면 USV 까지 수평 10m · 고도 5m → 틸트 -26.6°
     ten = mav.offset_to_gps(37.0, 127.0, 0.0, 10.0, 0.0)
     assert abs(plan((37.0, 127.0, 5.0), 0.0, ten, 0.0, (0, 0), 0.0,
                     formation(dict(DEFAULTS).get), p)[4] + 26.57) < 0.1
+
+    # 앞먹임 — 좌 10m → 후 10m 전환을 20Hz 로 흘려 본다 (기체가 명령을 그대로 따른다고 치고).
+    # 앞먹임이 없으면 기수가 21° 까지 뒤진다. 부호가 틀리면 오히려 커진다
+    def worst_lag(kp_ff):
+        q = dict(DEFAULTS, kp_ff=kp_ff).get
+        usv = (37.0, 127.0)
+        m, hdg, worst = [*mav.offset_to_gps(*usv, 0.0, 0.0, -10.0), 5.0], 90.0, 0.0
+        for _ in range(200):
+            *_, (vx, vy, _, wz) = plan(tuple(m), hdg, usv, 0.0, (0, 0), 0.0, (-10.0, 0.0, 5.0), q)
+            worst = max(worst, abs(mav.relative_bearing(mav.bearing_between(*m[:2], *usv), hdg)))
+            h = math.radians(hdg)
+            m[:2] = mav.offset_to_gps(m[0], m[1], 0.0, (vx * math.cos(h) - vy * math.sin(h)) * 0.05,
+                                      (vx * math.sin(h) + vy * math.cos(h)) * 0.05)
+            hdg = (hdg + math.degrees(wz) * 0.05) % 360.0
+        return worst
+    assert worst_lag(0.0) > 15.0 and worst_lag(1.0) < 2.0, (worst_lag(0.0), worst_lag(1.0))
+    # 틸트 보정 — 9/29 처럼 USV 가 이륙 지점보다 5m 낮으면, 고도 5m·수평 10m 에서 -26.6° 가 아니라 -45°
+    five = (37.0, 127.0, 5.0)
+    assert abs(plan(five, 0.0, ten, 0.0, (0, 0), 0.0, (0.0, -10.0, 5.0), p, 5.0)[4] + 45.0) < 0.1
+    assert abs(plan(five, 0.0, ten, 0.0, (0, 0), 0.0, (0.0, -10.0, 5.0), p)[4] + 26.57) < 0.1   # 기본은 예전 그대로
+    assert dict(DEFAULTS)["usv_below"] == 0.0                                     # 기본은 보정 끔
     print("selftest ok")
 
 
@@ -187,22 +231,23 @@ class UsvFollowNode(Node):
             self.declare_parameter(name, val)
         self.p = lambda name: self.get_parameter(name).value
 
-        self.pub = self.create_publisher(Twist, "cmd_vel", 10)
-        self.pub_cmd = self.create_publisher(Float64MultiArray, "rd/command", 10)
+        self.pub = self.create_publisher(Twist, "gcs/daiv/cmd_vel", 10)
+        self.pub_cmd = self.create_publisher(Float64MultiArray, "gcs/daiv/rd/command", 10)
         # 센서는 센서 QoS(BEST_EFFORT)로 받는다 — 제공 ≥ 요구면 붙으므로 RELIABLE 퍼블리셔와도 붙는다
         sensor = qos_profile_sensor_data
-        self.create_subscription(NavSatFix, "rd/fix", self.on_fix, sensor)
-        self.create_subscription(Float64, "rd/heading", self.on_hdg, sensor)
+        self.create_subscription(NavSatFix, "gcs/daiv/rd/fix", self.on_fix, sensor)
+        self.create_subscription(Float64, "gcs/daiv/rd/heading", self.on_hdg, sensor)
         self.create_subscription(NavSatFix, "usv/fix", self.on_usv_fix, sensor)
         self.create_subscription(Float64, "usv/heading", self.on_usv_hdg, sensor)
         self.create_subscription(Float64, "usv/depth",
                                  lambda m: setattr(self, "depth", m.data), sensor)
         # 명령은 RELIABLE 그대로 — 정지를 잃으면 안 된다
-        self.create_subscription(Bool, "usv/follow", self.on_follow, 10)
-        self.create_subscription(Empty, "usv/cancel", lambda _: self.stop("취소"), 10)
+        self.create_subscription(Bool, "gcs/daiv/usv/follow", self.on_follow, 10)
+        self.create_subscription(Empty, "gcs/daiv/usv/cancel", lambda _: self.stop("취소"), 10)
 
         self.me, self.t_me, self.hdg, self.t_hdg = None, 0.0, None, 0.0
         self.usv_hist = deque()          # (t, lat, lon) — vel_window 초
+        self.usv_alt = float("nan")      # 최근 USV GNSS 고도 — CSV 에 적기만 한다
         self.usv_hdg, self.t_usv_hdg, self.depth = None, 0.0, float("nan")
         self.armed = False
         self.tilt_sent, self.t_tilt = None, 0.0
@@ -212,8 +257,8 @@ class UsvFollowNode(Node):
         self.t_log = 0.0
         self.create_timer(0.05, self.tick)   # 20Hz
         self.get_logger().info(
-            "대기 중 — /usv/follow true 로 시작"
-            + ("" if self.p("publish") else "  [publish:=false — /cmd_vel 을 내지 않는다]"))
+            "대기 중 — /gcs/daiv/usv/follow true 로 시작"
+            + ("" if self.p("publish") else "  [publish:=false — /gcs/daiv/cmd_vel 을 내지 않는다]"))
 
     # ------------------------------------------------------------- 수신
     def drop(self, which, m):
@@ -246,12 +291,13 @@ class UsvFollowNode(Node):
         self.usv_hist.append((now, m.latitude, m.longitude))
         while len(self.usv_hist) > 2 and now - self.usv_hist[0][0] > self.p("vel_window"):
             self.usv_hist.popleft()
+        self.usv_alt = m.altitude
 
     def on_follow(self, msg):
         if msg.data:
             self.start()
         else:
-            self.stop("/usv/follow false")
+            self.stop("/gcs/daiv/usv/follow false")
 
     # ------------------------------------------------------------- 켜고 끄기
     def start(self):
@@ -267,12 +313,16 @@ class UsvFollowNode(Node):
         self.csv = open(path, "w")
         self.csv.write("t,form,lat,lon,alt,hdg,usv_lat,usv_lon,usv_hdg,usv_vn,usv_ve,usv_age,depth,"
                        "est_lat,est_lon,goal_lat,goal_lon,dist,horiz,tilt,vx,vy,vz,wz,"
-                       "move,aim\n")
+                       "move,aim,usv_alt,usv_below\n")
         self.form_no = None      # 첫 tick 에 대형을 로그로 남기게
         self.get_logger().info(
             f"▶ USV 추종 시작 — 최대 {self.p('max_speed'):.1f}m/s · "
             f"이동 {'켬' if self.p('move') else '끔'} · 짐벌 {'켬' if self.p('aim') else '끔'}"
             f"{'' if self.p('yaw_zero') else ' · yaw 0 안 보냄'}")
+        below = self.p("usv_below")
+        self.get_logger().info(
+            f"틸트 보정 — USV 가 이륙 지면보다 {below:.1f}m 아래" if below else
+            "틸트 보정 끔 — usv_below 0 (이륙 지점 = USV 높이로 친다. 안벽 이륙이면 usv_below:=8.0 처럼 준다)")
 
     def stop(self, why):
         if not self.armed:
@@ -351,9 +401,10 @@ class UsvFollowNode(Node):
 
         _, ulat, ulon = self.usv_hist[-1]
         vn, ve = usv_velocity(self.usv_hist)
+        below = self.p("usv_below")
         est, goal, dist, horiz, tilt, (vx, vy, vz, wz) = plan(
             self.me, self.hdg, (ulat, ulon), self.usv_hdg, (vn, ve),
-            age + self.p("lead_secs"), form, self.p)
+            age + self.p("lead_secs"), form, self.p, below)
 
         if self.p("publish"):
             cmd = Twist()
@@ -370,12 +421,13 @@ class UsvFollowNode(Node):
                        f"{ulat:.7f},{ulon:.7f},{self.usv_hdg:.1f},{vn:.2f},{ve:.2f},{age:.2f},"
                        f"{self.depth:.2f},{est[0]:.7f},{est[1]:.7f},{goal[0]:.7f},{goal[1]:.7f},"
                        f"{dist:.2f},{horiz:.2f},{tilt:.1f},{vx:.2f},{vy:.2f},{vz:.2f},{wz:.3f},"
-                       f"{int(self.p('move'))},{int(self.p('aim'))}\n")
+                       f"{int(self.p('move'))},{int(self.p('aim'))},"
+                       f"{self.usv_alt:.2f},{below:.2f}\n")
         if now - self.t_log > 1.0:
             self.t_log = now
             self.get_logger().info(
                 f"USV {horiz:4.1f}m (속도 {math.hypot(vn, ve):.1f}m/s) · 목표까지 {dist:4.1f}m · "
-                f"대형 {self.form_no} · 고도 {alt:.1f}→{form[2]:.1f} · 틸트 {tilt:+.0f}°"
+                f"대형 {self.form_no} · 고도 {alt:.1f}→{form[2]:.1f} · USV 아래 {below:+.1f}m · 틸트 {tilt:+.0f}°"
                 f"{'' if self.p('aim') else '(안 냄)'} · "
                 f"cmd vx {vx:+.2f} vy {vy:+.2f} vz {vz:+.2f}"
                 f"{'' if self.p('move') else '(안 냄)'} wz {math.degrees(wz):+.0f}°/s")

@@ -23,6 +23,7 @@ MAV_RESULT = {0: "ACCEPTED ✓", 1: "TEMPORARILY_REJECTED", 2: "DENIED",
               3: "UNSUPPORTED", 4: "FAILED", 5: "IN_PROGRESS"}
 
 CMD_NAV_TAKEOFF = 22
+CMD_NAV_LAND = 21
 CMD_DO_SET_SERVO = 183
 
 # #84 마스크 — 위치 3비트와 YAW 를 반드시 무시해야 앱이 속도 명령으로 받는다.

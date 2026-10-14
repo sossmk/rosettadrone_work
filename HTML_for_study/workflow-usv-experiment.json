@@ -199,7 +199,7 @@
       "title": "오늘 확인된 것",
       "items": [
         "실험 0 이륙 NAV_TAKEOFF(22) — 실기 첫 확인, 정상",
-        "실험 4 착륙 NAV_LAND(21) — /rd/command 한 줄로 동작",
+        "실험 4 착륙 NAV_LAND(21) — /gcs/daiv/rd/command 한 줄로 동작",
         "rd_cmd.py 에 land 서브커맨드를 넣을 근거가 생겼다"
       ]
     },

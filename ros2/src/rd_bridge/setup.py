@@ -29,6 +29,7 @@ setup(
             "tag_follow_node = rd_bridge.tag_follow_node:main",
             "usv_follow_node = rd_bridge.usv_follow_node:main",
             "usv_gnss_node = rd_bridge.usv_gnss_node:main",
+            "mission_node = rd_bridge.mission_node:main",
         ],
     },
 )

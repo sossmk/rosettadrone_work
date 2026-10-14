@@ -1,0 +1,255 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "rd_mission 무장 중재 — /gcs/daiv/cmd_vel 은 한 번에 하나",
+    "viewBox": [
+      1335,
+      700
+    ],
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "arming",
+        "label": "무장 경로",
+        "focus": [
+          "mission",
+          "nav",
+          "usv",
+          "tag"
+        ],
+        "note": "모드마다 주인이 하나. 해제를 먼저 하고 0.5초 뒤에 새 주인을 무장합니다."
+      },
+      {
+        "id": "cmdvel",
+        "label": "속도 명령",
+        "focus": [
+          "nav",
+          "usv",
+          "tag",
+          "cmdvel",
+          "link",
+          "air"
+        ],
+        "note": "셋이 같은 토픽에 쓰지만 무장된 하나만 실제로 발행합니다."
+      },
+      {
+        "id": "aircraft",
+        "label": "기체 명령",
+        "focus": [
+          "mission",
+          "link",
+          "air"
+        ],
+        "note": "이륙 22 · 착륙 21 · 짐벌 183 은 /gcs/daiv/cmd_vel 이 아니라 /gcs/daiv/rd/command 로 link_node 를 거쳐 나갑니다."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "sortie",
+      "type": "external",
+      "label": "rd_cmd.py sortie",
+      "sublabel": "space · r · x · 1~6",
+      "pos": [
+        30,
+        265
+      ],
+      "size": [
+        130,
+        68
+      ]
+    },
+    {
+      "id": "mission",
+      "type": "backend",
+      "label": "rd_mission",
+      "sublabel": "7-모드 시퀀서",
+      "tag": "/gcs/daiv/cmd_vel 을 내지 않는다",
+      "pos": [
+        270,
+        245
+      ],
+      "size": [
+        175,
+        110
+      ]
+    },
+    {
+      "id": "nav",
+      "type": "backend",
+      "label": "rd_nav",
+      "sublabel": "station 유도",
+      "pos": [
+        575,
+        90
+      ],
+      "size": [
+        170,
+        68
+      ]
+    },
+    {
+      "id": "usv",
+      "type": "backend",
+      "label": "rd_usv_follow",
+      "sublabel": "USV 추종 + 대형",
+      "pos": [
+        575,
+        265
+      ],
+      "size": [
+        170,
+        68
+      ]
+    },
+    {
+      "id": "tag",
+      "type": "backend",
+      "label": "rd_tag_follow",
+      "sublabel": "태그 정렬",
+      "pos": [
+        575,
+        440
+      ],
+      "size": [
+        170,
+        68
+      ]
+    },
+    {
+      "id": "cmdvel",
+      "type": "messagebus",
+      "label": "/gcs/daiv/cmd_vel",
+      "sublabel": "한 번에 한 퍼블리셔 · 20Hz",
+      "pos": [
+        875,
+        265
+      ],
+      "size": [
+        150,
+        68
+      ]
+    },
+    {
+      "id": "link",
+      "type": "backend",
+      "label": "rd_link",
+      "sublabel": "UDP 14550 독점",
+      "pos": [
+        1155,
+        265
+      ],
+      "size": [
+        140,
+        68
+      ]
+    },
+    {
+      "id": "air",
+      "type": "external",
+      "label": "기체",
+      "sublabel": "Mavic 2 · RosettaDrone",
+      "pos": [
+        1155,
+        440
+      ],
+      "size": [
+        140,
+        68
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "op",
+      "from": "sortie",
+      "to": "mission",
+      "label": "/gcs/daiv/mission/*",
+      "variant": "emphasis"
+    },
+    {
+      "id": "arm-nav",
+      "from": "mission",
+      "to": "nav",
+      "label": "/gcs/daiv/nav/goal",
+      "fromSide": "top",
+      "toSide": "left",
+      "via": [
+        [
+          357.5,
+          124
+        ]
+      ]
+    },
+    {
+      "id": "arm-usv",
+      "from": "mission",
+      "to": "usv",
+      "label": "/gcs/daiv/usv/follow"
+    },
+    {
+      "id": "arm-tag",
+      "from": "mission",
+      "to": "tag",
+      "label": "/gcs/daiv/tag/follow",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          357.5,
+          474
+        ]
+      ]
+    },
+    {
+      "id": "nav-cmd",
+      "from": "nav",
+      "to": "cmdvel",
+      "variant": "emphasis"
+    },
+    {
+      "id": "usv-cmd",
+      "from": "usv",
+      "to": "cmdvel",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tag-cmd",
+      "from": "tag",
+      "to": "cmdvel",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cmd-link",
+      "from": "cmdvel",
+      "to": "link",
+      "variant": "emphasis"
+    },
+    {
+      "id": "link-air",
+      "from": "link",
+      "to": "air",
+      "label": "#84 20Hz",
+      "labelDy": 24
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "무장은 한 군데서만",
+      "items": [
+        "arm_for() 가 모드↔주인을 정한다. 해제 먼저, 0.5초 뒤 무장",
+        "그 0.5초 동안은 퍼블리셔 0개 — link_node 가 0 을 쏘고 호버"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "고칠 때 확인할 것",
+      "items": [
+        "topic hz /gcs/daiv/cmd_vel 이 20Hz 인가 — 40Hz 면 둘이 쏘는 사고다",
+        "이륙 22 · 착륙 21 은 /gcs/daiv/cmd_vel 이 아니라 /gcs/daiv/rd/command 로 나간다"
+      ]
+    }
+  ]
+}

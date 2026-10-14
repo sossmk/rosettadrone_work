@@ -2,10 +2,14 @@
 
 ```
 ros2/src/rd_bridge/rd_bridge/
-  video_node.py   영상 → /image_raw
-  link_node.py    UDP 14550 독점 — 다운링크 → /rd/*, /cmd_vel → MAVLink #84
-  nav_node.py     /nav/goal → 유도 루프(우리 것) → /cmd_vel      ★ flyTo() 대체
-  mav.py          → ../../../tools/mav.py 심링크 (L1 링크 계층)
+  video_node.py        영상 → JPEG /gcs/daiv/cam/compressed + /gcs/daiv/camera_info
+  link_node.py         UDP 14550 독점 — 다운링크 → /gcs/daiv/rd/*, /gcs/daiv/cmd_vel → MAVLink #84
+  nav_node.py          /gcs/daiv/nav/goal → 유도 루프(우리 것) → /gcs/daiv/cmd_vel      ★ flyTo() 대체
+  tag_follow_node.py   /tf(tag0) → /gcs/daiv/cmd_vel                                  (보류)
+  usv_follow_node.py   /usv/* → /gcs/daiv/cmd_vel · 짐벌 틸트
+  usv_gnss_node.py     USV 항법장비 raw 배열 → /usv/fix · heading · vel
+  mission_node.py      임무 시퀀서 — 위 제어기를 한 번에 하나만 무장한다
+  mav.py               → ../../../tools/mav.py 심링크 (L1 링크 계층)
 ```
 
 `mav.py` 는 **심링크다.** 사본을 두면 갈라진다 — 한쪽에만 남은 수정은 "조용히 안 먹는
@@ -13,19 +17,19 @@ ros2/src/rd_bridge/rd_bridge/
 
 ## 상태 — 무엇이 확인됐고 무엇이 안 됐나
 
-⚠ **실기 검증은 하나도 안 됐다.** 아래 ✅ 는 "코드가 돌고 안전 게이트가 걸린다"는
-크래시 점검이고, **검증이 아니다.** 기체에 붙여 봐야 아는 것들이 그대로 남아 있다:
-핫스팟에서 20Hz 가 유지되는지, 영상 지연, 유도 이득이 실제 기체에서 맞는지, 타력
-(0.6~0.8m)이 우리 감속 프로파일로 실제로 흡수되는지.
+「크래시 점검」은 코드가 돌고 안전 게이트가 걸린다는 것까지다 — **검증이 아니다.**
+실기 칸은 `진행상황.md` 의 날짜 블록이 근거다 (2026-09-25 갱신).
 
 | | 크래시 점검 | 실기 |
 |---|---|---|
-| `video_node` 실시간 | ⬜ | ⬜ |
-| `link_node` 다운링크 → 토픽 | ✅ | ⬜ |
-| `link_node` /cmd_vel → #84 20Hz | ✅ | ⬜ |
-| `nav_node` P 제어 (9/15 단순화) | ✅ | ⬜ |
-| `apriltag_node` 기동 · `/tf`(`tag0`) | ✅ | ⬜ |
-| `tag_follow_node` 계산 (태그 PNG 로) | ✅ | ⬜ |
+| `video_node` 실시간 | ✅ | ✅ 9/16 (태그 추종) · 관제 PC 수신 9/22 |
+| `link_node` 다운링크 → 토픽 | ✅ | ✅ 9/16 |
+| `link_node` /gcs/daiv/cmd_vel → #84 20Hz | ✅ | ✅ 9/16 · 9/22 |
+| `nav_node` P 제어 (9/15 단순화) | ✅ | 🔶 단일 목표 9/15 · 경유점 여러 개는 아직 |
+| `apriltag_node` 기동 · `/tf`(`tag0`) | ✅ | ✅ 9/16 |
+| `tag_follow_node` 계산 (태그 PNG 로) | ✅ | ✅ 9/16 추종 성공 (느림 — 재조정 필요) |
+| `usv_follow_node` | ✅ | ✅ 9/22 개략 작동 |
+| `mission_node` | ✅ 드라이런 | ⬜ |
 
 ## 빌드
 
@@ -51,18 +55,18 @@ ros2 launch rd_bridge bridge.launch.py tag:=true follow:=true nav:=false  # 태�
 ros2 launch rd_bridge bridge.launch.py camera_info_file:=<경로>/camera.yaml rectify:=true
 ```
 
-띄워 두는 것 자체는 기체를 건드리지 않는다 — `link_node` 는 `/cmd_vel` 이 오기 전에
-한 발도 쏘지 않고, `nav_node` 는 `/nav/goal` 이 오기 전에, `tag_follow_node` 는
-`/tag/follow true` 가 오기 전에 `/cmd_vel` 을 내지 않는다.
+띄워 두는 것 자체는 기체를 건드리지 않는다 — `link_node` 는 `/gcs/daiv/cmd_vel` 이 오기 전에
+한 발도 쏘지 않고, `nav_node` 는 `/gcs/daiv/nav/goal` 이 오기 전에, `tag_follow_node` 는
+`/gcs/daiv/tag/follow true` 가 오기 전에 `/gcs/daiv/cmd_vel` 을 내지 않는다.
 
-⚠ `nav_node`·`rd_cmd.py`·`tag_follow_node` 는 **셋 다 `/cmd_vel` 에 쓴다. 한 번에 하나만.**
+⚠ `nav_node`·`rd_cmd.py`·`tag_follow_node` 는 **셋 다 `/gcs/daiv/cmd_vel` 에 쓴다. 한 번에 하나만.**
 
 띄운 뒤 토픽이 제대로 차는지는 다른 터미널에서:
 
 ```bash
 ros2 topic list
-ros2 topic hz /rd/attitude              # 10Hz 근처여야 — 토픽별 기대 주기는 토픽.md
-ros2 topic echo /rd/fix
+ros2 topic hz /gcs/daiv/rd/attitude              # 10Hz 근처여야 — 토픽별 기대 주기는 토픽.md
+ros2 topic echo /gcs/daiv/rd/fix
 ```
 
 ⚠⚠ **UDP 14550 은 `link_node` 가 독점한다.** 두 번째 bind 는 커널에 따라 성공해
@@ -75,30 +79,30 @@ ros2 topic echo /rd/fix
 
 | 토픽 | 형 | 내용 |
 |---|---|---|
-| `/rd/fix` | `sensor_msgs/NavSatFix` | 위경도 · `altitude` 에 **상대고도**를 넣는다 |
-| `/rd/rel_alt` | `std_msgs/Float32` | 상대고도 m (이륙 지점 기준) |
-| `/rd/attitude` | `geometry_msgs/Vector3Stamped` | roll · pitch · yaw, **단위 deg** |
-| `/rd/heading` | `std_msgs/Float64` | 기수 deg (0=북, 시계방향) |
-| `/rd/velocity` | `geometry_msgs/TwistStamped` | 대지 속도벡터 m/s, **ENU**(x=동 y=북 z=위) |
-| `/rd/gspeed` | `std_msgs/Float32` | 대지속도 크기 m/s |
-| `/rd/battery` | `sensor_msgs/BatteryState` | 전압·전류 (`patches/03` 적용 후 유효) |
-| `/rd/ack` | `std_msgs/Int32MultiArray` | `[명령번호, 결과]` — COMMAND_ACK |
+| `/gcs/daiv/rd/fix` | `sensor_msgs/NavSatFix` | 위경도 · `altitude` 에 **상대고도**를 넣는다 |
+| `/gcs/daiv/rd/rel_alt` | `std_msgs/Float32` | 상대고도 m (이륙 지점 기준) |
+| `/gcs/daiv/rd/attitude` | `geometry_msgs/Vector3Stamped` | roll · pitch · yaw, **단위 deg** |
+| `/gcs/daiv/rd/heading` | `std_msgs/Float64` | 기수 deg (0=북, 시계방향) |
+| `/gcs/daiv/rd/velocity` | `geometry_msgs/TwistStamped` | 대지 속도벡터 m/s, **ENU**(x=동 y=북 z=위) |
+| `/gcs/daiv/rd/gspeed` | `std_msgs/Float32` | 대지속도 크기 m/s |
+| `/gcs/daiv/rd/battery` | `sensor_msgs/BatteryState` | 전압·전류 (`patches/03` 적용 후 유효) |
+| `/gcs/daiv/rd/ack` | `std_msgs/Int32MultiArray` | `[명령번호, 결과]` — COMMAND_ACK |
 
-**업링크** `/cmd_vel` (`geometry_msgs/Twist`, 앱 규약) → #84, 20Hz · 캡 수평 2.5 / 수직 1.5 m/s / 75°/s
-`/rd/command` (`std_msgs/Float64MultiArray`: `[명령번호, p1..p7]`) → COMMAND_LONG. `rd_cmd.py` 가 짐벌·이륙에 쓴다
-**항법** `/nav/goal` (`NavSatFix`) · `/nav/cancel` (`Empty`) · `/nav/status` · `/nav/distance`
+**업링크** `/gcs/daiv/cmd_vel` (`geometry_msgs/Twist`, 앱 규약) → #84, 20Hz · 캡 수평 2.5 / 수직 1.5 m/s / 75°/s
+`/gcs/daiv/rd/command` (`std_msgs/Float64MultiArray`: `[명령번호, p1..p7]`) → COMMAND_LONG. `rd_cmd.py` 가 짐벌·이륙에 쓴다
+**항법** `/gcs/daiv/nav/goal` (`NavSatFix`) · `/gcs/daiv/nav/cancel` (`Empty`) · `/gcs/daiv/nav/status` · `/gcs/daiv/nav/distance`
 
 ⚠ 같은 값을 재발행하지 않는다 — 구독자가 "좌표가 살아있다"고 착각하면 안 된다.
 링크가 끊긴 것과 기체가 멈춰 있는 것은 구별돼야 한다.
 
-**영상** (`video_node`) `/image_raw` · `/camera_info` — 둘은 같은 stamp·`frame_id=camera`
-보정 파일을 주기 전에는 `/camera_info` 가 **대략값**이다 (아래 「카메라 보정」)
-**태그** (`tag:=true`) `/detections` · `/tf`(`camera` → `tag0`)
-**추종** (`follow:=true`) `/tag/follow` (`Bool`) · `/tag/cancel` (`Empty`) → `/cmd_vel`
+**영상** (`video_node`) `/gcs/daiv/cam/compressed` · `/gcs/daiv/camera_info` — 둘은 같은 stamp·`frame_id=camera`
+보정 파일을 주기 전에는 `/gcs/daiv/camera_info` 가 **대략값**이다 (아래 「카메라 보정」)
+**태그** (`tag:=true`) `/gcs/daiv/detections` · `/tf`(`camera` → `tag0`)
+**추종** (`follow:=true`) `/gcs/daiv/tag/follow` (`Bool`) · `/gcs/daiv/tag/cancel` (`Empty`) → `/gcs/daiv/cmd_vel`
 
 ## 카메라 보정 (2026-09-16)
 
-보정 전에는 `video_node` 가 **대략값** `/camera_info` 를 낸다 — Mavic 2 Pro 대각 화각 77°,
+보정 전에는 `video_node` 가 **대략값** `/gcs/daiv/camera_info` 를 낸다 — Mavic 2 Pro 대각 화각 77°,
 스트림 1632x1088(대각 1961px) → `f = 980.7 / tan 38.5° ≈ 1233` → `fx=fy=1250`, 중심=프레임
 가운데, 왜곡 0. 거리는 f 에 비례해 틀리므로 **±10% 정도**.
 
@@ -107,9 +111,10 @@ ros2 topic echo /rd/fix
 ```bash
 # 1) 영상만 띄우고
 ros2 launch rd_bridge bridge.launch.py link:=false nav:=false
+# ⚠ raw 영상 토픽은 없다(9/22~, video_node 는 JPEG 만 낸다). 먼저 `rd_bridge/GCS_VIEW.md` 의 republish 로 `/gcs/view`(raw)를 만든다 — 이 조합은 아직 실측 안 함
 # 2) 보정 — --size 는 내부 코너 수, --square 는 한 칸 m. 자로 잰 값을 넣는다
 ros2 run camera_calibration cameracalibrator --size 9x6 --square 0.025 \
-  --no-service-check --ros-args -r image:=/image_raw
+  --no-service-check --ros-args -r image:=/gcs/view
 # 3) SAVE 를 누르면 /tmp/calibrationdata.tar.gz 에 ost.yaml 이 들어 있다
 tar xzf /tmp/calibrationdata.tar.gz -C /tmp ost.yaml
 cp /tmp/ost.yaml ros2/src/rd_bridge/config/camera.yaml
@@ -126,13 +131,13 @@ ros2 launch rd_bridge bridge.launch.py tag:=true \
 
 ## AprilTag — 거리·자세 (2026-09-15, 9/16 보완)
 
-`apriltag_ros`(apt) 가 `/image_raw` + `/camera_info` 를 받아 **`/tf` 에 카메라→태그 자세**를 낸다.
+`apriltag_ros`(apt) 가 `/gcs/daiv/cam/compressed` + `/gcs/daiv/camera_info` 를 받아 **`/tf` 에 카메라→태그 자세**를 낸다.
 
-⚠ **`/camera_info` 가 없으면 태그가 하나도 안 잡힌다.** apriltag_ros 는
+⚠ **`/gcs/daiv/camera_info` 가 없으면 태그가 하나도 안 잡힌다.** apriltag_ros 는
 `image_transport::CameraSubscriber` 로 영상과 camera_info 를 **쌍으로** 구독해서, 한쪽이
 없으면 검출 콜백 자체가 안 돈다. "왜 검출이 0 이지" 의 첫 번째 용의자다.
 
-⚠ **`/detections` 에는 자세가 없다** — family·id·중심·코너·homography 뿐이다.
+⚠ **`/gcs/daiv/detections` 에는 자세가 없다** — family·id·중심·코너·homography 뿐이다.
 거리와 자세는 **`/tf` 로만** 나온다.
 
 **태그.** **지금 쓰는 인쇄물은 검은 사각형 한 변 192mm** (작은 한 칸 24mm · 36h11 은 검은
@@ -164,7 +169,7 @@ git show v1-2026-09-16:tags/tag36h11_id0.png  > tags/tag36h11_id0.png
 
 ```bash
 ros2 launch rd_bridge bridge.launch.py tag:=true link:=false nav:=false
-ros2 topic hz /detections                # 태그가 보이면 영상 fps 근처
+ros2 topic hz /gcs/daiv/detections                # 태그가 보이면 영상 fps 근처
 ros2 run tf2_ros tf2_echo camera tag0    # 거리·자세
 ```
 
@@ -187,7 +192,7 @@ ros2 run tf2_ros tf2_echo camera tag0    # 거리·자세
 굴러다니는 태그가 36h11 이 아닐 수 있다.
 ```bash
 python3 tools/tag_check.py file 사진.jpg --sweep   # decimate 를 바꿔 가며
-python3 tools/tag_check.py live                    # /image_raw 를 보면서
+python3 tools/tag_check.py live --topic /gcs/view  # ⚠ 기본값 /image_raw 는 없다. raw 영상 토픽은 없다(9/22~, video_node 는 JPEG 만 낸다). 먼저 `rd_bridge/GCS_VIEW.md` 의 republish 로 `/gcs/view`(raw)를 만든다 — 이 조합은 아직 실측 안 함
 ```
 
 **확인할 것 (기체 카메라 앞, 줄자)**
@@ -207,12 +212,12 @@ python3 tools/tag_check.py live                    # /image_raw 를 보면서
 ```bash
 ros2 launch rd_bridge bridge.launch.py nav:=false tag:=true follow:=true \
   camera_info_file:=$PWD/ros2/src/rd_bridge/config/camera.yaml rectify:=true
-ros2 topic pub --once /tag/follow std_msgs/msg/Bool '{data: true}'    # 켜기
-ros2 topic pub --once /tag/cancel std_msgs/msg/Empty '{}'             # 끄기
+ros2 topic pub --once /gcs/daiv/tag/follow std_msgs/msg/Bool '{data: true}'    # 켜기
+ros2 topic pub --once /gcs/daiv/tag/cancel std_msgs/msg/Empty '{}'             # 끄기
 ```
 
-⚠ **`nav_node`·`rd_cmd.py` 와 동시에 쓰지 않는다** — 셋 다 `/cmd_vel` 에 쓴다.
-⚠ 뜨자마자 움직이지 않는다. `/tag/follow true` 를 받아야 명령을 낸다.
+⚠ **`nav_node`·`rd_cmd.py` 와 동시에 쓰지 않는다** — 셋 다 `/gcs/daiv/cmd_vel` 에 쓴다.
+⚠ 뜨자마자 움직이지 않는다. `/gcs/daiv/tag/follow true` 를 받아야 명령을 낸다.
 
 | 파라미터 | 기본 | 뜻 |
 |---|---|---|
@@ -254,10 +259,10 @@ ros2 topic pub --once /tag/cancel std_msgs/msg/Empty '{}'             # 끄기
 ```bash
 # 현재 위치 기준: x=앞 m, y=오른쪽 m, z=상대고도 m (z<=0 이면 고도 유지)
 #   받는 순간의 기수로 북·동으로 바꿔 고정한다 (9/15 실기 후 북·동 → 기체 기준으로 변경)
-ros2 topic pub --once /nav/goal_offset geometry_msgs/msg/Vector3 '{x: 5.0, y: 0.0, z: 0.0}'
+ros2 topic pub --once /gcs/daiv/nav/goal_offset geometry_msgs/msg/Vector3 '{x: 5.0, y: 0.0, z: 0.0}'
 # 좌표로 (altitude = 상대고도)
-ros2 topic pub --once /nav/goal sensor_msgs/msg/NavSatFix '{latitude: 37.5665, longitude: 126.9780, altitude: 10.0}'
-ros2 topic pub --once /nav/cancel std_msgs/msg/Empty '{}'      # 중단
+ros2 topic pub --once /gcs/daiv/nav/goal sensor_msgs/msg/NavSatFix '{latitude: 37.5665, longitude: 126.9780, altitude: 10.0}'
+ros2 topic pub --once /gcs/daiv/nav/cancel std_msgs/msg/Empty '{}'      # 중단
 ```
 
 ### 하는 일 — 앱 flyTo() 와 같은 P 제어
@@ -275,11 +280,11 @@ vz = clamp(kp_alt × 고도오차, ±max_vz)
 - 속도 캡은 `link_node`(`max_vx`·`max_vy` 2.5) 에도 있다
 - 이륙은 하지 않는다
 
-## 축·부호 — /cmd_vel 은 앱 규약 그대로 (2026-09-15)
+## 축·부호 — /gcs/daiv/cmd_vel 은 앱 규약 그대로 (2026-09-15)
 
 REP-103(FLU) 이 아니다. 앱이 받는 뜻 그대로 쓴다 (9/9 SIM 실측, 제약 #2):
 
-| `/cmd_vel` | 앱 | >0 의 뜻 |
+| `/gcs/daiv/cmd_vel` | 앱 | >0 의 뜻 |
 |---|---|---|
 | `linear.x` | `vx` | 앞 |
 | `linear.y` | `vy` | **오른쪽** |
@@ -289,7 +294,7 @@ REP-103(FLU) 이 아니다. 앱이 받는 뜻 그대로 쓴다 (9/9 SIM 실측, 
 `link_node` 는 부호를 바꾸지 않는다(`scale_*` 전부 1). ⚠ `teleop_twist_keyboard` 같은 ROS
 표준 도구는 좌우·회전이 반대로 간다.
 
-⚠ `/rd/velocity`(다운링크)는 **지구 기준 ENU** 이고 `/cmd_vel` 은 **기체 기준**이다. 다른 좌표계다.
+⚠ `/gcs/daiv/rd/velocity`(다운링크)는 **지구 기준 ENU** 이고 `/gcs/daiv/cmd_vel` 은 **기체 기준**이다. 다른 좌표계다.
 
 ## ⚠ 조종권을 RC 로 되돌리는 순서
 
@@ -306,7 +311,7 @@ REP-103(FLU) 이 아니다. 앱이 받는 뜻 그대로 쓴다 (9/9 SIM 실측, 
 
 ## 개발 편의 (검증이 아니다)
 
-- `video_node -p source:=<파일.h264>` — 저장분 재생. 기체 없이 `/image_raw` 가 나온다
+- `video_node -p source:=<파일.h264>` — 저장분 재생. 기체 없이 `/gcs/daiv/cam/compressed` 가 나온다
 
 **개발 편의용**이다. 기체 없이 얻은 결과는 배관이 이어졌다는
 것까지만 말해 준다 — 기체가 실제로 어떻게 움직이는지는 아무것도 말해 주지 않는다.
@@ -314,7 +319,7 @@ REP-103(FLU) 이 아니다. 앱이 받는 뜻 그대로 쓴다 (9/9 SIM 실측, 
 ## 아직 없는 것
 
 - **실기로 확인한 카메라 보정값** — `config/camera.yaml` 은 9/16 실기에서 만든다.
-  그 전까지 `/camera_info` 는 대략값이고 거리는 ±10%
+  그 전까지 `/gcs/daiv/camera_info` 는 대략값이고 거리는 ±10%
 - **태그 추종의 실기 확인** — `tag_follow_node` 는 노트북에서 계산만 맞춰 봤다.
   `sign_fwd`·`sign_right`·`sign_yaw` 는 지상 확인 전까지 **추정값**이다
 - 임무 시퀀스 (GPS 이동 → 태그 발견 → 추종) — `nav_node` 와 합치는 건 추종이 된 뒤에

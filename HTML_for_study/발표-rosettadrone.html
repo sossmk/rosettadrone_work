@@ -167,7 +167,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
     <ul>
       <li>P 모드에서만 허용 — 다른 모드로 돌리면 앱이 명령을 버린다</li>
       <li>앱의 Safety 버튼을 누르면 Virtual Stick 을 끄고 RC 로 즉시 복귀</li>
-      <li>우리 <code>link_node</code> 는 <code>/cmd_vel</code> 이 오기 전까지 <b>#84 를 한 발도 쏘지 않는다</b> — 앱은 #84 를 받는 순간 Virtual Stick 을 켜기 때문이다</li>
+      <li>우리 <code>link_node</code> 는 <code>/gcs/daiv/cmd_vel</code> 이 오기 전까지 <b>#84 를 한 발도 쏘지 않는다</b> — 앱은 #84 를 받는 순간 Virtual Stick 을 켜기 때문이다</li>
     </ul>
   </div>
 </section>
@@ -196,7 +196,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
   <div class="step">
     <div class="k">② 중간</div>
     <div class="body">
-      <p><b><code>link_node</code></b> — 제어가 아니다. 안전 포화(속도 상한)와 데드맨만 건다. <code>/cmd_vel</code> 이 0.3초 끊기면 0 을 1초 쏘고 입을 닫는다.</p>
+      <p><b><code>link_node</code></b> — 제어가 아니다. 안전 포화(속도 상한)와 데드맨만 건다. <code>/gcs/daiv/cmd_vel</code> 이 0.3초 끊기면 0 을 1초 쏘고 입을 닫는다.</p>
     </div>
   </div>
   <div class="step">
@@ -210,33 +210,33 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
 </section>
 
 <section id="siblings">
-  <h2>세 노드는 형제다 — <code>/nav/goal</code> 을 거치지 않는다</h2>
+  <h2>세 노드는 형제다 — <code>/gcs/daiv/nav/goal</code> 을 거치지 않는다</h2>
   <div class="callout warn">
     <h3>흔한 오해</h3>
-    <p>태그 추종과 USV 추종이 목표점을 <code>/nav/goal</code> 로 넘겨 <code>nav_node</code> 가 날린다고 보기 쉬운데, <b>그렇지 않다.</b> <code>/nav/goal</code> 을 발행하는 코드는 저장소에 없다 — 사람이 주는 입력 전용 토픽이다.</p>
+    <p>태그 추종과 USV 추종이 목표점을 <code>/gcs/daiv/nav/goal</code> 로 넘겨 <code>nav_node</code> 가 날린다고 보기 쉬운데, <b>그렇지 않다.</b> <code>/gcs/daiv/nav/goal</code> 을 발행하는 코드는 저장소에 없다 — 사람이 주는 입력 전용 토픽이다.</p>
   </div>
   <div class="flow">
-    <div class="node ext"><b>/nav/goal</b><span>사람이 준다</span></div>
+    <div class="node ext"><b>/gcs/daiv/nav/goal</b><span>사람이 준다</span></div>
     <div class="arrow">→</div>
     <div class="node us"><b>nav_node</b><span>경유점 P 유도</span></div>
     <div class="arrow">→</div>
-    <div class="node"><b>/cmd_vel</b><span>vx vy vz wz</span></div>
+    <div class="node"><b>/gcs/daiv/cmd_vel</b><span>vx vy vz wz</span></div>
   </div>
   <div class="flow">
     <div class="node ext"><b>/tf (apriltag_ros)</b><span>카메라 → 태그</span></div>
     <div class="arrow">→</div>
     <div class="node us"><b>tag_follow_node</b><span>태그 위로 정렬</span></div>
     <div class="arrow">→</div>
-    <div class="node"><b>/cmd_vel</b><span>같은 토픽</span></div>
+    <div class="node"><b>/gcs/daiv/cmd_vel</b><span>같은 토픽</span></div>
   </div>
   <div class="flow">
     <div class="node ext"><b>/usv/fix · heading</b><span>USV 팀</span></div>
     <div class="arrow">→</div>
     <div class="node us"><b>usv_follow_node</b><span>대형 유지 + 겨눔</span></div>
     <div class="arrow">→</div>
-    <div class="node"><b>/cmd_vel</b><span>같은 토픽</span></div>
+    <div class="node"><b>/gcs/daiv/cmd_vel</b><span>같은 토픽</span></div>
   </div>
-  <p>셋 다 각자 오차를 계산해 <b>직접</b> <code>/cmd_vel</code> 에 쓴다. 같은 토픽을 공유하므로 <b>동시에 켜면 안 된다.</b> USV 추종이 <code>nav_node</code> 를 재사용하지 않은 이유는 뒤에 나올 feedforward 항과 기수 제어 때문이다 — <code>nav_node</code> 에는 둘 다 없다.</p>
+  <p>셋 다 각자 오차를 계산해 <b>직접</b> <code>/gcs/daiv/cmd_vel</code> 에 쓴다. 같은 토픽을 공유하므로 <b>동시에 켜면 안 된다.</b> USV 추종이 <code>nav_node</code> 를 재사용하지 않은 이유는 뒤에 나올 feedforward 항과 기수 제어 때문이다 — <code>nav_node</code> 에는 둘 다 없다.</p>
 </section>
 
 <section id="p">
@@ -398,7 +398,7 @@ FF 있음:  v_cmd = Kp·e + v  →  e_ss = 0</div>
   <h2>예상 질문</h2>
   <div class="q">
     <p>제어를 드론 위가 아니라 PC 에서 돌리면 지연이 문제 아닌가?</p>
-    <p class="a">그래서 세 겹으로 막는다. ① 20Hz 로 계속 갱신한다 — #84 한 발의 효력은 200ms 라 끊기면 자동으로 무효가 된다. ② <code>link_node</code> 데드맨: <code>/cmd_vel</code> 이 0.3초 끊기면 0 을 1초 쏜다. ③ 각 노드가 입력 신선도를 보고 스스로 멈춘다. 그리고 실제 병목은 링크가 아니라 <b>GPS 5Hz</b> 다.</p>
+    <p class="a">그래서 세 겹으로 막는다. ① 20Hz 로 계속 갱신한다 — #84 한 발의 효력은 200ms 라 끊기면 자동으로 무효가 된다. ② <code>link_node</code> 데드맨: <code>/gcs/daiv/cmd_vel</code> 이 0.3초 끊기면 0 을 1초 쏜다. ③ 각 노드가 입력 신선도를 보고 스스로 멈춘다. 그리고 실제 병목은 링크가 아니라 <b>GPS 5Hz</b> 다.</p>
   </div>
   <div class="q">
     <p>왜 PID 가 아니라 P 인가?</p>
@@ -410,7 +410,7 @@ FF 있음:  v_cmd = Kp·e + v  →  e_ss = 0</div>
   </div>
   <div class="q">
     <p>태그 추종과 USV 추종을 같이 쓸 수 있나?</p>
-    <p class="a">지금은 안 된다. 둘 다 <code>/cmd_vel</code> 에 쓰기 때문에 동시에 켜면 서로 덮어쓴다. 두 방식을 섞으려면 조정 노드가 하나 더 필요하다.</p>
+    <p class="a">지금은 안 된다. 둘 다 <code>/gcs/daiv/cmd_vel</code> 에 쓰기 때문에 동시에 켜면 서로 덮어쓴다. 두 방식을 섞으려면 조정 노드가 하나 더 필요하다.</p>
   </div>
   <div class="q">
     <p>USV 가 급선회하면?</p>
