@@ -1,0 +1,7 @@
+# PyTorch is installed separately by setup.ps1 (needs the CUDA-specific index URL).
+numpy
+pandas
+matplotlib
+opencv-python
+rosbags
+sam2 @ https://github.com/facebookresearch/sam2/archive/refs/heads/main.zip
