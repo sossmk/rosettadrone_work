@@ -119,7 +119,13 @@ def main():
     pred = build_sam2_video_predictor(CFG, str(CKPT), device=dev)
 
     with torch.inference_mode(), torch.autocast(dev, dtype=torch.bfloat16):
-        state = pred.init_state(video_path=str(work))
+        # 프레임이 많으면 영상을 GPU 가 아니라 RAM 에 둔다. SAM2 는 1024×1024 float 로
+        # 한 장당 약 12 MB 를 쓰므로, 16 GB GPU 는 500 장쯤에서 넘친다
+        big = len(idxs) > 400
+        if big:
+            print(f"  {len(idxs)} 장 — 영상을 RAM 에 두고 돌린다 (느리지만 GPU 메모리를 아낀다)")
+        state = pred.init_state(video_path=str(work),
+                                offload_video_to_cpu=big, offload_state_to_cpu=big)
         pred.add_new_points_or_box(state, frame_idx=0, obj_id=OBJ,
                                    box=np.array(a.box, dtype=np.float32))
         for frame, box in a.refine:
@@ -164,17 +170,24 @@ def main():
         import cv2
         vw = cv2.VideoWriter(str(OUT / "b_overlay.mp4"), cv2.VideoWriter_fourcc(*"mp4v"),
                              10.0, (cam["width"], cam["height"]))
+        # 표식 크기는 화면 폭에 맞춘다 — 1920 짜리에 16 px 십자를 그리면 검수할 때 안 보인다
+        k = cam["width"] / 816.0
+        sz, th = int(24 * k), max(1, int(2 * k))
         for i, idx in enumerate(idxs):
             im = cv2.imread(str(FRAMES / f"{idx:06d}.jpg"))
             m = masks.get(i)
             if m is not None and m.any():
                 im[m] = (0.5 * im[m] + np.array([0, 0, 128])).astype(np.uint8)
                 r = rows[i]
-                cv2.drawMarker(im, (int(r["cx"]), int(r["cy"])), (0, 0, 255),
-                               cv2.MARKER_CROSS, 16, 2)
-            cv2.drawMarker(im, (int(cx0), int(cy0)), (0, 255, 255), cv2.MARKER_CROSS, 24, 1)
-            cv2.putText(im, f"{idx}  area={rows[i]['area']}", (8, 20),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 1)
+                c = (int(r["cx"]), int(r["cy"]))
+                cv2.drawMarker(im, c, (255, 255, 255), cv2.MARKER_CROSS, sz, th + 1)
+                cv2.line(im, (int(cx0), int(cy0)), c, (255, 255, 255), max(1, th // 2))
+            # 화면 중앙 — 노란 동그라미와 십자. 여기서 얼마나 떨어졌는지가 재는 값이다
+            cv2.circle(im, (int(cx0), int(cy0)), int(10 * k), (0, 255, 255), th)
+            cv2.drawMarker(im, (int(cx0), int(cy0)), (0, 255, 255), cv2.MARKER_CROSS,
+                           int(40 * k), th)
+            cv2.putText(im, f"{idx}  dist={rows[i]['dist']} px", (int(10 * k), int(30 * k)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7 * k, (0, 255, 255), th)
             vw.write(im)
         vw.release()
         print("b_overlay.mp4 — 눈으로 검수할 것")

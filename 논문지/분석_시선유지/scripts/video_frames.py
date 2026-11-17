@@ -20,6 +20,8 @@
 import argparse
 import json
 import math
+import shutil
+import subprocess
 from pathlib import Path
 
 import cv2
@@ -70,8 +72,8 @@ def main():
         raise SystemExit(f"구간이 이상하다: {a.t0}~{t1} (영상 길이 {dur:.0f}s)")
     step = max(1, round(src_fps / a.fps))
     want = int((t1 - a.t0) * src_fps / step)
-    print(f"구간 {a.t0:.1f}~{t1:.1f} s ({t1-a.t0:.0f} s) · {step} 장마다 한 장 "
-          f"→ 약 {want} 장 (초당 {src_fps/step:.1f})")
+    print(f"구간 {a.t0:.1f}~{t1:.1f} s ({t1-a.t0:.0f} s) → 약 {want} 장 "
+          f"(초당 {src_fps/step:.2f})")
     if want > 1500:
         print(f"⚠ {want} 장은 SAM2 에 많다. --fps 를 낮추거나 구간을 줄이는 것을 권한다")
 
@@ -80,23 +82,33 @@ def main():
     for p in fd.glob("*.jpg"):
         p.unlink()
 
-    cap.set(cv2.CAP_PROP_POS_FRAMES, int(a.t0 * src_fps))
-    rows, idx, k = [], 0, 0
-    while True:
-        ok, im = cap.read()
-        if not ok:
-            break
-        t = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
-        if t > t1:
-            break
-        if k % step == 0:
-            cv2.imwrite(str(fd / f"{idx:06d}.jpg"), im, [cv2.IMWRITE_JPEG_QUALITY, 95])
-            rows.append((idx, t))
-            idx += 1
-        k += 1
     cap.release()
-    if not rows:
+
+    # 프레임 뽑기는 ffmpeg 로 한다. OpenCV 는 깨진 패킷을 만나면 거기서 조용히 멈춘다
+    # (USV.mp4 는 147 초쯤에서 "Invalid NAL unit size" 로 멈췄다). ffmpeg 는 건너뛰고 계속 간다.
+    out_fps = src_fps / step
+    if shutil.which("ffmpeg") is None:
+        raise SystemExit("ffmpeg 가 없다 —  sudo apt install ffmpeg")
+    cmd = ["ffmpeg", "-v", "error", "-nostdin",
+           "-ss", f"{a.t0:.3f}", "-i", str(a.video), "-t", f"{t1 - a.t0:.3f}",
+           "-vf", f"fps={out_fps:.6f}", "-q:v", "2", "-start_number", "0",
+           str(fd / "%06d.jpg")]
+    print("ffmpeg 로 뽑는 중 ...")
+    r = subprocess.run(cmd, stderr=subprocess.PIPE, text=True)
+    if r.stderr.strip():
+        head = "\n".join(r.stderr.strip().splitlines()[:5])
+        print(f"  ffmpeg 가 흘린 말 (깨진 구간을 건너뛴 것이면 괜찮다):\n  {head}")
+    if r.returncode != 0 and not list(fd.glob("*.jpg")):
+        raise SystemExit(f"ffmpeg 실패 (코드 {r.returncode})")
+
+    files = sorted(fd.glob("*.jpg"))
+    if not files:
         raise SystemExit("뽑힌 프레임이 없다 — 구간을 확인한다")
+    # fps 필터는 고른 간격으로 내보내므로, 시각은 구간 시작 + n/out_fps 로 센다
+    rows = [(i, a.t0 + i / out_fps) for i in range(len(files))]
+    for (i, _), f in zip(rows, files):          # 혹시 번호가 비면 다시 매긴다
+        if f.name != f"{i:06d}.jpg":
+            f.rename(fd / f"{i:06d}.jpg")
 
     with (a.out / "frames.csv").open("w") as f:
         f.write("idx,t,file\n")
