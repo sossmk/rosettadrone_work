@@ -4,4 +4,6 @@ pandas
 matplotlib
 opencv-python
 rosbags
-sam2 @ https://github.com/facebookresearch/sam2/archive/refs/heads/main.zip
+# 공식 저장소의 패키지 이름은 sam2 가 아니라 sam-2 다 (pyproject 의 name). 'sam2 @ ...' 로 쓰면
+# pip 가 이름이 다르다며 거절한다. import 할 때는 그대로 `import sam2`.
+sam-2 @ https://github.com/facebookresearch/sam2/archive/refs/heads/main.zip

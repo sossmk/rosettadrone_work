@@ -2,6 +2,7 @@
 checkpoints/
 data/
 outputs/
+outputs_*/
 __pycache__/
 *.mcap
 *.mp4
