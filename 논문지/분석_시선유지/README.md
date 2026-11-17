@@ -21,9 +21,10 @@
 
 | 무엇 | 원래 위치 (이 PC) | 크기 | 넣을 곳 |
 |---|---|---|---|
-| 무인기 bag DT0503 | `논문지_자료/maiv_ws/maiv_ws/src/maiv_rosbag_logger/log/2026-10-02/DT05/03/bag/` | 약 71 MB | `data/drone_DT0503/` |
-| USV bag DT0503 | `논문지_자료/03/03/bag/` | 약 140 MB | `data/usv_DT0503/` |
-| (선택) 직접 녹화 영상 | 사용자 보관 | — | `data/video/` |
+| 무인기 bag DT0503 | `한국해양로봇기술연구회/논문_실험자료/log관련/fig/2026-10-02/DT05/03/bag/` (폴더 통째로) | 약 68 MB | `data/drone_DT0503/` |
+| USV bag DT0503 | `한국해양로봇기술연구회/논문_실험자료/DT05/03.zip` (압축 해제) | 27 MB (풀면 133 MB) | `data/usv_DT0503/` |
+
+- 영상은 쓰지 않는다. 분석은 bag JPEG만으로 한다. 직접 녹화한 `org_fe045…mp4`는 촬영 시각이 14:46~15:01이라 DT0503이 아니라 ZZ0201 비행이다.
 
 - 무인기 bag 토픽: `/gcs/daiv/cam/compressed`(JPEG 816×544, 956장), `/gcs/daiv/camera_info`, `/gcs/daiv/rd/fix`, `/gcs/daiv/rd/heading`, `/gcs/daiv/rd/attitude`, `/gcs/daiv/usv/follow`(추종점 변경 시점)
 - USV bag 토픽: `/maiv/hemisphere_gps/navsatfix`, `/maiv/fog/euler_orientation`, `/maiv/fog/ned_vel`
