@@ -18,10 +18,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+from hangul_font import use_hangul_font
+
 HERE = Path(__file__).resolve().parent.parent
 
-plt.rcParams["font.family"] = "Noto Sans CJK KR"
-plt.rcParams["axes.unicode_minus"] = False
+use_hangul_font()
 
 
 def rms(x):

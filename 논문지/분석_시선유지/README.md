@@ -53,6 +53,10 @@ bash setup.sh          # 리눅스 — 같은 내용. 그 이전 GPU면 bash set
 하는 일: `.venv` 생성 → PyTorch(GPU) → `requirements.txt`(SAM2 공식, rosbags, OpenCV 등) → SAM2.1 small 가중치(184 MB)를 `checkpoints/`에 받기 → GPU 인식 확인.
 지울 때는 `.venv/`와 `checkpoints/` 폴더만 삭제하면 된다.
 
+그림의 한글 라벨은 `scripts/hangul_font.py`가 **설치된 폰트 중에서 알아서 고른다**
+(리눅스 Noto/나눔 → 윈도우 맑은 고딕 → macOS 애플고딕). 하나도 없으면 깔라는 말을 찍고
+그림은 그대로 나온다 (한글만 네모). 리눅스는 `sudo apt install fonts-noto-cjk`.
+
 ## 작업 순서
 
 **2026-11-17 전부 완료.** 무엇을 어떤 근거로 정했는지는 [`분석기록.md`](분석기록.md)에 있다.
