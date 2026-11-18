@@ -60,6 +60,7 @@ bash setup.sh          # 리눅스 — 같은 내용. 그 이전 GPU면 bash set
 ## 작업 순서
 
 **2026-11-17 전부 완료.** 무엇을 어떤 근거로 정했는지는 [`분석기록.md`](분석기록.md)에 있다.
+다른 PC로 결과만 옮겨 보려면 [`옮기기.md`](옮기기.md).
 
 1. [x] 환경 설치 (리눅스는 `setup.sh`)
 2. [x] bag 추출 → `outputs/`에 CSV (`scripts/extract_bags.py`)
