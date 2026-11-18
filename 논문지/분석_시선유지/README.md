@@ -112,6 +112,37 @@ env -u PYTHONPATH .venv/bin/python scripts/report_b.py --out outputs_vid
 - 추적이 틀어지면 `b_overlay.mp4`에서 그 프레임을 찾아 `--refine 번호:x1,y1,x2,y2`.
 - USV가 화면 밖으로 나가면 그 프레임은 `ok=0`으로 남는다 (실패가 아니라 없다는 표시).
 
+## 발표자료에 넣을 고화질 스틸·클립
+
+`b_overlay.mp4` 는 **눈으로 검수하라고** 만든 것이다. 코덱이 mpeg4(MPEG-4 Part 2) 라
+발표 화면에 띄우면 뭉개진다. 발표용은 `scripts/export_hq.py` 로 따로 뽑는다 — 원본
+프레임에서 다시 그려 PNG(무손실) 나 H.264 로 낸다.
+
+```bash
+# 대표 프레임 3장 (가장 잘 맞은 때 · 중앙값 · 가장 벗어난 때) 을 알아서 고른다
+python scripts/export_hq.py --out outputs_USV --pick 3
+
+# 프레임 번호를 직접
+python scripts/export_hq.py --out outputs --idx 262,391 --scale 2
+
+# 끊김 없는 클립 — 원본 영상을 원래 fps 로 읽고 십자 위치만 보간한다
+python scripts/export_hq.py --out outputs_USV --video ~/usv_log/USV.mp4 --clip-t 334-350
+```
+
+결과는 `<out>/hq/` 에 쌓인다. `--crf 20` 이면 용량이 1/3 이고 화면에서 차이를 못 느낀다.
+`--plain` 은 표식 없이 원본만.
+
+**해상도 천장이 둘로 갈린다 — 이게 핵심이다.**
+
+| 쓸 자료 | 원본 | 천장 | 발표용으로 |
+|---|---|---|---|
+| **DT0503** (논문에 쓴 비행) | bag JPEG | **816×544** | 더 못 올린다. 슬라이드에 꽉 채우면 뿌옇다 |
+| **USV.mp4** (ZZ0201 비행) | 직접 녹화 1920×1080 | **1920×1080** | 깨끗하다. 끊김 없는 클립도 된다 |
+
+DT0503 은 bag 에 초당 2장씩 들어간 JPEG 뿐이라 원본이 816×544 다. `--scale 2` 로 키울 수
+있지만 없던 해상도가 생기진 않는다. USV.mp4 는 다른 비행(ZZ0201)이고 (B) 만 쟀다 —
+**논문 수치와 같은 비행이 아니다.** 발표에서 둘을 섞어 쓰면 그 점을 밝혀야 한다.
+
 ## 다른 비행으로 같은 분석 하기 (LOG 있음)
 
 스크립트는 전부 인자를 받는다. DT0503 전용 값이 박혀 있지 않다.
