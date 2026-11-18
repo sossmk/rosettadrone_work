@@ -132,6 +132,31 @@ python scripts/export_hq.py --out outputs_USV --video ~/usv_log/USV.mp4 --clip-t
 결과는 `<out>/hq/` 에 쌓인다. `--crf 20` 이면 용량이 1/3 이고 화면에서 차이를 못 느낀다.
 `--plain` 은 표식 없이 원본만.
 
+표식: 화면 중앙은 **노란 십자**, USV 는 `b_overlay.mp4` 와 같은 **반투명 빨강** 에
+흰 십자와 중앙까지 잇는 흰 선.
+
+### 빨간 마스크를 쓰려면
+
+마스크는 `b_track.csv` 에 안 남는다 (중심 좌표만 남는다). `track_b.py --save-masks` 로
+`masks.npz` 를 만들어 둬야 `export_hq.py` 가 칠한다. 없으면 십자와 선만 그린다.
+
+```bash
+python scripts/track_b.py --out outputs_USV --box 715,595,1005,820 --save-masks
+```
+
+**클립은 마스크가 영상과 같은 fps 로 있어야 한다.** 보간이 안 되기 때문이다 — 추적이
+초당 2장인데 영상이 24 fps 면 칠한 자리가 배보다 뒤처진다. `export_hq.py` 가 이걸 보고
+안 맞으면 마스크를 빼고 십자만 그린다. 구간을 정해 다시 추적하면 된다:
+
+```bash
+python scripts/video_frames.py --video ~/usv_log/USV.mp4 --out outputs_USVclip \
+    --from 334 --to 350 --fps 24
+python scripts/pick_box.py --out outputs_USVclip        # 첫 프레임에서 USV 자리를 읽는다
+python scripts/track_b.py --out outputs_USVclip --box x1,y1,x2,y2 --save-masks
+python scripts/export_hq.py --out outputs_USVclip --video ~/usv_log/USV.mp4 \
+    --clip-t 334-350 --crf 20
+```
+
 **해상도 천장이 둘로 갈린다 — 이게 핵심이다.**
 
 | 쓸 자료 | 원본 | 천장 | 발표용으로 |

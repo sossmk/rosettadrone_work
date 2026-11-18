@@ -36,17 +36,25 @@ import numpy as np
 HERE = Path(__file__).resolve().parent.parent
 
 
-def draw(im, r, cx0, cy0, k, label=True):
-    """원본 위에 표식을 그린다. k 는 816 px 기준 배율."""
-    sz, th = int(24 * k), max(1, int(2 * k))
+WHITE = (255, 255, 255)
+
+
+def draw(im, r, cx0, cy0, k, label=True, mask=None):
+    """원본 위에 표식을 그린다. k 는 816 px 기준 배율.
+
+    화면 중앙은 노란 십자 하나. USV 는 b_overlay.mp4 와 같게 반투명 빨강으로 칠하고,
+    그 위에 흰 십자와 중앙까지 잇는 흰 선을 긋는다 (빨강 위에 빨강이면 안 보인다).
+    마스크가 없으면 십자와 선만 나온다.
+    """
+    sz, th = int(12 * k), max(1, int(2 * k))
+    if mask is not None and mask.any():
+        im[mask] = (0.5 * im[mask] + np.array([0, 0, 128])).astype(np.uint8)
     if r and r["ok"]:
         c = (int(float(r["cx"])), int(float(r["cy"])))
-        cv2.line(im, (int(cx0), int(cy0)), c, (255, 255, 255), max(1, int(1.5 * k)),
-                 cv2.LINE_AA)
-        cv2.drawMarker(im, c, (255, 255, 255), cv2.MARKER_CROSS, sz, th + 1, cv2.LINE_AA)
-    cv2.circle(im, (int(cx0), int(cy0)), int(10 * k), (0, 255, 255), th, cv2.LINE_AA)
+        cv2.line(im, (int(cx0), int(cy0)), c, WHITE, max(1, int(1.5 * k)), cv2.LINE_AA)
+        cv2.drawMarker(im, c, WHITE, cv2.MARKER_CROSS, sz, th + 1, cv2.LINE_AA)
     cv2.drawMarker(im, (int(cx0), int(cy0)), (0, 255, 255), cv2.MARKER_CROSS,
-                   int(40 * k), th, cv2.LINE_AA)
+                   int(20 * k), th, cv2.LINE_AA)
     if label and r and r["ok"]:
         t = f"{float(r['dist']):.0f} px"
         org = (int(10 * k), int(32 * k))
@@ -91,6 +99,19 @@ def main():
     hq = OUT / "hq"
     hq.mkdir(exist_ok=True)
 
+    # track_b.py --save-masks 가 남긴 것. 없으면 십자만 찍는다
+    MZ = np.load(OUT / "masks.npz") if (OUT / "masks.npz").exists() else None
+    mshape = tuple(MZ["shape"]) if MZ is not None else None
+
+    def mask_of(idx):
+        if MZ is None or f"{idx}_bits" not in MZ:
+            return None
+        x0, y0, x1, y1 = MZ[f"{idx}_box"]
+        m = np.zeros(mshape, dtype=bool)
+        m[y0:y1, x0:x1] = np.unpackbits(
+            MZ[f"{idx}_bits"], count=(y1 - y0) * (x1 - x0)).reshape(y1 - y0, x1 - x0).astype(bool)
+        return m
+
     targets = []
     if a.idx:
         targets = [int(s) for s in a.idx.split(",")]
@@ -112,7 +133,7 @@ def main():
         if im is None:
             raise SystemExit(f"프레임이 없다: {p}")
         if not a.plain:
-            im = draw(im, rows.get(idx), cx0, cy0, k)
+            im = draw(im, rows.get(idx), cx0, cy0, k, mask=mask_of(idx))
         if a.scale != 1.0:
             # 확대는 Lanczos — 없는 해상도가 생기진 않지만 계단이 덜 보인다
             im = cv2.resize(im, None, fx=a.scale, fy=a.scale,
@@ -139,6 +160,20 @@ def main():
 
         cap = cv2.VideoCapture(str(a.video))
         fps = cap.get(cv2.CAP_PROP_FPS)
+        # 마스크는 보간이 안 된다. 추적이 초당 2장인데 영상이 24 fps 면 칠한 자리가
+        # 배보다 뒤처진다. 추적 간격이 영상 한 프레임 수준일 때만 칠한다
+        step = float(np.median(np.diff(tt))) if len(tt) > 1 else 1e9
+        fine = MZ is not None and step <= 1.5 / fps
+        if MZ is not None and not fine:
+            print(f"  마스크는 {1/step:.1f} fps 로만 있어 클립에는 안 쓴다 "
+                  f"(영상 {fps:.0f} fps). 십자만 그린다 — "
+                  f"빨간 마스크를 원하면 그 구간을 {fps:.0f} fps 로 다시 추적한다")
+        idx_by_t = {float(r["t"]): int(r["idx"]) for r in good}
+        tkeys = np.array(sorted(idx_by_t))
+
+        def t2idx(t):
+            return idx_by_t[float(tkeys[np.abs(tkeys - t).argmin()])]
+
         cap.set(cv2.CAP_PROP_POS_MSEC, t0 * 1000)
         tmp = hq / "_clip"
         shutil.rmtree(tmp, ignore_errors=True)
@@ -152,7 +187,9 @@ def main():
             if not a.plain:
                 r = dict(ok="1", cx=np.interp(t, tt, cxs), cy=np.interp(t, tt, cys),
                          dist=np.interp(t, tt, dis))
-                im = draw(im, r, cx0, cy0, k)
+                # 마스크는 보간이 안 된다 — 추적이 초당 2장이면 칠한 자리가 배보다 늦는다.
+                # masks.npz 가 영상과 같은 fps 로 만들어졌을 때만 쓴다
+                im = draw(im, r, cx0, cy0, k, mask=mask_of(t2idx(t)) if fine else None)
             if a.scale != 1.0:
                 im = cv2.resize(im, None, fx=a.scale, fy=a.scale,
                                 interpolation=cv2.INTER_LANCZOS4)

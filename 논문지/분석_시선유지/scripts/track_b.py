@@ -70,6 +70,8 @@ def main():
                     help="첫 프레임의 USV 자리 x1,y1,x2,y2 — pick_box.py 로 읽는다")
     ap.add_argument("--refine", type=parse_refine, action="append", default=[],
                     help="프레임:x1,y1,x2,y2 — 놓친 지점에서 다시 지정 (여러 번 가능)")
+    ap.add_argument("--save-masks", dest="save_masks", action="store_true",
+                    help="마스크를 masks.npz 로 남긴다 — export_hq.py 가 빨갛게 칠할 때 쓴다")
     ap.add_argument("--overlay", action="store_true")
     a = ap.parse_args()
     OUT = a.out
@@ -153,6 +155,23 @@ def main():
         rows.append(dict(idx=idx, t=ts[idx], cx=round(cx, 2), cy=round(cy, 2), area=area,
                          dx=round(dx, 2), dy=round(dy, 2),
                          dist=round(math.hypot(dx, dy), 2), ok=1))
+    if a.save_masks:
+        # 마스크는 1920x1080 bool 이라 그대로 두면 한 장에 2 MB 다. 네모로 잘라
+        # 비트로 눌러 담는다 (배 모양이라 대부분이 빈 칸이다)
+        z = {}
+        for i, idx in enumerate(idxs):
+            m = masks.get(i)
+            if m is None or not m.any():
+                continue
+            ys, xs = np.nonzero(m)
+            y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+            z[f"{idx}_box"] = np.array([x0, y0, x1, y1], dtype=np.int32)
+            z[f"{idx}_bits"] = np.packbits(m[y0:y1, x0:x1])
+        z["shape"] = np.array([cam["height"], cam["width"]], dtype=np.int32)
+        np.savez_compressed(OUT / "masks.npz", **z)
+        print(f"masks.npz — {len(z)//2} 장 "
+              f"({(OUT / 'masks.npz').stat().st_size/1e6:.1f} MB)")
+
     with (OUT / "b_track.csv").open("w", newline="") as f:
         w = csv.DictWriter(f, list(rows[0]))
         w.writeheader()
