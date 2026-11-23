@@ -4,8 +4,11 @@
     python scripts/compare.py                 # 기본 outputs/
     python scripts/compare.py --out outputs_XX
 
-맞대는 법 — 픽셀을 각도로 바꾼다 (camera_info 의 fx, fy)
-    (B) 가로 = atan(dx / fx),  세로 = atan(dy / fy).  1° = fx·tan1° = 10.9 px
+맞대는 법 — 픽셀을 각도로 바꾼다 (보정 yaml 의 fx, fy, cx, cy)
+    (B) 가로 = atan((u - cx) / fx),  세로 = atan((v - cy) / fy).  (u, v) = USV 마스크 중심
+    보정값: camera_816x544.yaml (2026-11-23, 분석 해상도 816x544 에서 직접 보정 -> 배율 없이 쓴다)
+    렌즈 왜곡 영향은 최대 0.1° 라 기본은 끈다. --undistort 로 켜서 확인할 수 있다.
+    --calib none 이면 예전처럼 camera_info.json 의 대략값(fx 625, 화면 중앙)을 쓴다.
 
 (A) 와 (B) 는 **같은 양이 아니다.** (A) 는 기수(psi)에 대한 시선 오차고, (B) 는 카메라
 광축에 대한 시선 오차다. 둘 사이에 카메라/짐벌 사슬이 끼어 있다.
@@ -48,16 +51,45 @@ def rms(x):
     return float(np.sqrt(np.mean(x[~np.isnan(x)] ** 2)))
 
 
+def load_camera(calib, out):
+    """(fx, fy, cx, cy, D, 출처) — calib 가 None 이면 out/camera_info.json"""
+    if calib is None:
+        cam = json.loads((out / "camera_info.json").read_text())
+        return cam["fx"], cam["fy"], cam["cx"], cam["cy"], None, "camera_info.json (대략값)"
+    import yaml
+    y = yaml.safe_load(Path(calib).read_text())
+    if (y["image_width"], y["image_height"]) != (816, 544):
+        raise SystemExit(f"{calib}: 해상도가 816x544 가 아니다 — K 배율을 맞춰야 한다")
+    K = y["camera_matrix"]["data"]
+    D = np.array(y["distortion_coefficients"]["data"], dtype=float)
+    return K[0], K[4], K[2], K[5], D, Path(calib).name
+
+
 def main():
     global OUT
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, default=OUT, help="analyze_a.py·track_b.py 가 쓴 폴더")
-    OUT = ap.parse_args().out
+    ap.add_argument("--calib", default=str(HERE / "camera_816x544.yaml"),
+                    help="보정 yaml (ost.yaml 형식). 'none' 이면 camera_info.json 대략값")
+    ap.add_argument("--undistort", action="store_true", help="렌즈 왜곡까지 제거해서 각도를 낸다")
+    args = ap.parse_args()
+    OUT = args.out
 
-    cam = json.loads((OUT / "camera_info.json").read_text())
-    fx, fy = cam["fx"], cam["fy"]
+    fx, fy, cx, cy, D, cam_src = load_camera(None if args.calib == "none" else args.calib, OUT)
+    if args.undistort and D is None:
+        raise SystemExit("--undistort 는 보정 yaml 이 있어야 한다")
     px_per_deg = fx * math.tan(math.radians(1))
+
+    def pix2ang(u, v):
+        """마스크 중심 (u, v) -> (가로°, 세로°, dx, dy). dx, dy 는 주점 기준 px"""
+        if args.undistort:
+            import cv2
+            K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+            xn, yn = cv2.undistortPoints(np.array([[[u, v]]], dtype=np.float64), K, D)[0, 0]
+        else:
+            xn, yn = (u - cx) / fx, (v - cy) / fy
+        return math.degrees(math.atan(xn)), math.degrees(math.atan(yn)), u - cx, v - cy
 
     # 5Hz 전체 시계열 — 지연을 넣으려면 프레임 시각 사이를 메워야 한다. 각도는 unwrap 하고 보간
     S = list(csv.DictReader((OUT / "a_timeseries.csv").open()))
@@ -74,14 +106,14 @@ def main():
         a = A.get(int(float(r["t"]) * 1000))
         if a is None:
             continue
+        b_x, b_y, dx, dy = pix2ang(float(r["cx"]), float(r["cy"]))
         rows.append(dict(
             idx=int(r["idx"]), t=float(r["t"]),
             e_psi=float(a["e_psi"]), e_psi_ctrl=float(a["e_psi_ctrl"]),
             horiz=float(a["horiz"]), rel_alt=float(a["rel_alt"]), roll=float(a["roll"]),
             tilt_cmd=float(a["tilt_cmd"]), usv_spd=float(a["usv_spd"]),
-            dx=float(r["dx"]), dy=float(r["dy"]), area=int(r["area"]),
-            b_x=math.degrees(math.atan(float(r["dx"]) / fx)),
-            b_y=math.degrees(math.atan(float(r["dy"]) / fy))))
+            dx=round(dx, 2), dy=round(dy, 2), area=int(r["area"]),
+            b_x=b_x, b_y=b_y))
     if not rows:
         raise SystemExit("겹치는 프레임이 없다 — track_b.py 를 먼저 돌린다")
 
@@ -93,7 +125,7 @@ def main():
     horiz = np.array([r["horiz"] for r in rows])
     alt = np.array([r["rel_alt"] for r in rows])
 
-    # ---- 카메라/짐벌 사슬 모형: 짐벌 yaw 지연 T 와 roll 누출 계수를 함께 맞춘다
+    # ---- 카메라/짐벌 사슬 모형: 카메라 방위 지연 T 와 roll 누출 계수를 함께 맞춘다
     def chain(T):
         psi_d = np.interp(t, ts, psid_u)
         cam_yaw = np.interp(t - T, ts, hdg_u)       # 기수를 T 초 늦게 따라온 카메라 방위
@@ -130,6 +162,8 @@ def main():
 
     L = []
     L.append("DT0503 시선 유지 — (A) bag 기반 · (B) SAM2 영상 판독 비교")
+    L.append(f"카메라: {cam_src} — fx {fx:.1f}, fy {fy:.1f}, cx {cx:.1f}, cy {cy:.1f} px"
+             + (" · 렌즈 왜곡 제거" if args.undistort else ""))
     L.append(f"맞댄 프레임 {len(rows)} 장 · {datetime.datetime.fromtimestamp(t[0], KST):%H:%M:%S}"
              f"~{datetime.datetime.fromtimestamp(t[-1], KST):%H:%M:%S} · 1° = {px_per_deg:.1f} px")
     dt = np.diff(t)
@@ -140,13 +174,13 @@ def main():
     L.append("가로 (기수각)")
     L.append(f"  (A) e_psi        평균 {A_x.mean():+.2f}°  RMS {rms(A_x):.2f}°  "
              f"최대 {np.abs(A_x).max():.2f}°")
-    L.append(f"  (B) atan(dx/fx)  평균 {B_x.mean():+.2f}° ({np.mean([r['dx'] for r in rows]):+.0f} px)"
+    L.append(f"  (B) atan((u-cx)/fx) 평균 {B_x.mean():+.2f}° ({np.mean([r['dx'] for r in rows]):+.0f} px)"
              f"  RMS(편의 제거) {rms(B_x - B_x.mean()):.2f}°  최대 {np.abs(B_x).max():.2f}°")
     L.append(f"  → (B) 의 변동이 (A) 의 {rms(B_x-B_x.mean())/rms(A_x):.1f} 배다. 같지 않다.")
     L.append("")
     L.append("  (B) 와 (A) 사이에 낀 카메라/짐벌 사슬을 모형으로 벗겨낸다")
     L.append(f"    고정 편의      {bias_fit:+.2f}°  — 짐벌 yaw 0 이 기수가 아니라 앱 시작 방향이라서")
-    L.append(f"    짐벌 yaw 지연  {T_YAW:.2f} s   — yaw 축만 기체에 붙어 기수를 늦게 따라온다")
+    L.append(f"    카메라 방위 지연 {T_YAW:.2f} s — 카메라가 기수를 늦게 따라온다 (영상 전송 지연 포함)")
     L.append(f"    roll 누출      {k_roll:+.3f} °/°  — 틸트 {np.nanmean(tilt):.1f}° 에서 "
              f"sin(틸트) = {sin_tilt:.2f} 로 예상되는 값과 맞는다")
     L.append("")
@@ -155,14 +189,14 @@ def main():
     v = B_x - A_x
     L.append(f"    − (A) e_psi                     {rms(v - v.mean()):.2f}°")
     v = B_x - base
-    L.append(f"    − 짐벌 yaw 지연 {T_YAW:.2f} s           {rms(v - v.mean()):.2f}°")
+    L.append(f"    − 카메라 방위 지연 {T_YAW:.2f} s        {rms(v - v.mean()):.2f}°")
     L.append(f"    − roll 누출까지                 {resid_rms:.2f}°")
     L.append(f"    (A) e_psi 자체                  {rms(A_x):.2f}°   ← 여기까지 내려오면 같아진다")
     L.append(f"  상관: (A)-(B) {np.corrcoef(A_x, B_x)[0,1]:.3f} → 모형-(B) "
              f"{np.corrcoef(model, B_x)[0,1]:.3f}")
     L.append("")
     L.append("세로 (짐벌 틸트)")
-    L.append(f"  (B) atan(dy/fy) 평균 {B_y.mean():+.2f}° ({np.mean([r['dy'] for r in rows]):+.0f} px)"
+    L.append(f"  (B) atan((v-cy)/fy) 평균 {B_y.mean():+.2f}° ({np.mean([r['dy'] for r in rows]):+.0f} px)"
              f"  변동 RMS {rms(B_y - B_y.mean()):.2f}°")
     L.append(f"  틸트 명령이 가정한 usv_below = {below_cmd:.1f} m (런치 기본 8.0 m)")
     L.append(f"  영상에서 거꾸로 푼 실제 높이차 = {below_true:.1f} m")
@@ -176,7 +210,7 @@ def main():
     L.append(f"     위치 갱신 지연이 시선을 망친 것은 아니다.")
     L.append(f"  2) 그런데 화면에서는 RMS {rms(B_x-B_x.mean()):.1f}° 로 더 크게 흔들렸다. 그 차이는")
     L.append(f"     기수 제어가 아니라 **카메라가 기수를 따라오는 사슬**에서 생겼다 —")
-    L.append(f"     짐벌 yaw 지연 {T_YAW:.1f} s 와 틸트 {np.nanmean(tilt):.0f}° 에서의 roll 누출")
+    L.append(f"     카메라 방위 지연 {T_YAW:.1f} s 와 틸트 {np.nanmean(tilt):.0f}° 에서의 roll 누출")
     L.append(f"     (계수 {abs(k_roll):.2f} ≈ sin{abs(np.nanmean(tilt)):.0f}° = {sin_tilt:.2f}).")
     L.append(f"     둘을 빼면 {resid_rms:.1f}° 만 남는다.")
     L.append(f"  3) 고정 편의는 가로 {bias_fit:+.1f}°(짐벌 yaw 기준점)·세로 {B_y.mean():+.1f}°"
@@ -202,7 +236,7 @@ def main():
     ax[0].axhline(0, color="0.8", lw=0.8)
     ax[0].plot(x, brk(B_x), lw=1.1, color="#d1495b", label="(B) 영상에서 잰 가로 오차")
     ax[0].plot(x, brk(model), lw=1.0, color="#f0a202", ls="--",
-               label=f"카메라·짐벌 사슬 모형 (yaw 지연 {T_YAW:.1f} s + roll 누출)")
+               label=f"카메라·짐벌 사슬 모형 (카메라 방위 지연 {T_YAW:.1f} s + roll 누출)")
     ax[0].plot(x, brk(A_x), lw=1.1, color="#1f6feb", label="(A) bag 기반 $e_\\psi$")
     ax[0].set_ylabel("가로 오차 [°]")
     ax[0].legend(fontsize=7.5, ncol=1, loc="lower left", framealpha=0.9)
