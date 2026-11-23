@@ -1,0 +1,30 @@
+# Mavic 2 Pro live stream camera calibration (cameracalibrator, 2026-11-23)
+# Calibrated directly at the analysis resolution 816x544 -> use as-is (no 0.5 scaling).
+# Cross-check: older 1632x1088 calibration scaled by 0.5 gives angles within 0.16 deg.
+# Distortion effect on USV angles: max 0.10 deg -> paper uses theta = atan((u - cx) / fx).
+image_width: 816
+image_height: 544
+camera_name: narrow_stereo
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [651.498678, 0.000000, 385.417445,
+         0.000000, 660.406590, 261.767245,
+         0.000000, 0.000000, 1.000000]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [-0.042813, 0.023992, -0.013787, -0.010334, 0.000000]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.000000, 0.000000, 0.000000,
+         0.000000, 1.000000, 0.000000,
+         0.000000, 0.000000, 1.000000]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [645.054321, 0.000000, 375.529858, 0.000000,
+         0.000000, 658.540649, 254.680733, 0.000000,
+         0.000000, 0.000000, 1.000000, 0.000000]
